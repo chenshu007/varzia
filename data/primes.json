@@ -1,0 +1,93 @@
+{
+  "schemaVersion": 3,
+  "updatedAt": "2026-08-14",
+  "source": {
+    "name": "Warframe 官方简体中文 Prime 重生页面与游戏掉落数据",
+    "url": "https://www.warframe.com/zh-hans/prime-resurgence"
+  },
+  "primeItems": [
+    {
+      "id": "revenant-prime",
+      "name": "Revenant Prime",
+      "type": "warframe",
+      "description": "迷失者之崛起。",
+      "rotation": "revenant-baruuk-2026-08",
+      "relics": ["lith-t13", "meso-r6", "neo-p8", "axi-c9"],
+      "parts": [
+        { "id": "blueprint", "name": "蓝图", "required": 1, "rarity": "rare", "relics": ["meso-r6"] },
+        { "id": "chassis", "name": "机体", "required": 1, "rarity": "common", "relics": ["axi-c9"] },
+        { "id": "neuroptics", "name": "神经光元", "required": 1, "rarity": "uncommon", "relics": ["lith-t13"] },
+        { "id": "systems", "name": "系统", "required": 1, "rarity": "uncommon", "relics": ["neo-p8"] }
+      ]
+    },
+    {
+      "id": "baruuk-prime",
+      "name": "Baruuk Prime",
+      "type": "warframe",
+      "description": "耐心让位于释放的怒火。",
+      "rotation": "revenant-baruuk-2026-08",
+      "relics": ["lith-t13", "neo-p8", "axi-b9"],
+      "parts": [
+        { "id": "blueprint", "name": "蓝图", "required": 1, "rarity": "rare", "relics": ["axi-b9"] },
+        { "id": "chassis", "name": "机体", "required": 1, "rarity": "uncommon", "relics": ["lith-t13"] },
+        { "id": "neuroptics", "name": "神经光元", "required": 1, "rarity": "uncommon", "relics": ["axi-b9"] },
+        { "id": "systems", "name": "系统", "required": 1, "rarity": "common", "relics": ["neo-p8"] }
+      ]
+    },
+    {
+      "id": "phantasma-prime",
+      "name": "幻离子 Prime",
+      "type": "primary",
+      "description": "Revenant Prime 的标志性主要武器。",
+      "rotation": "revenant-baruuk-2026-08",
+      "relics": ["lith-a9", "lith-t13", "neo-p8", "axi-c9"],
+      "parts": [
+        { "id": "blueprint", "name": "蓝图", "required": 1, "rarity": "uncommon", "relics": ["lith-a9"] },
+        { "id": "barrel", "name": "枪管", "required": 1, "rarity": "rare", "relics": ["neo-p8"] },
+        { "id": "receiver", "name": "枪机", "required": 1, "rarity": "common", "relics": ["lith-t13"] },
+        { "id": "stock", "name": "枪托", "required": 1, "rarity": "uncommon", "relics": ["axi-c9"] }
+      ]
+    },
+    {
+      "id": "tatsu-prime",
+      "name": "龙辰 Prime",
+      "type": "melee",
+      "description": "Revenant Prime 的标志性近战武器。",
+      "rotation": "revenant-baruuk-2026-08",
+      "relics": ["lith-a9", "lith-t13", "axi-c9"],
+      "parts": [
+        { "id": "blueprint", "name": "蓝图", "required": 1, "rarity": "common", "relics": ["lith-a9"] },
+        { "id": "blade", "name": "刀刃", "required": 1, "rarity": "uncommon", "relics": ["axi-c9"] },
+        { "id": "handle", "name": "握柄", "required": 1, "rarity": "rare", "relics": ["lith-t13"] }
+      ]
+    },
+    {
+      "id": "afuris-prime",
+      "name": "盗贼双枪 Prime",
+      "type": "secondary",
+      "description": "Baruuk Prime 的配套次要武器。",
+      "rotation": "revenant-baruuk-2026-08",
+      "relics": ["lith-a9", "meso-r6", "neo-p8", "axi-b9"],
+      "parts": [
+        { "id": "blueprint", "name": "蓝图", "required": 1, "rarity": "common", "relics": ["axi-b9"] },
+        { "id": "barrel", "name": "枪管", "required": 2, "rarity": "common", "relics": ["meso-r6"] },
+        { "id": "receiver", "name": "枪机", "required": 2, "rarity": "rare", "relics": ["lith-a9"] },
+        { "id": "link", "name": "连接器", "required": 1, "rarity": "uncommon", "relics": ["neo-p8"] }
+      ]
+    },
+    {
+      "id": "cobra-crane-prime",
+      "name": "眼镜蛇 & 鹤 Prime",
+      "type": "melee",
+      "description": "Baruuk Prime 的标志性近战武器。",
+      "rotation": "revenant-baruuk-2026-08",
+      "relics": ["lith-a9", "meso-r6", "axi-b9", "axi-c9"],
+      "parts": [
+        { "id": "blueprint", "name": "蓝图", "required": 1, "rarity": "uncommon", "relics": ["axi-b9"] },
+        { "id": "blade", "name": "刀刃", "required": 1, "rarity": "uncommon", "relics": ["meso-r6"] },
+        { "id": "hilt", "name": "握柄", "required": 1, "rarity": "common", "relics": ["lith-a9"] },
+        { "id": "guard", "name": "护手", "required": 1, "rarity": "rare", "relics": ["axi-c9"] }
+      ]
+    }
+  ]
+}

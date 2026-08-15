@@ -1,0 +1,327 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#07141e" />
+    <meta name="description" content="VARZIA Prime 重生规划器：选择本期 Prime，计算阿耶精华预算和毕业概率。" />
+    <title>Varzia | Warframe Prime 重生规划器</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="ambient ambient-one" aria-hidden="true"></div>
+    <div class="ambient ambient-two" aria-hidden="true"></div>
+
+    <header class="site-header">
+      <a class="brand" href="./" aria-label="VARZIA Prime 重生规划器首页">
+        <img class="brand-mark" src="assets/ocisly-m.svg" alt="" aria-hidden="true" />
+        <span>
+          <strong>VARZIA</strong>
+          <small>Prime 重生规划器</small>
+        </span>
+      </a>
+      <div class="header-orbit" aria-label="蒙地卡罗模拟">
+        <span>MONTE CARLO</span>
+        <strong>100,000 LAPS</strong>
+      </div>
+    </header>
+
+    <main class="page-shell">
+      <section class="hero" aria-labelledby="page-title">
+        <div class="hero-main">
+          <div class="hero-kicker"><span class="eyebrow-dot"></span> MONTE CARLO · 本期 Prime 重生</div>
+          <h1 id="page-title">让随机数<br /><em>跑 100,000 圈。</em></h1>
+          <p class="hero-copy">默认选中本期全部可刷 Prime 装备。告诉瓦奇娅你有多少阿耶精华，看看这一期到底能不能全毕业。</p>
+          <div class="hero-actions">
+            <a class="button button-primary" id="heroPrimaryAction" href="#planner">开始规划 <span aria-hidden="true">↘</span></a>
+            <button class="button button-secondary" id="budgetJump" type="button">看看我的阿耶精华够不够</button>
+          </div>
+          <div class="source-line">
+            <span class="source-status"><span class="status-dot"></span><span id="dataStatus">正在读取轮换数据</span></span>
+            <a href="https://www.warframe.com/zh-hans/prime-resurgence" target="_blank" rel="noreferrer">查看官方 Prime 重生页面 <span aria-hidden="true">↗</span></a>
+          </div>
+        </div>
+
+        <aside class="hero-side" aria-label="本期 Prime 重生轮换">
+          <div class="rotation-plaque">
+            <div class="plaque-topline">
+              <span class="section-label">本期 Prime 重生</span>
+              <span class="plaque-index">01 / 轮换</span>
+            </div>
+            <h2 id="rotationName">读取中</h2>
+            <p>本期可刷 Prime 共享同一份阿耶精华预算，一次跑完整期。</p>
+            <div class="rotation-featured" id="rotationFeatured" aria-label="本期 Prime 重生物品"></div>
+            <div class="plaque-route" aria-hidden="true"><span></span><i></i><span></span></div>
+          </div>
+          <div class="hero-side-note">
+            <span class="note-mark">V</span>
+            <span>精密概率规划 · 本地保存收藏</span>
+          </div>
+        </aside>
+      </section>
+
+      <section class="workbench" id="planner" aria-label="模拟器设置">
+        <div class="panel panel-target">
+          <div class="panel-heading">
+            <div>
+              <span class="panel-kicker">01 / TARGET</span>
+              <h2>本期 Prime 重生</h2>
+            </div>
+            <span class="panel-count" id="targetCount">—</span>
+          </div>
+          <p class="panel-intro">默认模拟本期全部 Prime。你可以取消不想刷的装备，再补上已有部件。</p>
+
+          <div class="target-toolbar">
+            <span class="field-label">本期目标</span>
+            <div class="toolbar-actions">
+              <button type="button" class="text-button" id="selectAllTargets">全选本期</button>
+              <button type="button" class="text-button" id="selectWarframes">只选战甲</button>
+              <button type="button" class="text-button" id="selectWeapons">只选武器</button>
+              <button type="button" class="text-button" id="clearTargets">全不选</button>
+            </div>
+          </div>
+          <div class="target-options" id="targetOptions" aria-live="polite"></div>
+
+          <div class="parts-heading">
+            <span>我的 Prime 收藏</span>
+            <span class="parts-legend"><span class="legend-check">✓</span> 已拥有</span>
+          </div>
+          <div class="collection-list" id="collectionList" aria-live="polite"></div>
+        </div>
+
+        <div class="panel panel-settings">
+          <div class="panel-heading">
+            <div>
+              <span class="panel-kicker">02 / CONDITIONS</span>
+              <h2>把你的现实交给概率</h2>
+            </div>
+            <span class="panel-seal" aria-hidden="true">MC</span>
+          </div>
+          <p class="panel-intro">数学藏在后台，你只需要告诉我资源和队伍。</p>
+
+          <div class="mode-picker" id="modePicker" role="group" aria-label="计算模式">
+            <button type="button" data-mode="budget" aria-pressed="true">我有多少阿耶精华</button>
+            <button type="button" data-mode="goal" aria-pressed="false">我要这些 Prime</button>
+          </div>
+
+          <div class="settings-grid">
+            <label class="field-group field-budget" for="budget">
+              <span class="field-label" id="budgetLabel">我有多少阿耶精华</span>
+              <span class="number-input-wrap">
+                <input id="budget" type="number" min="0" max="999" value="24" inputmode="numeric" />
+                <span>个</span>
+              </span>
+            </label>
+
+            <label class="field-group goal-line-field" for="goalLine" hidden>
+              <span class="field-label">想达到的毕业线</span>
+              <div class="select-wrap">
+                <select id="goalLine">
+                  <option value="0.5">P50 · 五成毕业</option>
+                  <option value="0.9" selected>P90 · 九成毕业</option>
+                  <option value="0.95">P95 · 保险线</option>
+                  <option value="0.99">P99 · 极稳</option>
+                </select>
+              </div>
+            </label>
+
+            <div class="field-group">
+              <span class="field-label">同遗物队伍人数</span>
+              <div class="segmented" id="squadPicker" role="group" aria-label="同遗物队伍人数">
+                <button type="button" data-squad="1" aria-pressed="false">单人</button>
+                <button type="button" data-squad="2" aria-pressed="false">2 人</button>
+                <button type="button" data-squad="3" aria-pressed="false">3 人</button>
+                <button type="button" data-squad="4" aria-pressed="true">4 人</button>
+              </div>
+            </div>
+
+            <label class="field-group" for="strategy">
+              <span class="field-label">精炼策略</span>
+              <div class="select-wrap">
+                <select id="strategy">
+                  <option value="finish">毕业率优先</option>
+                  <option value="efficient">省虚空光体</option>
+                  <option value="intact">全完整</option>
+                  <option value="radiant">全光辉</option>
+                </select>
+              </div>
+            </label>
+
+            <label class="field-group" for="trials">
+              <span class="field-label">模拟次数</span>
+              <div class="select-wrap">
+                <select id="trials">
+                  <option value="5000">5,000 · 快速</option>
+                  <option value="20000">20,000 · 快速</option>
+                  <option value="100000" selected>100,000 · 推荐</option>
+                </select>
+              </div>
+            </label>
+          </div>
+
+          <div class="strategy-note" id="strategyNote">—</div>
+
+          <div class="run-area">
+            <button class="run-button" id="runButton" type="button">
+              <span class="run-icon" aria-hidden="true">↗</span>
+              <span>运行蒙地卡罗</span>
+              <span class="run-arrow" aria-hidden="true">→</span>
+            </button>
+            <span class="run-caption" id="runCaption">模拟结果会在这里更新</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="results" aria-labelledby="results-title" aria-live="polite">
+        <div class="results-header">
+          <div>
+            <span class="results-overline">MONTE CARLO RUN</span>
+            <h2 id="results-title">你的毕业曲线</h2>
+            <p class="results-subline">让每一条可能的时间线都先替你走一遍。</p>
+          </div>
+          <span class="trial-badge" id="trialBadge">等待模拟</span>
+        </div>
+
+        <div class="results-summary">
+          <article class="result-card result-primary">
+            <div class="result-topline">
+              <span class="result-label" id="primaryResultLabel">本期目标全部毕业概率</span>
+              <span class="result-status" id="resultStatus">—</span>
+            </div>
+            <strong class="result-value" id="finishProbability">—</strong>
+            <span class="result-detail" id="finishDetail">—</span>
+            <div class="probability-track" aria-hidden="true"><span id="probabilityBar"></span></div>
+          </article>
+          <div class="result-aside">
+            <div class="result-sentence" id="resultSentence">勾选部件并运行一次，看看这轮随机数会不会对你温柔一点。</div>
+            <article class="metric-card">
+              <span class="metric-label">平均消耗</span>
+              <strong id="meanAya">—</strong>
+              <span>阿耶精华</span>
+            </article>
+          </div>
+        </div>
+
+        <div class="rotation-summary" aria-label="本期联合模拟范围">
+          <article><span>当前目标</span><strong id="summaryTargets">—</strong><em>Prime 装备</em></article>
+          <article><span>已完成</span><strong id="summaryCompleted">—</strong><em>整件装备</em></article>
+          <article><span>剩余部件</span><strong id="summaryRemaining">—</strong><em>含重复需求</em></article>
+          <article><span>当前阿耶精华</span><strong id="summaryBudget">—</strong><em>共享预算</em></article>
+        </div>
+
+        <section class="probability-section" aria-labelledby="probability-title">
+          <div class="section-heading-inline">
+            <div>
+              <span class="section-label">概率赛道</span>
+              <h3 id="probability-title">你的阿耶精华在第几圈？</h3>
+            </div>
+            <span class="race-budget" id="raceBudget">当前预算 — 个</span>
+          </div>
+          <div class="probability-race" id="probabilityRace" aria-label="P50、P90、P95 和 P99 阿耶精华预算线">
+            <div class="race-track" aria-hidden="true">
+              <span class="race-line"></span>
+              <span class="race-fill" id="raceTrackFill"></span>
+              <span class="race-dot race-dot-start"></span>
+              <span class="race-dot race-dot-end"></span>
+              <div class="race-marker marker-p50" id="raceP50"><span>P50</span><strong id="p50Aya">—</strong></div>
+              <div class="race-marker marker-p90" id="raceP90"><span>P90</span><strong id="p90Aya">—</strong></div>
+              <div class="race-marker marker-p95" id="raceP95"><span>P95</span><strong id="p95Aya">—</strong></div>
+              <div class="race-marker marker-p99" id="raceP99"><span>P99</span><strong id="p99Aya">—</strong></div>
+              <div class="race-marker race-you" id="raceYou"><span>你</span><strong id="raceBudgetValue">—</strong></div>
+            </div>
+          </div>
+          <div class="race-legend"><span><i class="legend-line"></i>毕业概率线</span><span><i class="legend-you"></i>你的预算</span><span>P95 是更安心的保险线</span></div>
+        </section>
+
+        <div class="verdict" id="verdict">
+          <span class="verdict-mark" aria-hidden="true">✦</span>
+          <span>勾选部件并运行一次，看看这轮随机数会不会对你温柔一点。</span>
+        </div>
+
+        <div class="timeline-panel" id="timelinePanel">
+          <div class="timeline-copy">
+            <span class="timeline-kicker">PARALLEL WORLDS</span>
+            <strong id="timelineHeadline">我们让你刷了 100,000 条时间线。</strong>
+            <span id="timelineDetail">—</span>
+          </div>
+          <div class="timeline-number" id="timelineSuccess">—</div>
+        </div>
+
+        <div class="breakdown-panel">
+          <div class="breakdown-heading">
+            <div>
+              <span class="section-label">PRECISION READOUT</span>
+              <h3>缺件拆解</h3>
+              <p>按你当前的队伍和精炼策略，每一件有多难。</p>
+            </div>
+            <span class="trace-total" id="traceTotal">—</span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>缺少的部件</th>
+                  <th>奖励稀有度</th>
+                  <th>精炼</th>
+                  <th>本队命中率</th>
+                  <th>平均遗物数</th>
+                </tr>
+              </thead>
+              <tbody id="breakdownBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="secondary-results">
+          <div class="secondary-panel">
+            <div class="breakdown-heading">
+              <div>
+                <span class="section-label">TARGET BOARD</span>
+                <h3>各 Prime 单件毕业概率</h3>
+                <p>来自同一批联合 trial，不是分别独立分配预算。</p>
+              </div>
+            </div>
+            <div class="target-result-list" id="targetResultList"></div>
+          </div>
+          <div class="secondary-panel">
+            <div class="breakdown-heading">
+              <div>
+                <span class="section-label">GRID STRATEGY</span>
+                <h3>推荐购买配置</h3>
+                <p>每次掉落后重算下一枚；这里展示代表性购买分布。</p>
+              </div>
+              <span class="trace-total" id="recommendationAya">—</span>
+            </div>
+            <div class="recommendation-list" id="recommendationList"></div>
+            <div class="curve-list" id="budgetCurve"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="boundary-note">
+        <span class="boundary-icon" aria-hidden="true">i</span>
+        <p><strong>数据与模型：</strong>所有选中的 Prime 共用一份阿耶精华预算。每次裂缝只领取一个奖励，领取后按剩余缺件重新选择遗物。推荐方案根据缺件、遗物覆盖与奖励稀有度动态计算，属于启发式优化，不保证全局最优。未列出的 Forma 与非目标奖励由剩余概率表示；当前不输入已有遗物库存，也不计算交易与招募时间。</p>
+      </section>
+
+      <section class="wish-entry">
+        <div>
+          <span class="wish-kicker">TIME-LINE COURTESY</span>
+          <p>这条时间线替你省下了几枚阿耶精华？往 Starport 的喷泉投一枚硬币。</p>
+        </div>
+        <a href="https://starport1116.com/wish" target="_blank" rel="noreferrer">投一枚硬币 <span aria-hidden="true">↗</span></a>
+      </section>
+
+      <section class="data-sources">
+        <span>数据更新时间：<strong id="dataUpdatedAt">—</strong></span>
+        <span>来源：<a href="https://www.warframe.com/zh-hans/prime-resurgence" target="_blank" rel="noreferrer">官方 Prime 重生</a> · <a href="https://www.warframe.com/droptables" target="_blank" rel="noreferrer">官方掉落表</a> · <a href="https://www.warframe.com/zh-hans/game/warframes" target="_blank" rel="noreferrer">官方简中名称</a></span>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <span><strong>VARZIA</strong> · Prime 重生规划器</span>
+      <span>非官方 Warframe 玩家工具 · Starport</span>
+    </footer>
+
+    <script type="module" src="js/app.js"></script>
+  </body>
+</html>

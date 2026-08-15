@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 2,
+  "lastVerified": "2026-08-14",
+  "source": {
+    "name": "Warframe 官方简体中文 Prime 重生页面",
+    "url": "https://www.warframe.com/zh-hans/prime-resurgence",
+    "note": "官方页面当前列出 Revenant Prime、Baruuk Prime 及四件配套 Prime 武器。"
+  },
+  "rotation": {
+    "id": "revenant-baruuk-2026-08",
+    "displayName": "Revenant Prime 与 Baruuk Prime",
+    "itemIds": [
+      "revenant-prime",
+      "baruuk-prime",
+      "phantasma-prime",
+      "tatsu-prime",
+      "afuris-prime",
+      "cobra-crane-prime"
+    ]
+  }
+}

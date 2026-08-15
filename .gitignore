@@ -1,0 +1,21 @@
+# Local environment and credentials
+.env
+.env.*
+!.env.example
+
+# Operating-system and editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Dependencies, build output, coverage and logs
+node_modules/
+dist/
+coverage/
+*.log
+
+# Local visual QA output and preview work; source files remain publishable
+/artifacts/
+/outputs/
+/work/
