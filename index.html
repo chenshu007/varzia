@@ -5,7 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#07141e" />
     <meta name="description" content="VARZIA Prime 重生规划器：选择本期 Prime，计算阿耶精华预算和毕业概率。" />
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="zh_CN" />
+    <meta property="og:site_name" content="VARZIA" />
+    <meta property="og:title" content="Varzia | Warframe Prime 重生规划器" />
+    <meta property="og:description" content="选择本期 Prime，计算阿耶精华预算和整期联合毕业概率。" />
+    <meta property="og:url" content="https://varzia.starport1116.com/" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="Varzia | Warframe Prime 重生规划器" />
+    <meta name="twitter:description" content="选择本期 Prime，计算阿耶精华预算和整期联合毕业概率。" />
     <title>Varzia | Warframe Prime 重生规划器</title>
+    <link rel="canonical" href="https://varzia.starport1116.com/" />
+    <link rel="icon" href="/assets/ocisly-m.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
@@ -108,9 +119,10 @@
             <label class="field-group field-budget" for="budget">
               <span class="field-label" id="budgetLabel">我有多少阿耶精华</span>
               <span class="number-input-wrap">
-                <input id="budget" type="number" min="0" max="999" value="24" inputmode="numeric" />
+                <input id="budget" type="number" min="0" max="999" value="33" inputmode="numeric" aria-describedby="budgetHint" />
                 <span>个</span>
               </span>
+              <span class="field-hint" id="budgetHint">本期建议从 P50 毕业线的 33 个开始规划</span>
             </label>
 
             <label class="field-group goal-line-field" for="goalLine" hidden>
@@ -172,7 +184,7 @@
         </div>
       </section>
 
-      <section class="results" aria-labelledby="results-title" aria-live="polite">
+      <section class="results" id="resultsSection" aria-labelledby="results-title" aria-live="polite" aria-busy="false">
         <div class="results-header">
           <div>
             <span class="results-overline">MONTE CARLO RUN</span>

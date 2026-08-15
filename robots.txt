@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://varzia.starport1116.com/sitemap.xml

@@ -9,7 +9,7 @@ import {
   simulateRotationTrial,
   squadChance
 } from "../js/simulator.js";
-import { formatProbability, zeroProbabilityGuidance } from "../js/presentation.js";
+import { formatBudgetLine, formatBudgetMarker, formatProbability, zeroProbabilityGuidance } from "../js/presentation.js";
 
 function primeItem(id, type = "warframe", parts = [{ id: "piece", name: "部件", required: 1 }]) {
   return { id, name: id, type, parts };
@@ -138,8 +138,14 @@ test("预算不足时整期联合毕业概率为 0，不会给每件装备重复
   assert.ok(result.itemProbabilities.some((item) => item.probability > 0));
   const guidance = zeroProbabilityGuidance({ budget: 1, trials: 1000, p50: result.p50, p90: result.p90, p95: result.p95 });
   assert.equal(guidance.status, "尚未进入毕业区间");
-  assert.match(guidance.sentence, /没有完成本期全部目标/);
-  assert.match(guidance.message, /距 P50 还差/);
+  assert.match(guidance.sentence, /没有一条完成本期全部目标/);
+  assert.match(guidance.message, /距 P50 还差.*个阿耶精华/);
+});
+
+test("预算线超出分析范围时明确显示上限", () => {
+  assert.equal(formatBudgetLine(42, 80), "42 个");
+  assert.equal(formatBudgetLine(null, 80), "超过分析上限（80 个）");
+  assert.equal(formatBudgetMarker(null, 80), ">80 个");
 });
 
 test("同一部件支持多个有效遗物，优化器会比较所有路线", () => {

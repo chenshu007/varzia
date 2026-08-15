@@ -8,7 +8,7 @@ import {
   typeLabel
 } from "./simulator.js";
 import { validateRotationData } from "./data-validation.js";
-import { formatProbability, zeroProbabilityGuidance } from "./presentation.js";
+import { formatBudgetLine, formatBudgetMarker, formatProbability, zeroProbabilityGuidance } from "./presentation.js";
 import { loadCollectionState, saveCollectionState } from "./storage.js";
 
 const fallbackRotation = {
@@ -351,7 +351,15 @@ function bindEvents() {
 
 function scheduleRun() {
   window.clearTimeout(state.runTimer);
+  setResultsUpdating(true);
   state.runTimer = window.setTimeout(run, 80);
+}
+
+function setResultsUpdating(updating) {
+  const results = $("resultsSection");
+  results?.classList.toggle("is-updating", updating);
+  results?.setAttribute("aria-busy", String(updating));
+  if (updating) $("trialBadge").textContent = "结果更新中";
 }
 
 function simulationOptions() {
@@ -372,11 +380,17 @@ function simulationOptions() {
 }
 
 function finishRun(result, trials) {
-  renderResult(result, trials);
+  const completedRequest = state.activeSimulation;
   state.running = false;
   state.activeSimulation = null;
+  if (state.pendingRun) {
+    state.pendingRun = false;
+    scheduleRun();
+    return;
+  }
+  renderResult(result, trials, completedRequest?.options || {});
+  setResultsUpdating(false);
   $("runButton").disabled = false;
-  if (state.pendingRun) scheduleRun();
 }
 
 function runOnMainThread(request) {
@@ -387,6 +401,8 @@ function runOnMainThread(request) {
       state.running = false;
       state.activeSimulation = null;
       $("runButton").disabled = false;
+      setResultsUpdating(false);
+      $("trialBadge").textContent = "模拟失败";
       $("runCaption").textContent = "这次模拟没有跑完，请再试一次";
       if (state.pendingRun) scheduleRun();
     }
@@ -425,9 +441,11 @@ function run() {
     state.pendingRun = true;
     return;
   }
+  setResultsUpdating(true);
   const request = simulationOptions();
   if (!request.options.primeItems.length) {
     state.pendingRun = false;
+    $("runButton").disabled = false;
     renderNoTargets();
     return;
   }
@@ -446,6 +464,7 @@ function run() {
 }
 
 function renderNoTargets() {
+  setResultsUpdating(false);
   $("trialBadge").textContent = "等待目标";
   $("primaryResultLabel").textContent = "先选择 Prime 目标";
   $("finishProbability").textContent = "—";
@@ -487,10 +506,6 @@ function renderProbabilityRace(result, budget = Number($("budget").value) || 0) 
   if ($("raceBudgetValue")) $("raceBudgetValue").textContent = `${format(budget)} 个`;
 }
 
-function lineText(value) {
-  return value === null || value === undefined ? "尚未达到" : `${format(value)} 个`;
-}
-
 function verdictFor(probability, result, budget) {
   if (probability >= 0.95) {
     return { label: "大赢特赢", message: `按当前条件，约 ${formatProbability(probability)} 的时间线可以在预算内全部毕业。` };
@@ -508,11 +523,12 @@ function verdictFor(probability, result, budget) {
   return { label: "阿耶精华红区", message: `这轮还比较悬。${extra}` };
 }
 
-function renderResult(result, trials) {
-  const budget = Number($("budget").value) || 0;
+function renderResult(result, trials, options = {}) {
+  const budget = Number(options.budget) || 0;
+  const analysisCap = Number(options.analysisCap);
   const goal = Number($("goalLine").value) || 0.9;
   const goalBudget = goal === 0.5 ? result.p50 : goal === 0.95 ? result.p95 : goal === 0.99 ? result.p99 : result.p90;
-  const displayProbability = state.mode === "goal" ? (goalBudget === null ? "尚未达到" : lineText(goalBudget)) : formatProbability(result.finishProbability);
+  const displayProbability = state.mode === "goal" ? formatBudgetMarker(goalBudget, analysisCap) : formatProbability(result.finishProbability);
 
   $("trialBadge").textContent = result.empty ? "已毕业" : `已跑 ${format(trials)} 次`;
   $("primaryResultLabel").textContent = state.mode === "goal"
@@ -522,14 +538,14 @@ function renderResult(result, trials) {
   $("finishDetail").textContent = result.empty
     ? "所有部件都在你的仓库里"
     : state.mode === "goal"
-      ? `当前搜索上限 ${format(budget)} 阿耶精华`
+      ? `当前分析上限 ${format(analysisCap)} 阿耶精华`
       : `当前预算 ${format(budget)} 阿耶精华`;
   $("probabilityBar").style.width = `${Math.max(0, Math.min(100, result.finishProbability * 100))}%`;
   $("meanAya").textContent = result.empty ? "0 个" : `${format(Math.ceil(result.averageAya))} 个`;
-  $("p50Aya").textContent = lineText(result.p50);
-  $("p90Aya").textContent = lineText(result.p90);
-  $("p95Aya").textContent = lineText(result.p95);
-  $("p99Aya").textContent = lineText(result.p99);
+  $("p50Aya").textContent = formatBudgetMarker(result.p50, analysisCap);
+  $("p90Aya").textContent = formatBudgetMarker(result.p90, analysisCap);
+  $("p95Aya").textContent = formatBudgetMarker(result.p95, analysisCap);
+  $("p99Aya").textContent = formatBudgetMarker(result.p99, analysisCap);
   $("traceTotal").textContent = result.empty ? "虚空光体：0" : `中位虚空光体 · ${format(result.medianTraces)}`;
   $("runCaption").textContent = result.empty ? "这个目标已经毕业" : `已根据当前条件更新 · ${format(trials)} 次抽样`;
   $("summaryTargets").textContent = `${format(result.summary?.itemCount)} 件`;
@@ -562,7 +578,7 @@ function renderResult(result, trials) {
         ? `你当前拥有 ${format(budget)} 个阿耶精华。再准备 ${format(result.p95 - budget)} 个，可进入约 95% 的模拟区间。`
         : `你当前拥有 ${format(budget)} 个阿耶精华，已经进入 P95 保险线。`;
     const insurance = result.p95 !== null && budget < result.p95
-      ? `<span class="verdict-tail">距 P95 还差 ${format(result.p95 - budget)} 个</span>`
+      ? `<span class="verdict-tail">距 P95 还差 ${format(result.p95 - budget)} 个阿耶精华</span>`
       : `<span class="verdict-tail">已进入 P95 保险线</span>`;
     verdict.innerHTML = `<span class="verdict-mark" aria-hidden="true">✦</span><strong class="verdict-status">${outcome.label}</strong><span>${outcome.message}</span>${insurance}`;
   }
@@ -583,7 +599,7 @@ function renderResult(result, trials) {
 
   renderBreakdown();
   renderItemResults(result);
-  renderRecommendation(result);
+  renderRecommendation(result, analysisCap);
 }
 
 function renderBreakdown() {
@@ -631,7 +647,7 @@ function renderItemResults(result) {
     : `<p class="field-hint">选择目标后，这里会显示每件 Prime 在同一份共享预算下的毕业概率。</p>`;
 }
 
-function renderRecommendation(result) {
+function renderRecommendation(result, analysisCap) {
   const recommendation = result.recommendation || { items: [], totalAya: 0 };
   $("recommendationAya").textContent = recommendation.items.length ? `总计 ${format(recommendation.totalAya)} 阿耶精华` : "暂无推荐";
   $("recommendationList").innerHTML = recommendation.items.length
@@ -653,7 +669,7 @@ function renderRecommendation(result) {
     ["P95", result.p95],
     ["P99", result.p99]
   ];
-  $("budgetCurve").innerHTML = `<div class="curve-heading">反向预算线</div>${lines.map(([label, value]) => `<div class="curve-row"><span>${label} 毕业线</span><span>${lineText(value)}</span></div>`).join("")}`;
+  $("budgetCurve").innerHTML = `<div class="curve-heading">反向预算线</div>${lines.map(([label, value]) => `<div class="curve-row"><span>${label} 毕业线</span><span>${formatBudgetLine(value, analysisCap)}</span></div>`).join("")}`;
 }
 
 async function loadData() {
