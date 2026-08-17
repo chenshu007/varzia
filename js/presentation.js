@@ -11,14 +11,48 @@ export function formatProbability(probability) {
   return `${percent.toFixed(1)}%`;
 }
 
-function budgetGap(line, budget) {
-  return Number.isFinite(line) ? Math.max(0, line - budget) : null;
+export function formatProbabilityPrecise(probability) {
+  const value = Math.max(0, Math.min(1, Number(probability) || 0));
+  return `${(value * 100).toFixed(2)}%`;
 }
 
-export function formatBudgetLine(value, analysisCap) {
-  if (Number.isFinite(value)) return `${formatNumber(value)} 个`;
-  if (Number.isFinite(analysisCap)) return `超过分析上限（${formatNumber(analysisCap)} 个）`;
-  return "尚未达到";
+export function probabilityDescriptor(probability) {
+  const value = Math.max(0, Math.min(1, Number(probability) || 0));
+  if (value >= 0.99) return "几乎稳稳毕业";
+  if (value >= 0.95) return "极稳毕业区间";
+  if (value >= 0.90) return "大概率能毕业";
+  if (value >= 0.75) return "明显占优";
+  if (value >= 0.55) return "五五开以上";
+  if (value >= 0.45) return "接近五五开";
+  if (value >= 0.25) return "仍有不小风险";
+  if (value > 0) return "小概率毕业";
+  return "尚未进入毕业区间";
+}
+
+export function assertValidBudgetCurve(curve) {
+  if (!Array.isArray(curve) || !curve.length) {
+    throw new TypeError("预算分布必须包含至少一个真实数据点");
+  }
+  let previousBudget = -Infinity;
+  let previousProbability = -Infinity;
+  for (const point of curve) {
+    if (!Number.isFinite(point?.budget) || point.budget <= previousBudget) {
+      throw new TypeError("预算分布的 Aya 节点必须严格递增");
+    }
+    if (!Number.isFinite(point.finishProbability) || point.finishProbability < 0 || point.finishProbability > 1) {
+      throw new RangeError("预算分布概率必须位于 0 到 1 之间");
+    }
+    if (point.finishProbability < previousProbability) {
+      throw new RangeError("预算分布概率必须单调不减");
+    }
+    previousBudget = point.budget;
+    previousProbability = point.finishProbability;
+  }
+  return true;
+}
+
+function budgetGap(line, budget) {
+  return Number.isFinite(line) ? Math.max(0, line - budget) : null;
 }
 
 export function formatBudgetMarker(value, analysisCap) {

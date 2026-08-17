@@ -8,7 +8,14 @@ import {
   typeLabel
 } from "./simulator.js";
 import { validateRotationData } from "./data-validation.js";
-import { formatBudgetLine, formatBudgetMarker, formatProbability, zeroProbabilityGuidance } from "./presentation.js";
+import {
+  assertValidBudgetCurve,
+  formatBudgetMarker,
+  formatProbability,
+  formatProbabilityPrecise,
+  probabilityDescriptor,
+  zeroProbabilityGuidance
+} from "./presentation.js";
 import { loadCollectionState, saveCollectionState } from "./storage.js";
 
 const fallbackRotation = {
@@ -31,6 +38,9 @@ const state = {
   simulationWorker: null,
   workerRequestId: 0,
   activeSimulation: null,
+  lastBudgetChart: null,
+  chartResizeObserver: null,
+  chartResizeTimer: null,
   dataLoadErrors: []
 };
 
@@ -359,6 +369,7 @@ function setResultsUpdating(updating) {
   const results = $("resultsSection");
   results?.classList.toggle("is-updating", updating);
   results?.setAttribute("aria-busy", String(updating));
+  $("budgetDistribution")?.setAttribute("aria-busy", String(updating));
   if (updating) $("trialBadge").textContent = "结果更新中";
 }
 
@@ -472,7 +483,8 @@ function renderNoTargets() {
   $("resultStatus").textContent = "—";
   $("resultSentence").textContent = "选择目标后，Varzia 会替你跑完这条时间线。";
   $("probabilityBar").style.width = "0%";
-  ["meanAya", "p50Aya", "p90Aya", "p95Aya", "p99Aya"].forEach((id) => { $(id).textContent = "—"; });
+  ["meanAya", "budgetKpiCurrent", "budgetKpiProbability", "budgetKpiP50", "budgetKpiP95", "budgetKpiP99"].forEach((id) => { $(id).textContent = "—"; });
+  $("budgetKpiProbabilityNote").textContent = "等待模拟";
   ["summaryTargets", "summaryCompleted", "summaryRemaining", "summaryBudget"].forEach((id) => { $(id).textContent = "—"; });
   $("traceTotal").textContent = "—";
   $("runCaption").textContent = "选择目标后开始模拟";
@@ -480,30 +492,278 @@ function renderNoTargets() {
   $("timelineHeadline").textContent = "还没有要毕业的目标。";
   $("timelineDetail").textContent = "选择目标后，这里会显示模拟时间线。";
   $("timelineSuccess").textContent = "—";
-  renderProbabilityRace(null, Number($("budget").value) || 0);
+  renderBudgetDistribution(null, Number($("budget").value) || 0);
   $("breakdownBody").innerHTML = `<tr><td class="empty-row" colspan="5">还没有选择 Prime 目标。</td></tr>`;
   renderItemResults({ itemProbabilities: [] });
   $("recommendationAya").textContent = "—";
   $("recommendationList").innerHTML = `<p class="field-hint">先选择目标，才会生成购买路线。</p>`;
-  $("budgetCurve").innerHTML = "";
 }
 
-function renderProbabilityRace(result, budget = Number($("budget").value) || 0) {
-  const values = [result?.p50, result?.p90, result?.p95, result?.p99, budget].filter((value) => Number.isFinite(value));
-  const ceiling = Math.max(1, ...values) * 1.08;
-  const position = (value) => `${Math.max(0, Math.min(100, (Number(value || 0) / ceiling) * 100))}%`;
-  const markerValues = { raceP50: result?.p50, raceP90: result?.p90, raceP95: result?.p95, raceP99: result?.p99 };
-  Object.entries(markerValues).forEach(([id, value]) => {
-    const marker = $(id);
-    if (marker) marker.style.left = value === null || value === undefined ? "100%" : position(value);
+function clamp(value, minimum, maximum) {
+  return Math.max(minimum, Math.min(maximum, value));
+}
+
+function boxesOverlap(left, right, padding = 5) {
+  return !(left.x + left.width + padding <= right.x
+    || right.x + right.width + padding <= left.x
+    || left.y + left.height + padding <= right.y
+    || right.y + right.height + padding <= left.y);
+}
+
+function layoutBudgetLabels(markers, bounds) {
+  const placed = [];
+  const priority = { current: 0, p50: 1, p95: 2, p99: 3, p90: 4 };
+  const ordered = [...markers].sort((left, right) => priority[left.id] - priority[right.id]);
+  for (const marker of ordered) {
+    if (!marker.showLabel) continue;
+    const width = marker.id === "current" ? Math.min(138, bounds.width - 8) : marker.capped ? 76 : 64;
+    const height = marker.id === "current" ? 42 : 34;
+    const preferredDirection = marker.y < bounds.top + bounds.height * 0.32 ? 1 : -1;
+    const verticalCandidates = [
+      marker.y + preferredDirection * 49,
+      marker.y - preferredDirection * 49,
+      marker.y + preferredDirection * 88,
+      marker.y - preferredDirection * 88
+    ];
+    for (let laneY = bounds.top + height / 2 + 4; laneY <= bounds.top + bounds.height - height / 2 - 4; laneY += height + 7) {
+      verticalCandidates.push(laneY);
+    }
+    verticalCandidates.sort((left, right) => Math.abs(left - marker.y) - Math.abs(right - marker.y));
+    const horizontalCandidates = [marker.x, marker.x - width * 0.7, marker.x + width * 0.7];
+    let selected = null;
+    for (const centerY of verticalCandidates) {
+      for (const centerX of horizontalCandidates) {
+        const box = {
+          x: clamp(centerX - width / 2, bounds.left + 4, bounds.left + bounds.width - width - 4),
+          y: clamp(centerY - height / 2, bounds.top + 4, bounds.top + bounds.height - height - 4),
+          width,
+          height
+        };
+        if (!placed.some((entry) => boxesOverlap(box, entry.box))) {
+          selected = box;
+          break;
+        }
+      }
+      if (selected) break;
+    }
+    if (!selected) continue;
+    marker.box = selected;
+    placed.push({ marker, box: selected });
+  }
+  return markers;
+}
+
+function emptyBudgetChart(message) {
+  const svg = $("budgetChart");
+  const shell = $("budgetChartShell");
+  if (!svg || !shell) return;
+  const width = Math.max(260, Math.floor(shell.clientWidth || 800));
+  const height = Math.max(260, Math.floor(shell.clientHeight || 330));
+  svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+  svg.setAttribute("aria-label", message);
+  svg.innerHTML = `<text x="${width / 2}" y="${height / 2}" text-anchor="middle" class="budget-axis-title">${escapeHtml(message)}</text>`;
+  $("budgetMarkerLegend").innerHTML = "";
+  $("budgetChartTooltip").hidden = true;
+}
+
+function renderBudgetDistribution(result, budget = Number($("budget").value) || 0, analysisCap = result?.analysisCap) {
+  const renderStartedAt = performance.now();
+  const currentBudget = Math.max(0, Math.floor(Number(budget) || 0));
+  $("budgetKpiCurrent").textContent = `${format(currentBudget)} 个`;
+  if (!result) {
+    state.lastBudgetChart = null;
+    $("budgetKpiProbability").textContent = "—";
+    $("budgetKpiProbabilityNote").textContent = "等待模拟";
+    ["budgetKpiP50", "budgetKpiP95", "budgetKpiP99"].forEach((id) => { $(id).textContent = "—"; });
+    emptyBudgetChart("选择目标后显示真实预算分布");
+    return;
+  }
+
+  state.lastBudgetChart = { result, budget: currentBudget, analysisCap };
+  $("budgetKpiProbability").textContent = formatProbabilityPrecise(result.finishProbability);
+  $("budgetKpiProbabilityNote").textContent = probabilityDescriptor(result.finishProbability);
+  $("budgetKpiP50").textContent = formatBudgetMarker(result.p50, analysisCap);
+  $("budgetKpiP95").textContent = formatBudgetMarker(result.p95, analysisCap);
+  $("budgetKpiP99").textContent = formatBudgetMarker(result.p99, analysisCap);
+
+  try {
+    assertValidBudgetCurve(result.budgetCurve);
+  } catch (error) {
+    console.warn("Varzia budget curve validation failed", error);
+    emptyBudgetChart("预算分布校验失败，未绘制曲线");
+    return;
+  }
+
+  const svg = $("budgetChart");
+  const shell = $("budgetChartShell");
+  const tooltip = $("budgetChartTooltip");
+  const width = Math.max(260, Math.floor(shell.clientWidth || 800));
+  const height = Math.max(260, Math.floor(shell.clientHeight || 390));
+  const mobile = width < 520;
+  const margin = { top: 18, right: 14, bottom: 47, left: mobile ? 42 : 52 };
+  const plot = {
+    left: margin.left,
+    top: margin.top,
+    width: width - margin.left - margin.right,
+    height: height - margin.top - margin.bottom
+  };
+  const curveCap = result.budgetCurve.at(-1).budget;
+  const rightAnchor = Number.isFinite(result.p99) ? Math.max(currentBudget, result.p99) : curveCap;
+  const xMargin = Math.max(2, Math.ceil(rightAnchor * 0.07));
+  const maxX = Math.max(1, Math.min(curveCap, rightAnchor + xMargin));
+  const visibleCurve = result.budgetCurve.filter((point) => point.budget <= maxX);
+  const xFor = (aya) => plot.left + (clamp(aya, 0, maxX) / maxX) * plot.width;
+  const yFor = (probability) => plot.top + (1 - clamp(probability, 0, 1)) * plot.height;
+  const path = visibleCurve.map((point, index) => {
+    const x = xFor(point.budget);
+    const y = yFor(point.finishProbability);
+    if (index === 0) return `M ${x.toFixed(2)} ${y.toFixed(2)}`;
+    return `H ${x.toFixed(2)} V ${y.toFixed(2)}`;
+  }).join(" ");
+  const firstPoint = visibleCurve[0];
+  const lastPoint = visibleCurve.at(-1);
+  const areaPath = `${path} L ${xFor(lastPoint.budget).toFixed(2)} ${yFor(0).toFixed(2)} L ${xFor(firstPoint.budget).toFixed(2)} ${yFor(0).toFixed(2)} Z`;
+  const yTicks = mobile ? [0, 0.5, 1] : [0, 0.25, 0.5, 0.75, 1];
+  const xTicks = [...new Set(Array.from({ length: mobile ? 4 : 6 }, (_, index) => (
+    Math.round((maxX * index) / (mobile ? 3 : 5))
+  )))];
+  const pointAtBudget = (aya) => result.budgetCurve[Math.min(curveCap, Math.max(0, aya))];
+  const markerSpecs = [
+    { id: "current", label: "你在这里", budget: currentBudget, probability: result.finishProbability, showLabel: true },
+    { id: "p50", label: "P50", budget: result.p50, target: 0.50, showLabel: true },
+    { id: "p90", label: "P90", budget: result.p90, target: 0.90, showLabel: !mobile },
+    { id: "p95", label: "P95", budget: result.p95, target: 0.95, showLabel: true },
+    { id: "p99", label: "P99", budget: result.p99, target: 0.99, showLabel: true }
+  ].map((marker) => {
+    const capped = !Number.isFinite(marker.budget);
+    const markerBudget = capped ? curveCap : marker.budget;
+    const point = pointAtBudget(markerBudget);
+    return {
+      ...marker,
+      capped,
+      markerBudget,
+      probability: marker.id === "current" ? marker.probability : point.finishProbability,
+      x: xFor(Math.min(markerBudget, maxX)),
+      y: yFor(marker.id === "current" ? marker.probability : point.finishProbability)
+    };
   });
-  const crowded = Object.values(markerValues).some((value) => Number.isFinite(value) && Math.abs(value - budget) / ceiling < 0.11);
-  const raceYou = $("raceYou");
-  raceYou?.style.setProperty("left", position(budget));
-  raceYou?.style.setProperty("top", crowded ? (budget / ceiling < 0.5 ? "83%" : "17%") : "50%");
-  $("raceTrackFill")?.style.setProperty("width", position(budget));
-  if ($("raceBudget")) $("raceBudget").textContent = `当前预算 ${format(budget)} 个`;
-  if ($("raceBudgetValue")) $("raceBudgetValue").textContent = `${format(budget)} 个`;
+  layoutBudgetLabels(markerSpecs, plot);
+
+  const gridMarkup = yTicks.map((tick) => {
+    const y = yFor(tick);
+    return `<line class="budget-grid-line" x1="${plot.left}" y1="${y}" x2="${plot.left + plot.width}" y2="${y}"></line>
+      <text class="budget-axis-label" x="${plot.left - 8}" y="${y + 3}" text-anchor="end">${Math.round(tick * 100)}%</text>`;
+  }).join("");
+  const xAxisMarkup = xTicks.map((tick) => {
+    const x = xFor(tick);
+    return `<line class="budget-axis-line" x1="${x}" y1="${plot.top + plot.height}" x2="${x}" y2="${plot.top + plot.height + 4}"></line>
+      <text class="budget-axis-label" x="${x}" y="${plot.top + plot.height + 17}" text-anchor="middle">${tick}</text>`;
+  }).join("");
+  const markerMarkup = [...markerSpecs].sort((left, right) => (
+    Number(left.id === "current") - Number(right.id === "current")
+  )).map((marker) => {
+    const isCurrent = marker.id === "current";
+    const labelValue = isCurrent
+      ? `${format(marker.markerBudget)} 个 · ${formatProbabilityPrecise(marker.probability)}`
+      : `${marker.capped ? ">" : ""}${format(marker.markerBudget)} 个`;
+    const label = marker.box ? `<line class="budget-marker-line" x1="${marker.x}" y1="${marker.y}" x2="${marker.box.x + marker.box.width / 2}" y2="${marker.box.y + marker.box.height / 2}"></line>
+      <rect class="budget-label-box${isCurrent ? " is-current" : ""}" x="${marker.box.x}" y="${marker.box.y}" width="${marker.box.width}" height="${marker.box.height}" rx="7"></rect>
+      <text class="budget-label-kicker${isCurrent ? " is-current" : ""}" x="${marker.box.x + 8}" y="${marker.box.y + 13}">${escapeHtml(marker.label)}</text>
+      <text class="budget-label-value" x="${marker.box.x + 8}" y="${marker.box.y + marker.box.height - 9}">${escapeHtml(labelValue)}</text>` : "";
+    return `${label}<circle class="budget-marker-dot${isCurrent ? " is-current" : ""}" cx="${marker.x}" cy="${marker.y}" r="${isCurrent ? 5 : 3.5}"></circle>`;
+  }).join("");
+  const ariaLabel = `毕业预算分布。当前预算 ${format(currentBudget)} 个阿耶精华，全部毕业概率 ${formatProbabilityPrecise(result.finishProbability)}，P95 为 ${formatBudgetMarker(result.p95, analysisCap)}。`;
+
+  svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+  svg.setAttribute("aria-label", ariaLabel);
+  svg.innerHTML = `<title>${escapeHtml(ariaLabel)}</title>
+    <desc>横轴是阿耶精华预算，纵轴是在预算内完成全部目标的真实蒙地卡罗模拟比例。</desc>
+    <defs><linearGradient id="budgetAreaGradient" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--champagne-bright)" stop-opacity=".11"></stop><stop offset="1" stop-color="var(--champagne-bright)" stop-opacity=".015"></stop></linearGradient></defs>
+    ${gridMarkup}
+    <line class="budget-axis-line" x1="${plot.left}" y1="${plot.top + plot.height}" x2="${plot.left + plot.width}" y2="${plot.top + plot.height}"></line>
+    ${xAxisMarkup}
+    <text class="budget-axis-title" x="${plot.left}" y="11">毕业概率</text>
+    <text class="budget-axis-title" x="${plot.left + plot.width / 2}" y="${height - 7}" text-anchor="middle">阿耶精华预算（个）</text>
+    <path class="budget-area" d="${areaPath}"></path>
+    <path class="budget-path" d="${path}"></path>
+    <line class="budget-current-line" x1="${xFor(currentBudget)}" y1="${plot.top}" x2="${xFor(currentBudget)}" y2="${plot.top + plot.height}"></line>
+    ${markerMarkup}
+    <g id="budgetHoverMarker" visibility="hidden"><line class="budget-hover-line" x1="0" y1="${plot.top}" x2="0" y2="${plot.top + plot.height}"></line><circle class="budget-hover-dot" cx="0" cy="0" r="4"></circle></g>
+    <rect class="budget-hit-target" x="${plot.left}" y="${plot.top}" width="${plot.width}" height="${plot.height}" tabindex="0" role="application" aria-label="使用左右方向键查看每个预算节点"></rect>`;
+
+  $("budgetMarkerLegend").innerHTML = [
+    ["P50", result.p50], ["P90", result.p90], ["P95", result.p95], ["P99", result.p99]
+  ].map(([label, value]) => `<span class="${Number.isFinite(value) ? "" : "is-capped"}"><b>${label}</b><strong>${escapeHtml(formatBudgetMarker(value, analysisCap))}</strong></span>`).join("");
+
+  const hitTarget = svg.querySelector(".budget-hit-target");
+  const hoverMarker = svg.querySelector("#budgetHoverMarker");
+  const hoverLine = hoverMarker.querySelector("line");
+  const hoverDot = hoverMarker.querySelector("circle");
+  let activeBudget = currentBudget;
+  const showPoint = (aya) => {
+    activeBudget = clamp(Math.round(aya), 0, maxX);
+    const point = pointAtBudget(activeBudget);
+    const x = xFor(activeBudget);
+    const y = yFor(point.finishProbability);
+    hoverMarker.setAttribute("visibility", "visible");
+    hoverLine.setAttribute("x1", x);
+    hoverLine.setAttribute("x2", x);
+    hoverDot.setAttribute("cx", x);
+    hoverDot.setAttribute("cy", y);
+    tooltip.hidden = false;
+    tooltip.innerHTML = `<strong>${format(activeBudget)} 个阿耶</strong>${formatProbabilityPrecise(point.finishProbability)} 毕业概率`;
+    const left = clamp((x / width) * shell.clientWidth + 10, 8, Math.max(8, shell.clientWidth - 166));
+    const top = clamp((y / height) * shell.clientHeight - 58, 8, Math.max(8, shell.clientHeight - 58));
+    tooltip.style.left = `${left}px`;
+    tooltip.style.top = `${top}px`;
+  };
+  hitTarget.addEventListener("pointermove", (event) => {
+    const bounds = svg.getBoundingClientRect();
+    const localX = (event.clientX - bounds.left) * (width / bounds.width);
+    showPoint(((localX - plot.left) / plot.width) * maxX);
+  });
+  hitTarget.addEventListener("pointerdown", (event) => {
+    const bounds = svg.getBoundingClientRect();
+    const localX = (event.clientX - bounds.left) * (width / bounds.width);
+    showPoint(((localX - plot.left) / plot.width) * maxX);
+  });
+  hitTarget.addEventListener("pointerleave", (event) => {
+    if (event.pointerType === "mouse") {
+      hoverMarker.setAttribute("visibility", "hidden");
+      tooltip.hidden = true;
+    }
+  });
+  hitTarget.addEventListener("focus", () => showPoint(currentBudget));
+  hitTarget.addEventListener("blur", () => {
+    hoverMarker.setAttribute("visibility", "hidden");
+    tooltip.hidden = true;
+  });
+  hitTarget.addEventListener("keydown", (event) => {
+    if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+    event.preventDefault();
+    if (event.key === "Home") showPoint(0);
+    else if (event.key === "End") showPoint(maxX);
+    else showPoint(activeBudget + (event.key === "ArrowRight" ? 1 : -1));
+  });
+  svg.dataset.renderMs = (performance.now() - renderStartedAt).toFixed(2);
+}
+
+function initBudgetChartResize() {
+  if (!("ResizeObserver" in window)) return;
+  const observer = new ResizeObserver(() => {
+    window.clearTimeout(state.chartResizeTimer);
+    state.chartResizeTimer = window.setTimeout(() => {
+      if (state.lastBudgetChart && !state.running) {
+        renderBudgetDistribution(
+          state.lastBudgetChart.result,
+          state.lastBudgetChart.budget,
+          state.lastBudgetChart.analysisCap
+        );
+      }
+    }, 50);
+  });
+  observer.observe($("budgetChartShell"));
+  state.chartResizeObserver = observer;
 }
 
 function verdictFor(probability, result, budget) {
@@ -528,7 +788,7 @@ function renderResult(result, trials, options = {}) {
   const analysisCap = Number(options.analysisCap);
   const goal = Number($("goalLine").value) || 0.9;
   const goalBudget = goal === 0.5 ? result.p50 : goal === 0.95 ? result.p95 : goal === 0.99 ? result.p99 : result.p90;
-  const displayProbability = state.mode === "goal" ? formatBudgetMarker(goalBudget, analysisCap) : formatProbability(result.finishProbability);
+  const displayProbability = state.mode === "goal" ? formatBudgetMarker(goalBudget, analysisCap) : formatProbabilityPrecise(result.finishProbability);
 
   $("trialBadge").textContent = result.empty ? "已毕业" : `已跑 ${format(trials)} 次`;
   $("primaryResultLabel").textContent = state.mode === "goal"
@@ -542,10 +802,6 @@ function renderResult(result, trials, options = {}) {
       : `当前预算 ${format(budget)} 阿耶精华`;
   $("probabilityBar").style.width = `${Math.max(0, Math.min(100, result.finishProbability * 100))}%`;
   $("meanAya").textContent = result.empty ? "0 个" : `${format(Math.ceil(result.averageAya))} 个`;
-  $("p50Aya").textContent = formatBudgetMarker(result.p50, analysisCap);
-  $("p90Aya").textContent = formatBudgetMarker(result.p90, analysisCap);
-  $("p95Aya").textContent = formatBudgetMarker(result.p95, analysisCap);
-  $("p99Aya").textContent = formatBudgetMarker(result.p99, analysisCap);
   $("traceTotal").textContent = result.empty ? "虚空光体：0" : `中位虚空光体 · ${format(result.medianTraces)}`;
   $("runCaption").textContent = result.empty ? "这个目标已经毕业" : `已根据当前条件更新 · ${format(trials)} 次抽样`;
   $("summaryTargets").textContent = `${format(result.summary?.itemCount)} 件`;
@@ -583,7 +839,7 @@ function renderResult(result, trials, options = {}) {
     verdict.innerHTML = `<span class="verdict-mark" aria-hidden="true">✦</span><strong class="verdict-status">${outcome.label}</strong><span>${outcome.message}</span>${insurance}`;
   }
 
-  renderProbabilityRace(result, budget);
+  renderBudgetDistribution(result, budget, result.analysisCap || analysisCap);
 
   $("timelineHeadline").textContent = result.empty
     ? "你的所有目标都已经收集完成。"
@@ -599,7 +855,7 @@ function renderResult(result, trials, options = {}) {
 
   renderBreakdown();
   renderItemResults(result);
-  renderRecommendation(result, analysisCap);
+  renderRecommendation(result);
 }
 
 function renderBreakdown() {
@@ -647,7 +903,7 @@ function renderItemResults(result) {
     : `<p class="field-hint">选择目标后，这里会显示每件 Prime 在同一份共享预算下的毕业概率。</p>`;
 }
 
-function renderRecommendation(result, analysisCap) {
+function renderRecommendation(result) {
   const recommendation = result.recommendation || { items: [], totalAya: 0 };
   $("recommendationAya").textContent = recommendation.items.length ? `总计 ${format(recommendation.totalAya)} 阿耶精华` : "暂无推荐";
   $("recommendationList").innerHTML = recommendation.items.length
@@ -663,13 +919,6 @@ function renderRecommendation(result, analysisCap) {
     }).join("")
     : `<p class="field-hint">当前没有缺件，或预算还不足以形成购买路线。</p>`;
 
-  const lines = [
-    ["P50", result.p50],
-    ["P90", result.p90],
-    ["P95", result.p95],
-    ["P99", result.p99]
-  ];
-  $("budgetCurve").innerHTML = `<div class="curve-heading">反向预算线</div>${lines.map(([label, value]) => `<div class="curve-row"><span>${label} 毕业线</span><span>${formatBudgetLine(value, analysisCap)}</span></div>`).join("")}`;
 }
 
 async function loadData() {
@@ -710,6 +959,7 @@ async function loadData() {
   }
   updateStrategyNote();
   bindEvents();
+  initBudgetChartResize();
   initSimulationWorker();
   run();
 }

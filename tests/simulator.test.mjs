@@ -3,13 +3,20 @@ import assert from "node:assert/strict";
 import {
   RARITIES,
   REFINEMENTS,
+  buildBudgetCurve,
   buildPartRelicIndex,
   rankRelicsForMissing,
   simulateCurrentRotation,
   simulateRotationTrial,
   squadChance
 } from "../js/simulator.js";
-import { formatBudgetLine, formatBudgetMarker, formatProbability, zeroProbabilityGuidance } from "../js/presentation.js";
+import {
+  assertValidBudgetCurve,
+  formatBudgetMarker,
+  formatProbability,
+  formatProbabilityPrecise,
+  zeroProbabilityGuidance
+} from "../js/presentation.js";
 
 function primeItem(id, type = "warframe", parts = [{ id: "piece", name: "部件", required: 1 }]) {
   return { id, name: id, type, parts };
@@ -123,6 +130,7 @@ test("全部装备已经完成时整期概率为 100% 且额外 Aya 为 0", () =
   assert.equal(result.averageAya, 0);
   assert.equal(result.p50, 0);
   assert.equal(result.p99, 0);
+  assert.equal(result.budgetCurve[0].finishProbability, 1);
   assert.equal(result.summary.completedItems, 2);
 });
 
@@ -143,8 +151,7 @@ test("预算不足时整期联合毕业概率为 0，不会给每件装备重复
 });
 
 test("预算线超出分析范围时明确显示上限", () => {
-  assert.equal(formatBudgetLine(42, 80), "42 个");
-  assert.equal(formatBudgetLine(null, 80), "超过分析上限（80 个）");
+  assert.equal(formatBudgetMarker(42, 80), "42 个");
   assert.equal(formatBudgetMarker(null, 80), ">80 个");
 });
 
@@ -179,11 +186,109 @@ test("极低非零概率不会显示为 0.0%", () => {
   assert.equal(formatProbability(0.0004), "<0.1%");
   assert.equal(formatProbability(0.004), "0.40%");
   assert.equal(formatProbability(0.1234), "12.3%");
+  assert.equal(formatProbabilityPrecise(0.5908), "59.08%");
 });
 
-test("预算曲线使用与主联合模拟相同的样本量", () => {
+test("预算曲线与主结果使用同一批样本", () => {
   const primeItems = [primeItem("weapon", "primary")];
   const relics = [relic("weapon-relic", [{ itemId: "weapon", partId: "piece", rarity: "common" }])];
   const result = simulateCurrentRotation({ primeItems, relics, budget: 2, squad: 1, strategy: "intact", trials: 5000, analysisCap: 24 });
-  assert.deepEqual(result.trialCounts, { main: 5000, curve: 5000 });
+  assert.deepEqual(result.trialCounts, { shared: 5000 });
+  assert.equal(result.budgetCurve[2].finishProbability, result.finishProbability);
+});
+
+test("CDF 节点严格递增、概率单调不减且始终位于有效范围", () => {
+  const primeItems = [primeItem("weapon", "primary")];
+  const relics = [relic("weapon-relic", [{ itemId: "weapon", partId: "piece", rarity: "rare" }])];
+  const result = simulateCurrentRotation({ primeItems, relics, budget: 12, squad: 4, strategy: "radiant", trials: 4000, analysisCap: 40 });
+  assert.equal(assertValidBudgetCurve(result.budgetCurve), true);
+  for (let index = 1; index < result.budgetCurve.length; index += 1) {
+    assert.ok(result.budgetCurve[index].budget > result.budgetCurve[index - 1].budget);
+    assert.ok(result.budgetCurve[index].finishProbability >= result.budgetCurve[index - 1].finishProbability);
+    assert.ok(result.budgetCurve[index].finishProbability >= 0 && result.budgetCurve[index].finishProbability <= 1);
+  }
+});
+
+test("P50、P90、P95、P99 都是 CDF 首次达到阈值的预算", () => {
+  const primeItems = [primeItem("weapon", "primary")];
+  const relics = [relic("weapon-relic", [{ itemId: "weapon", partId: "piece", rarity: "rare" }])];
+  const result = simulateCurrentRotation({ primeItems, relics, budget: 10, squad: 4, strategy: "radiant", trials: 5000, analysisCap: 40 });
+  for (const [field, threshold] of [["p50", 0.50], ["p90", 0.90], ["p95", 0.95], ["p99", 0.99]]) {
+    const expected = result.budgetCurve.find((point) => point.finishProbability >= threshold)?.budget ?? null;
+    assert.equal(result[field], expected);
+  }
+});
+
+test("零预算节点与主结果保持完全一致", () => {
+  const primeItems = [primeItem("weapon", "primary")];
+  const relics = [relic("weapon-relic", [{ itemId: "weapon", partId: "piece", rarity: "common" }])];
+  const result = simulateCurrentRotation({ primeItems, relics, budget: 0, squad: 4, strategy: "intact", trials: 2000, analysisCap: 24 });
+  assert.equal(result.finishProbability, 0);
+  assert.equal(result.budgetCurve[0].finishProbability, result.finishProbability);
+});
+
+test("P99 超出分析上限时保留 null 而不伪造预算", () => {
+  const primeItems = [primeItem("weapon", "primary")];
+  const relics = [relic("weapon-relic", [{ itemId: "weapon", partId: "piece", rarity: "rare" }])];
+  const result = simulateCurrentRotation({ primeItems, relics, budget: 0, squad: 1, strategy: "intact", trials: 3000, analysisCap: 24 });
+  assert.equal(result.analysisCap, 24);
+  assert.equal(result.p99, null);
+  assert.ok(result.budgetCurve.at(-1).finishProbability < 0.99);
+});
+
+test("同样输入的 CDF、百分位和当前概率完全确定", () => {
+  const options = {
+    primeItems: [primeItem("weapon", "primary")],
+    relics: [relic("weapon-relic", [{ itemId: "weapon", partId: "piece", rarity: "uncommon" }])],
+    budget: 7,
+    squad: 3,
+    strategy: "finish",
+    trials: 3000,
+    analysisCap: 30
+  };
+  const first = simulateCurrentRotation(options);
+  const second = simulateCurrentRotation(options);
+  assert.equal(first.finishProbability, second.finishProbability);
+  assert.deepEqual(first.budgetCurve, second.budgetCurve);
+  assert.deepEqual([first.p50, first.p90, first.p95, first.p99], [second.p50, second.p90, second.p95, second.p99]);
+});
+
+test("同一分析范围内改变当前预算不会生成第二套 CDF", () => {
+  const base = {
+    primeItems: [primeItem("weapon", "primary")],
+    relics: [relic("weapon-relic", [{ itemId: "weapon", partId: "piece", rarity: "rare" }])],
+    squad: 4,
+    strategy: "radiant",
+    trials: 2000,
+    analysisCap: 40
+  };
+  const lowerBudget = simulateCurrentRotation({ ...base, budget: 8 });
+  const higherBudget = simulateCurrentRotation({ ...base, budget: 16 });
+  assert.deepEqual(lowerBudget.budgetCurve, higherBudget.budgetCurve);
+  assert.equal(lowerBudget.finishProbability, lowerBudget.budgetCurve[8].finishProbability);
+  assert.equal(higherBudget.finishProbability, higherBudget.budgetCurve[16].finishProbability);
+});
+
+test("CDF 聚合直接由真实完成成本计数累加", () => {
+  assert.deepEqual(buildBudgetCurve(Uint32Array.from([0, 1, 2, 1]), 4), [
+    { budget: 0, finishProbability: 0 },
+    { budget: 1, finishProbability: 0.25 },
+    { budget: 2, finishProbability: 0.75 },
+    { budget: 3, finishProbability: 1 }
+  ]);
+});
+
+test("presentation 层拒绝乱序、下降或越界的预算曲线", () => {
+  assert.throws(() => assertValidBudgetCurve([{ budget: 1, finishProbability: 0.5 }, { budget: 1, finishProbability: 0.6 }]), /严格递增/);
+  assert.throws(() => assertValidBudgetCurve([{ budget: 0, finishProbability: 0.7 }, { budget: 1, finishProbability: 0.6 }]), /单调不减/);
+  assert.throws(() => assertValidBudgetCurve([{ budget: 0, finishProbability: 1.1 }]), /0 到 1/);
+});
+
+test("非一 Aya 遗物不会被错误套用单批 CDF 等价", () => {
+  const primeItems = [primeItem("weapon", "primary")];
+  const expensiveRelic = { ...relic("weapon-relic", [{ itemId: "weapon", partId: "piece", rarity: "common" }]), costAya: 2 };
+  assert.throws(
+    () => simulateCurrentRotation({ primeItems, relics: [expensiveRelic], budget: 2, trials: 1000, analysisCap: 24 }),
+    /恰好消耗 1 个阿耶精华/
+  );
 });

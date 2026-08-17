@@ -221,28 +221,31 @@
           <article><span>当前阿耶精华</span><strong id="summaryBudget">—</strong><em>共享预算</em></article>
         </div>
 
-        <section class="probability-section" aria-labelledby="probability-title">
+        <section class="probability-section budget-distribution" id="budgetDistribution" aria-labelledby="probability-title" aria-busy="false">
           <div class="section-heading-inline">
             <div>
-              <span class="section-label">概率赛道</span>
-              <h3 id="probability-title">你的阿耶精华在第几圈？</h3>
+              <span class="section-label">概率预算</span>
+              <h3 id="probability-title">你的阿耶精华在哪个区间？</h3>
+              <p>本期全部目标 · 联合蒙地卡罗预算分布</p>
             </div>
-            <span class="race-budget" id="raceBudget">当前预算 — 个</span>
+            <button class="chart-info" type="button" aria-label="说明预算分布" title="曲线表示：在不同阿耶精华预算下，完成全部所选 Prime 目标的模拟比例。">i</button>
           </div>
-          <div class="probability-race" id="probabilityRace" aria-label="P50、P90、P95 和 P99 阿耶精华预算线">
-            <div class="race-track" aria-hidden="true">
-              <span class="race-line"></span>
-              <span class="race-fill" id="raceTrackFill"></span>
-              <span class="race-dot race-dot-start"></span>
-              <span class="race-dot race-dot-end"></span>
-              <div class="race-marker marker-p50" id="raceP50"><span>P50</span><strong id="p50Aya">—</strong></div>
-              <div class="race-marker marker-p90" id="raceP90"><span>P90</span><strong id="p90Aya">—</strong></div>
-              <div class="race-marker marker-p95" id="raceP95"><span>P95</span><strong id="p95Aya">—</strong></div>
-              <div class="race-marker marker-p99" id="raceP99"><span>P99</span><strong id="p99Aya">—</strong></div>
-              <div class="race-marker race-you" id="raceYou"><span>你</span><strong id="raceBudgetValue">—</strong></div>
-            </div>
+
+          <div class="budget-kpis" aria-label="预算关键指标">
+            <article class="budget-kpi is-current"><span>当前预算</span><strong id="budgetKpiCurrent">—</strong><em>你的预算</em></article>
+            <article class="budget-kpi is-probability"><span>当前毕业概率</span><strong id="budgetKpiProbability">—</strong><em id="budgetKpiProbabilityNote">等待模拟</em></article>
+            <article class="budget-kpi"><span>P50</span><strong id="budgetKpiP50">—</strong><em>50% 的模拟在此预算内毕业</em></article>
+            <article class="budget-kpi"><span>P95</span><strong id="budgetKpiP95">—</strong><em>更安心的保险线</em></article>
+            <article class="budget-kpi"><span>P99</span><strong id="budgetKpiP99">—</strong><em>极高毕业概率</em></article>
           </div>
-          <div class="race-legend"><span><i class="legend-line"></i>毕业概率线</span><span><i class="legend-you"></i>你的预算</span><span>P95 是更安心的保险线</span></div>
+
+          <div class="budget-chart-shell" id="budgetChartShell">
+            <div class="budget-chart-status" id="budgetChartStatus" role="status">正在计算预算分布…</div>
+            <svg class="budget-chart" id="budgetChart" role="img" aria-label="毕业预算分布，等待模拟结果"></svg>
+            <div class="budget-chart-tooltip" id="budgetChartTooltip" role="status" aria-live="polite" hidden></div>
+          </div>
+          <div class="budget-marker-legend" id="budgetMarkerLegend" aria-label="预算百分位详情"></div>
+          <p class="budget-chart-note">曲线的每个节点均来自本次联合模拟；P95 表示约 95% 的模拟在该预算以内完成全部目标。</p>
         </section>
 
         <div class="verdict" id="verdict">
@@ -305,7 +308,6 @@
               <span class="trace-total" id="recommendationAya">—</span>
             </div>
             <div class="recommendation-list" id="recommendationList"></div>
-            <div class="curve-list" id="budgetCurve"></div>
           </div>
         </div>
       </section>

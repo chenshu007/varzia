@@ -328,7 +328,25 @@ export function rankRelicsForMissing({ primeItems, relics, squad = 4, strategy =
   }));
 }
 
-function runRotationTrial(model, { budget, squad, strategy, random }) {
+function trialSnapshot({
+  finished,
+  itemRemaining,
+  purchasedRelics,
+  remainingPartCount,
+  usedAya,
+  voidTraces
+}) {
+  return {
+    finished,
+    itemRemaining: Uint16Array.from(itemRemaining),
+    purchasedRelics: Uint16Array.from(purchasedRelics),
+    remainingPartCount,
+    usedAya,
+    voidTraces
+  };
+}
+
+function runRotationTrial(model, { budget, squad, strategy, random, snapshotBudget = null }) {
   const ownedParts = Uint16Array.from(model.initialOwned);
   const remainingParts = Uint16Array.from(model.initialRemaining);
   const itemRemaining = Uint16Array.from(model.initialItemRemaining);
@@ -341,6 +359,17 @@ function runRotationTrial(model, { budget, squad, strategy, random }) {
   let voidTraces = 0;
   let runs = 0;
   let claimedRewards = 0;
+  const requestedSnapshotBudget = Number.isFinite(snapshotBudget) ? safeBudget(snapshotBudget) : null;
+  let budgetSnapshot = requestedSnapshotBudget === 0
+    ? trialSnapshot({
+      finished: remainingPartCount === 0,
+      itemRemaining,
+      purchasedRelics,
+      remainingPartCount,
+      usedAya: 0,
+      voidTraces
+    })
+    : null;
 
   while (availableAya > 0 && remainingPartCount > 0) {
     const choice = bestRelicForState(model, remainingParts, itemRemaining, squad, strategy, availableAya);
@@ -374,9 +403,31 @@ function runRotationTrial(model, { budget, squad, strategy, random }) {
 
     relicInventory[relic.relicIndex] -= 1;
     runs += 1;
+
+    const usedAya = safeBudget(budget) - availableAya;
+    if (!budgetSnapshot && requestedSnapshotBudget !== null && usedAya >= requestedSnapshotBudget) {
+      budgetSnapshot = trialSnapshot({
+        finished: remainingPartCount === 0,
+        itemRemaining,
+        purchasedRelics,
+        remainingPartCount,
+        usedAya,
+        voidTraces
+      });
+    }
   }
 
   const completedItems = Uint8Array.from(itemRemaining, (count) => count === 0 ? 1 : 0);
+  if (!budgetSnapshot && requestedSnapshotBudget !== null) {
+    budgetSnapshot = trialSnapshot({
+      finished: remainingPartCount === 0,
+      itemRemaining,
+      purchasedRelics,
+      remainingPartCount,
+      usedAya: safeBudget(budget) - availableAya,
+      voidTraces
+    });
+  }
   return {
     finished: remainingPartCount === 0,
     ownedParts,
@@ -391,7 +442,8 @@ function runRotationTrial(model, { budget, squad, strategy, random }) {
     remainingPartCount,
     usedAya: safeBudget(budget) - availableAya,
     runs,
-    claimedRewards
+    claimedRewards,
+    budgetSnapshot
   };
 }
 
@@ -415,43 +467,70 @@ export function simulateRotationTrial({ primeItems, relics, budget = 0, squad = 
   };
 }
 
-function simulateBudget(model, { budget, squad, strategy, trials, seed, minimumTrials = 1000 }) {
-  const trialCount = safeTrials(trials, 20000, minimumTrials);
-  if (!model.initialRemainingTotal) {
-    return {
-      finishProbability: 1,
-      itemProbabilities: model.primeItems.map((item) => ({ id: item.id, name: item.name, type: item.type, probability: 1 })),
-      averageAya: 0,
-      medianTraces: 0,
-      averageCollected: 0,
-      purchaseAverages: model.relics.map((relic) => ({ id: relic.id, average: 0 })),
-      timelines: { total: trialCount, success: trialCount, failed: 0 }
-    };
+export function buildBudgetCurve(finishCounts, trialCount) {
+  let completedByBudget = 0;
+  const points = [];
+  for (let lineBudget = 0; lineBudget < finishCounts.length; lineBudget += 1) {
+    completedByBudget += finishCounts[lineBudget];
+    points.push({ budget: lineBudget, finishProbability: completedByBudget / trialCount });
   }
+  return points;
+}
 
-  const random = seededRandom(hashText({ seed, budget, squad, strategy, parts: model.initialRemainingTotal }));
+function simulateBudgetDistribution(model, { budget, cap, squad, strategy, trials }) {
+  const trialCount = safeTrials(trials, 100000);
+  const finishCounts = new Uint32Array(cap + 1);
   const completedCounts = new Uint32Array(model.primeItems.length);
   const purchaseTotals = new Float64Array(model.relics.length);
   const ayaSamples = new Uint16Array(trialCount);
   const traceSamples = new Uint32Array(trialCount);
+  const random = seededRandom(hashText({
+    seed: "curve",
+    cap,
+    squad,
+    strategy,
+    parts: model.initialRemainingTotal
+  }));
   let finishedTrials = 0;
   let collectedTotal = 0;
 
-  for (let trialIndex = 0; trialIndex < trialCount; trialIndex += 1) {
-    const trial = runRotationTrial(model, { budget, squad, strategy, random });
-    if (trial.finished) finishedTrials += 1;
-    for (let itemIndex = 0; itemIndex < trial.itemRemaining.length; itemIndex += 1) {
-      completedCounts[itemIndex] += trial.itemRemaining[itemIndex] === 0 ? 1 : 0;
-    }
-    for (let relicIndex = 0; relicIndex < trial.purchasedRelics.length; relicIndex += 1) {
-      purchaseTotals[relicIndex] += trial.purchasedRelics[relicIndex];
-    }
-    ayaSamples[trialIndex] = trial.usedAya;
-    traceSamples[trialIndex] = trial.voidTraces;
-    collectedTotal += model.initialRemainingTotal - trial.remainingPartCount;
+  // Prime Resurgence relics all cost exactly one Aya. The optimizer therefore
+  // sees the same available choices at every step until the wallet reaches 0.
+  // One cap-length timeline is consequently both the exact completion-cost
+  // sample for the CDF and the exact current-budget timeline prefix.
+  if (model.relics.some((relic) => relic.costAya !== 1)) {
+    throw new Error("预算分布要求每枚 Prime 重生遗物恰好消耗 1 个阿耶精华");
   }
 
-  const sortedTraces = Array.from(traceSamples).sort((a, b) => a - b);
+  for (let trialIndex = 0; trialIndex < trialCount; trialIndex += 1) {
+    const trial = runRotationTrial(model, {
+      budget: cap,
+      snapshotBudget: budget,
+      squad,
+      strategy,
+      random
+    });
+    const snapshot = trial.budgetSnapshot;
+    if (snapshot.finished) finishedTrials += 1;
+    for (let itemIndex = 0; itemIndex < snapshot.itemRemaining.length; itemIndex += 1) {
+      completedCounts[itemIndex] += snapshot.itemRemaining[itemIndex] === 0 ? 1 : 0;
+    }
+    for (let relicIndex = 0; relicIndex < snapshot.purchasedRelics.length; relicIndex += 1) {
+      purchaseTotals[relicIndex] += snapshot.purchasedRelics[relicIndex];
+    }
+    ayaSamples[trialIndex] = snapshot.usedAya;
+    traceSamples[trialIndex] = snapshot.voidTraces;
+    collectedTotal += model.initialRemainingTotal - snapshot.remainingPartCount;
+    if (trial.finished && trial.usedAya <= cap) finishCounts[trial.usedAya] += 1;
+  }
+
+  const budgetCurve = buildBudgetCurve(finishCounts, trialCount);
+  const currentCurvePoint = budgetCurve[budget];
+  if (!currentCurvePoint || currentCurvePoint.finishProbability !== finishedTrials / trialCount) {
+    throw new Error("当前预算毕业概率与预算分布不一致");
+  }
+
+  const sortedTraces = Array.from(traceSamples).sort((left, right) => left - right);
   return {
     finishProbability: finishedTrials / trialCount,
     itemProbabilities: model.primeItems.map((item) => ({
@@ -464,42 +543,13 @@ function simulateBudget(model, { budget, squad, strategy, trials, seed, minimumT
     medianTraces: quantile(sortedTraces, 0.5),
     averageCollected: collectedTotal / trialCount,
     purchaseAverages: model.relics.map((relic) => ({ id: relic.id, average: purchaseTotals[relic.relicIndex] / trialCount })),
+    budgetCurve,
     timelines: {
       total: trialCount,
       success: finishedTrials,
       failed: trialCount - finishedTrials
     }
   };
-}
-
-function monotonicCurve(points) {
-  let last = 0;
-  return points.map((point) => {
-    last = Math.max(last, point.finishProbability);
-    return { budget: point.budget, finishProbability: last };
-  });
-}
-
-function simulateFinishBudgetCurve(model, { cap, squad, strategy, trials, seed }) {
-  const trialCount = safeTrials(trials, 500, Math.min(250, trials));
-  const finishCounts = new Uint32Array(cap + 1);
-  const random = seededRandom(hashText({ seed, cap, squad, strategy, parts: model.initialRemainingTotal }));
-
-  // Every Prime Resurgence relic costs one Aya. Running each timeline once at
-  // the analysis cap therefore gives the full completion-cost distribution:
-  // a timeline that finished after 31 relics also finished at every budget >=31.
-  for (let trialIndex = 0; trialIndex < trialCount; trialIndex += 1) {
-    const trial = runRotationTrial(model, { budget: cap, squad, strategy, random });
-    if (trial.finished && trial.usedAya <= cap) finishCounts[trial.usedAya] += 1;
-  }
-
-  let completedByBudget = 0;
-  const points = [];
-  for (let lineBudget = 0; lineBudget <= cap; lineBudget += 1) {
-    completedByBudget += finishCounts[lineBudget];
-    points.push({ budget: lineBudget, finishProbability: completedByBudget / trialCount });
-  }
-  return monotonicCurve(points);
 }
 
 function budgetAtProbability(curve, probability) {
@@ -571,8 +621,13 @@ export function simulateCurrentRotation({
     remainingParts: model.initialRemainingTotal,
     budget: safeBudgetValue
   };
+  const cap = Math.max(24, Math.min(160, Math.max(safeBudgetValue, Number(analysisCap) || 80)));
 
   if (!model.initialRemainingTotal) {
+    const budgetCurve = Array.from({ length: cap + 1 }, (_, curveBudget) => ({
+      budget: curveBudget,
+      finishProbability: 1
+    }));
     return {
       empty: true,
       finishProbability: 1,
@@ -585,46 +640,38 @@ export function simulateCurrentRotation({
       averageCollected: 0,
       itemProbabilities: model.primeItems.map((item) => ({ id: item.id, name: item.name, type: item.type, probability: 1 })),
       recommendation: { plan: {}, totalAya: 0, adaptive: true, items: [] },
-      curve: [{ budget: 0, finishProbability: 1 }],
+      budgetCurve,
+      analysisCap: cap,
       timelines: { total: safeTrialCount, success: safeTrialCount, failed: 0 },
-      trialCounts: { main: safeTrialCount, curve: safeTrialCount },
+      trialCounts: { shared: safeTrialCount },
       summary
     };
   }
 
-  const current = simulateBudget(model, {
+  const distribution = simulateBudgetDistribution(model, {
     budget: safeBudgetValue,
-    squad: safeSquadSize,
-    strategy,
-    trials: safeTrialCount,
-    seed: "current"
-  });
-
-  const cap = Math.max(24, Math.min(160, Math.max(safeBudgetValue, Number(analysisCap) || 80)));
-  const curveTrials = safeTrialCount;
-  const curve = simulateFinishBudgetCurve(model, {
     cap,
     squad: safeSquadSize,
     strategy,
-    trials: curveTrials,
-    seed: "curve"
+    trials: safeTrialCount
   });
 
   return {
     empty: false,
-    finishProbability: current.finishProbability,
-    averageAya: current.averageAya,
-    medianTraces: current.medianTraces,
-    averageCollected: current.averageCollected,
-    p50: budgetAtProbability(curve, 0.50),
-    p90: budgetAtProbability(curve, 0.90),
-    p95: budgetAtProbability(curve, 0.95),
-    p99: budgetAtProbability(curve, 0.99),
-    itemProbabilities: current.itemProbabilities,
-    recommendation: representativeRecommendation(model, current.purchaseAverages, safeBudgetValue),
-    curve,
-    timelines: current.timelines,
-    trialCounts: { main: safeTrialCount, curve: curveTrials },
+    finishProbability: distribution.finishProbability,
+    averageAya: distribution.averageAya,
+    medianTraces: distribution.medianTraces,
+    averageCollected: distribution.averageCollected,
+    p50: budgetAtProbability(distribution.budgetCurve, 0.50),
+    p90: budgetAtProbability(distribution.budgetCurve, 0.90),
+    p95: budgetAtProbability(distribution.budgetCurve, 0.95),
+    p99: budgetAtProbability(distribution.budgetCurve, 0.99),
+    itemProbabilities: distribution.itemProbabilities,
+    recommendation: representativeRecommendation(model, distribution.purchaseAverages, safeBudgetValue),
+    budgetCurve: distribution.budgetCurve,
+    analysisCap: cap,
+    timelines: distribution.timelines,
+    trialCounts: { shared: safeTrialCount },
     summary
   };
 }
