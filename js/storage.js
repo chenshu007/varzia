@@ -8,8 +8,21 @@ function requiredCount(part) {
   return Math.max(1, Math.floor(Number(part.required || part.quantity || 1)));
 }
 
-function defaultState(primeItems) {
-  return { selectedItemIds: primeItems.map((item) => item.id), owned: {} };
+function normalizeOptions(primeItems, options) {
+  if (typeof options === "string") {
+    return {
+      rotationId: options,
+      activeItemIds: primeItems.map((item) => item.id),
+      defaultAyaBudget: 0,
+      preview: false
+    };
+  }
+  return {
+    rotationId: typeof options?.rotationId === "string" ? options.rotationId : "",
+    activeItemIds: Array.isArray(options?.activeItemIds) ? options.activeItemIds : primeItems.map((item) => item.id),
+    defaultAyaBudget: Math.max(0, Math.floor(Number(options?.defaultAyaBudget) || 0)),
+    preview: Boolean(options?.preview)
+  };
 }
 
 function normalizeOwned(rawOwned, itemMap) {
@@ -22,8 +35,8 @@ function normalizeOwned(rawOwned, itemMap) {
     const partMap = new Map(item.parts.map((part) => [part.id, part]));
     const counts = {};
 
-    // V1 stored completed part ids as an array. Treat each migrated entry as
-    // owning the full crafting requirement, including duplicated weapon parts.
+    // V1 stored completed part ids as an array. Each migrated entry represents
+    // the complete crafting requirement, including duplicated weapon parts.
     if (Array.isArray(rawParts)) {
       for (const partId of rawParts) {
         const part = partMap.get(partId);
@@ -37,45 +50,99 @@ function normalizeOwned(rawOwned, itemMap) {
       }
     }
 
-    if (Object.keys(counts).length) owned[itemId] = counts;
+    if (Object.values(counts).some((count) => count > 0)) owned[itemId] = counts;
   }
   return owned;
 }
 
-export function loadCollectionState(storage, primeItems, rotationId = "") {
-  const fallback = defaultState(primeItems);
-  if (!storage || typeof storage.getItem !== "function") return fallback;
+function fallbackState(activeItemIds, defaultAyaBudget, owned = {}) {
+  return {
+    selectedItemIds: [...activeItemIds],
+    owned,
+    ayaBudget: defaultAyaBudget
+  };
+}
+
+export function loadCollectionState(storage, primeItems, options = {}) {
+  const config = normalizeOptions(primeItems, options);
+  const itemMap = new Map(primeItems.map((item) => [item.id, item]));
+  const activeItemIds = config.activeItemIds.filter((id) => itemMap.has(id));
+  const activeItemSet = new Set(activeItemIds);
+  if (!storage || typeof storage.getItem !== "function") {
+    return fallbackState(activeItemIds, config.defaultAyaBudget);
+  }
+
   try {
     const parsed = JSON.parse(storage.getItem(STORAGE_KEY) || "null");
-    if (!isRecord(parsed)) return fallback;
-    const itemMap = new Map(primeItems.map((item) => [item.id, item]));
-    const hasCurrentSelection = Array.isArray(parsed.selectedItemIds);
-    const filteredSelection = hasCurrentSelection
-      ? parsed.selectedItemIds.filter((id) => itemMap.has(id))
-      : fallback.selectedItemIds;
-    const sameRotation = Boolean(rotationId) && parsed.rotationId === rotationId;
-    const selectedItemIds = !hasCurrentSelection
-      ? fallback.selectedItemIds
-      : sameRotation || !rotationId || filteredSelection.length
-        ? filteredSelection
-        : fallback.selectedItemIds;
-    return {
-      selectedItemIds,
-      owned: normalizeOwned(parsed.owned, itemMap)
-    };
+    if (!isRecord(parsed)) return fallbackState(activeItemIds, config.defaultAyaBudget);
+
+    const owned = normalizeOwned(parsed.ownedParts ?? parsed.owned, itemMap);
+    if (config.preview) return fallbackState(activeItemIds, config.defaultAyaBudget, owned);
+
+    const storedSelection = Array.isArray(parsed.selectedPrimeIds)
+      ? parsed.selectedPrimeIds
+      : Array.isArray(parsed.selectedItemIds)
+        ? parsed.selectedItemIds
+        : Array.isArray(parsed.selectedTargetIds)
+          ? parsed.selectedTargetIds
+          : null;
+    const storedRotationId = typeof parsed.selectionRotationId === "string"
+      ? parsed.selectionRotationId
+      : typeof parsed.rotationId === "string"
+        ? parsed.rotationId
+        : "";
+    const filteredSelection = storedSelection?.filter((id) => activeItemSet.has(id)) || [];
+    let selectedItemIds = activeItemIds;
+
+    if (storedSelection && storedRotationId && storedRotationId === config.rotationId) {
+      // An empty list for the current rotation is an explicit user choice.
+      selectedItemIds = filteredSelection;
+    } else if (storedSelection && !storedRotationId && filteredSelection.length > 0) {
+      // Legacy state without a rotation id can only be migrated when it still
+      // contains an unambiguous valid target.
+      selectedItemIds = filteredSelection;
+    }
+
+    const storedAyaBudget = Number(parsed.ayaBudget);
+    const sameInputRotation = typeof parsed.inputRotationId === "string"
+      && parsed.inputRotationId === config.rotationId;
+    const ayaBudget = sameInputRotation && Number.isInteger(storedAyaBudget) && storedAyaBudget >= 0
+      ? storedAyaBudget
+      : config.defaultAyaBudget;
+
+    return { selectedItemIds, owned, ayaBudget };
   } catch {
-    return fallback;
+    return fallbackState(activeItemIds, config.defaultAyaBudget);
   }
 }
 
 export function saveCollectionState(storage, state) {
   if (!storage || typeof storage.setItem !== "function") return false;
   try {
+    const rotationId = typeof state.selectionRotationId === "string"
+      ? state.selectionRotationId
+      : typeof state.rotationId === "string"
+        ? state.rotationId
+        : "";
+    const selectedPrimeIds = Array.isArray(state.selectedPrimeIds)
+      ? state.selectedPrimeIds
+      : Array.isArray(state.selectedItemIds)
+        ? state.selectedItemIds
+        : [];
+    const ownedParts = isRecord(state.ownedParts)
+      ? state.ownedParts
+      : isRecord(state.owned)
+        ? state.owned
+        : {};
+    const ayaBudget = Math.max(0, Math.floor(Number(state.ayaBudget) || 0));
+
     storage.setItem(STORAGE_KEY, JSON.stringify({
-      schemaVersion: 2,
-      rotationId: typeof state.rotationId === "string" ? state.rotationId : "",
-      selectedItemIds: Array.isArray(state.selectedItemIds) ? state.selectedItemIds : [],
-      owned: isRecord(state.owned) ? state.owned : {}
+      schemaVersion: 3,
+      selectionRotationId: rotationId,
+      selectedPrimeIds,
+      ownedParts,
+      inputRotationId: rotationId,
+      ayaBudget
     }));
     return true;
   } catch {

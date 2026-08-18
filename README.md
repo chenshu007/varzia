@@ -13,6 +13,7 @@ Varzia 是非官方社区工具，与 Digital Extremes 没有隶属、赞助或�
 ## 功能
 
 - 当前 Prime 重生轮换
+- 下一期轮换倒计时、预告与到点自动切换
 - Prime 战甲与 Prime 武器全量模拟
 - 已有部件收藏与整件完成标记
 - 共享阿耶精华预算
@@ -70,11 +71,12 @@ npm test
 
 ```text
 data/
-  rotation.json          # 当前轮换与目标装备
+  rotation.json          # 按 UTC 生效时间排列的轮换时间表
   primes.json            # Prime 装备、部件和部件 -> 遗物映射
   relics.json            # 遗物 -> 目标奖励映射
 
 js/
+  rotation-schedule.js   # 当前/下一期解析、倒计时与轮换边界逻辑
   simulator.js           # 联合蒙地卡罗核心与启发式选择
   simulation-worker.js   # 浏览器 Worker
   data-validation.js     # 轮换、部件、遗物数据校验
@@ -99,16 +101,23 @@ assets/
 
 轮换和掉落数据会随游戏官方内容变化。提交数据更新时，请在 JSON 中同步更新核验日期、来源和映射，并运行完整测试。
 
-## 月度数据维护
+## 每月 Prime 重生更新流程
 
-通常只需要更新 `data/rotation.json`、`data/primes.json` 和 `data/relics.json`：
+`data/rotation.json` 是按 `startsAt` 严格递增的轮换时间表。每一期只填写开始时间；上一期会在下一期 `startsAt` 自动结束，最后一个已知轮换则持续生效，不需要维护 `endsAt`。
 
-1. 根据官方 Prime 重生页面核对轮换、日期和装备名称。
-2. 保持 `rotation.itemIds`、`primeItems[]` 和遗物奖励的双向映射一致。
-3. 确认真实部件数量、重复制造需求和官方简体中文名称。
-4. 重新计算本期 P50，并同步核对首页默认阿耶精华预算与提示文案。
-5. 运行 `npm test`。
-6. 在移动端和桌面端打开页面，检查目标选择、收藏保存和结果卡。
+所有生效时间必须使用精确到秒的 ISO 8601 UTC，例如 `2026-09-01T18:00:00Z`。页面负责按玩家浏览器的本地时区显示时间。
+
+1. 等待官方发布下一期 Prime 重生公告。
+2. 核对官方简体中文名称和准确的轮换生效时间。
+3. 如有新装备或遗物，先追加更新 `data/primes.json` 与 `data/relics.json`，保持历史装备定义、玩家全局收藏以及部件和遗物奖励双向映射；不要用新一期覆盖旧目录。
+4. 在 `data/rotation.json` 的 `rotations[]` 末尾加入下一期，填写唯一 `id`、UTC `startsAt`、`items`、`relics` 和可选的 `defaults.ayaBudget`。
+5. 不要填写 `endsAt`，也不要把未公布或猜测的数据放入生产 JSON。
+6. 运行 `npm test`，确认时间边界、数据关系、存储迁移和原有蒙地卡罗测试全部通过。
+7. 用 `?rotation=<id>` 打开维护预览，例如 `http://127.0.0.1:4173/?rotation=2026-09`。页面会标明“预览模式”，且不会写入正式选择或 Aya 输入。
+8. 检查 1440 桌面端以及 430、390、375、320 宽度移动端，确认倒计时、预告、选择、收藏与模拟无横向溢出。
+9. 提前部署。普通 URL 会继续按浏览器当前时间显示真实轮换；到达 `startsAt` 后，已打开的页面也会在当前状态内自动切换。
+
+正常轮换当天不需要重新部署、刷新页面或执行服务端定时任务。
 
 ## 贡献
 

@@ -54,10 +54,32 @@
         </div>
 
         <aside class="hero-side" aria-label="本期 Prime 重生轮换">
+          <div class="preview-mode-banner" id="previewModeBanner" hidden>
+            <span class="status-dot" aria-hidden="true"></span>
+            <strong id="previewModeText">预览模式</strong>
+            <span>本地状态不会保存</span>
+          </div>
+          <section class="rotation-schedule is-empty" id="rotationSchedule" aria-label="Prime 重生轮换时间表">
+            <div class="rotation-schedule-main">
+              <span class="section-label" id="rotationScheduleStatus">轮换时间表</span>
+              <span class="rotation-countdown-label" id="rotationCountdownLabel">下一期尚未公布</span>
+              <strong class="rotation-countdown" id="rotationCountdown">—</strong>
+              <time class="rotation-next-time" id="nextRotationTime">正在读取轮换时间表</time>
+            </div>
+            <details class="rotation-preview" id="nextRotationPreview" hidden>
+              <summary>查看预告 <span aria-hidden="true">→</span></summary>
+              <div class="rotation-preview-body">
+                <span class="section-label">下一期 Prime 重生</span>
+                <strong id="nextRotationPreviewName">—</strong>
+                <p><time id="nextRotationPreviewTime">—</time> 生效 · 距离轮换 <span id="nextRotationPreviewCountdown">—</span></p>
+                <ul id="nextRotationPreviewItems"></ul>
+              </div>
+            </details>
+          </section>
           <div class="rotation-plaque">
             <div class="plaque-topline">
               <span class="section-label">本期 Prime 重生</span>
-              <span class="plaque-index">01 / 轮换</span>
+              <span class="plaque-index" id="rotationIndex">读取中</span>
             </div>
             <h2 id="rotationName">读取中</h2>
             <p>本期可刷 Prime 共享同一份阿耶精华预算，一次跑完整期。</p>
@@ -76,7 +98,7 @@
           <div class="panel-heading">
             <div>
               <span class="panel-kicker">01 / TARGET</span>
-              <h2>本期 Prime 重生</h2>
+              <h2 id="targetRotationTitle">本期 Prime 重生</h2>
             </div>
             <span class="panel-count" id="targetCount">—</span>
           </div>
@@ -329,6 +351,7 @@
         <span>数据更新时间：<strong id="dataUpdatedAt">—</strong></span>
         <span>来源：<a href="https://www.warframe.com/zh-hans/prime-resurgence" target="_blank" rel="noreferrer">官方 Prime 重生</a> · <a href="https://www.warframe.com/droptables" target="_blank" rel="noreferrer">官方掉落表</a> · <a href="https://www.warframe.com/zh-hans/game/warframes" target="_blank" rel="noreferrer">官方简中名称</a></span>
       </section>
+      <p class="visually-hidden" id="rotationAnnouncement" role="status" aria-live="polite"></p>
     </main>
 
     <footer class="site-footer">

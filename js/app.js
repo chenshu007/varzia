@@ -17,15 +17,32 @@ import {
   zeroProbabilityGuidance
 } from "./presentation.js";
 import { loadCollectionState, saveCollectionState } from "./storage.js";
+import {
+  countdownUpdateDelay,
+  formatRotationCountdown,
+  formatRotationLocalTime,
+  getTimeUntilRotation,
+  isSimulationResponseCurrent,
+  resolveRotationView
+} from "./rotation-schedule.js";
 
-const fallbackRotation = {
+const fallbackSchedule = {
+  schemaVersion: 2,
   lastVerified: "2026-08-14",
   source: { name: "Warframe 官方简体中文 Prime 重生页面", url: "https://www.warframe.com/zh-hans/prime-resurgence" },
-  rotation: { displayName: "本期 Prime 重生", itemIds: [] }
+  rotations: []
 };
 
 const state = {
-  rotation: fallbackRotation,
+  scheduleData: fallbackSchedule,
+  rotations: [],
+  realRotationState: { activeRotation: null, nextRotation: null, previousRotation: null },
+  rotation: null,
+  previewId: "",
+  previewMode: false,
+  invalidPreviewWarned: false,
+  allPrimeItems: [],
+  allRelics: [],
   primeItems: [],
   relics: [],
   selectedItemIds: [],
@@ -41,6 +58,8 @@ const state = {
   lastBudgetChart: null,
   chartResizeObserver: null,
   chartResizeTimer: null,
+  rotationTimer: null,
+  lifecycleBound: false,
   dataLoadErrors: []
 };
 
@@ -137,9 +156,11 @@ function groupedPrimeItems(items) {
 }
 
 function renderRotation() {
-  const rotation = state.rotation.rotation || fallbackRotation.rotation;
-  $("rotationName").textContent = rotation.displayName || "本期 Prime 重生";
-  $("rotationFeatured").innerHTML = groupedPrimeItems(state.primeItems).map((group) => `
+  const rotation = state.rotation;
+  $("rotationName").textContent = rotation?.displayName || "首期尚未生效";
+  $("rotationIndex").textContent = rotation?.id || "等待轮换";
+  $("targetRotationTitle").textContent = state.previewMode ? "预览 Prime 重生" : "本期 Prime 重生";
+  const featured = groupedPrimeItems(state.primeItems).map((group) => `
     <section class="rotation-group" aria-label="${escapeHtml(group.label)}">
       <span class="rotation-group-label">${escapeHtml(group.label)}</span>
       <div class="rotation-group-grid">
@@ -147,6 +168,52 @@ function renderRotation() {
       </div>
     </section>
   `).join("");
+  $("rotationFeatured").innerHTML = featured || `<p class="rotation-empty">等待已配置的 Prime 重生轮换生效。</p>`;
+}
+
+function itemNamesForRotation(rotation) {
+  const itemMap = new Map(state.allPrimeItems.map((item) => [item.id, item]));
+  return (rotation?.items || []).map((id) => itemMap.get(id)).filter(Boolean);
+}
+
+function renderRotationSchedule(now = Date.now()) {
+  const schedule = $("rotationSchedule");
+  const preview = $("nextRotationPreview");
+  const upcoming = state.realRotationState.nextRotation;
+  const hasActive = Boolean(state.realRotationState.activeRotation);
+
+  $("previewModeBanner").hidden = !state.previewMode;
+  if (state.previewMode) {
+    $("previewModeText").textContent = `预览模式 · ${state.rotation?.id || state.previewId}`;
+  }
+
+  if (!upcoming) {
+    schedule.classList.remove("is-imminent");
+    schedule.classList.add("is-empty");
+    $("rotationScheduleStatus").textContent = "轮换时间表";
+    $("rotationCountdownLabel").textContent = "下一期尚未公布";
+    $("rotationCountdown").textContent = "—";
+    $("nextRotationTime").textContent = "当前轮换持续生效";
+    $("nextRotationTime").removeAttribute("datetime");
+    preview.hidden = true;
+    return;
+  }
+
+  const remaining = getTimeUntilRotation(upcoming, now);
+  schedule.classList.remove("is-empty");
+  schedule.classList.toggle("is-imminent", remaining <= 24 * 60 * 60 * 1_000);
+  $("rotationScheduleStatus").textContent = hasActive ? "下一期已公布" : "首期即将生效";
+  $("rotationCountdownLabel").textContent = hasActive ? "距离下一期轮换" : "距离首期生效";
+  $("rotationCountdown").textContent = formatRotationCountdown(remaining);
+  $("nextRotationTime").textContent = formatRotationLocalTime(upcoming.startsAt);
+  $("nextRotationTime").setAttribute("datetime", upcoming.startsAt);
+  $("nextRotationPreviewName").textContent = upcoming.displayName || upcoming.id;
+  $("nextRotationPreviewTime").textContent = formatRotationLocalTime(upcoming.startsAt);
+  $("nextRotationPreviewCountdown").textContent = formatRotationCountdown(remaining);
+  $("nextRotationPreviewItems").innerHTML = itemNamesForRotation(upcoming)
+    .map((item) => `<li><span>${escapeHtml(item.name)}</span><em>${escapeHtml(typeLabel(item.type))}</em></li>`)
+    .join("");
+  preview.hidden = false;
 }
 
 function renderItemOptions() {
@@ -224,18 +291,24 @@ function renderCollections() {
   $("targetCount").textContent = selected ? `${selected} 件目标 · ${totalOwned} / ${totalParts} 已有` : "未选择目标";
 }
 
-function persistCollection() {
+function persistCollection({ quiet = false } = {}) {
+  if (state.previewMode || !state.rotation) {
+    if (!quiet && state.previewMode) setStatus("预览模式 · 本地状态未写入");
+    return false;
+  }
   const owned = Object.fromEntries(Object.entries(state.owned).map(([itemId, parts]) => [
     itemId,
     Object.fromEntries([...parts].filter(([, count]) => count > 0))
   ]));
   const saved = saveCollectionState(getStorage(), {
-    rotationId: state.rotation.rotation?.id || "",
+    rotationId: state.rotation.id,
     selectedItemIds: state.selectedItemIds,
-    owned
+    owned,
+    ayaBudget: Number($("budget").value) || 0
   });
-  if (saved && state.dataLoadErrors.length) setStatus("本期 Prime 重生数据暂时无法确认", true);
-  else if (saved) setStatus(`数据已核对 · ${formatDate(state.rotation.lastVerified)} · 已保存在本地`);
+  if (!quiet && saved && state.dataLoadErrors.length) setStatus("本期 Prime 重生数据暂时无法确认", true);
+  else if (!quiet && saved) setStatus(`数据已核对 · ${formatDate(state.scheduleData.lastVerified)} · 已保存在本地`);
+  return saved;
 }
 
 function updateStrategyNote() {
@@ -343,7 +416,10 @@ function bindEvents() {
   $("modePicker").addEventListener("click", (event) => {
     if (event.target.dataset.mode) setMode(event.target.dataset.mode);
   });
-  $("budget").addEventListener("input", scheduleRun);
+  $("budget").addEventListener("input", () => {
+    persistCollection({ quiet: true });
+    scheduleRun();
+  });
   $("strategy").addEventListener("change", () => { updateStrategyNote(); scheduleRun(); });
   $("trials").addEventListener("change", scheduleRun);
   $("goalLine").addEventListener("change", scheduleRun);
@@ -390,8 +466,12 @@ function simulationOptions() {
   };
 }
 
-function finishRun(result, trials) {
-  const completedRequest = state.activeSimulation;
+function finishRun(result, trials, completedRequest) {
+  if (!isSimulationResponseCurrent(
+    state.activeSimulation,
+    completedRequest,
+    state.rotation?.id || ""
+  )) return;
   state.running = false;
   state.activeSimulation = null;
   if (state.pendingRun) {
@@ -406,9 +486,11 @@ function finishRun(result, trials) {
 
 function runOnMainThread(request) {
   window.requestAnimationFrame(() => {
+    if (!isSimulationResponseCurrent(state.activeSimulation, request, state.rotation?.id || "")) return;
     try {
-      finishRun(simulateCurrentRotation(request.options), request.trials);
+      finishRun(simulateCurrentRotation(request.options), request.trials, request);
     } catch {
+      if (!isSimulationResponseCurrent(state.activeSimulation, request, state.rotation?.id || "")) return;
       state.running = false;
       state.activeSimulation = null;
       $("runButton").disabled = false;
@@ -425,15 +507,16 @@ function initSimulationWorker() {
   try {
     const worker = new Worker(new URL("./simulation-worker.js", import.meta.url), { type: "module" });
     worker.addEventListener("message", (event) => {
-      const { requestId, result, error } = event.data || {};
-      if (!state.activeSimulation || requestId !== state.activeSimulation.requestId) return;
+      const { result, error } = event.data || {};
+      if (!isSimulationResponseCurrent(state.activeSimulation, event.data, state.rotation?.id || "")) return;
       if (error || !result) {
         worker.terminate();
         state.simulationWorker = null;
         runOnMainThread(state.activeSimulation);
         return;
       }
-      finishRun(result, state.activeSimulation.trials);
+      const completedRequest = state.activeSimulation;
+      finishRun(result, completedRequest.trials, completedRequest);
     });
     worker.addEventListener("error", () => {
       if (state.simulationWorker !== worker) return;
@@ -466,9 +549,10 @@ function run() {
   button.disabled = true;
   $("runCaption").textContent = "正在展开平行世界……";
   const requestId = ++state.workerRequestId;
-  state.activeSimulation = { ...request, requestId };
+  const rotationId = state.rotation?.id || "";
+  state.activeSimulation = { ...request, requestId, rotationId };
   if (state.simulationWorker) {
-    state.simulationWorker.postMessage({ requestId, options: request.options });
+    state.simulationWorker.postMessage({ requestId, rotationId, options: request.options });
   } else {
     runOnMainThread(state.activeSimulation);
   }
@@ -497,6 +581,21 @@ function renderNoTargets() {
   renderItemResults({ itemProbabilities: [] });
   $("recommendationAya").textContent = "—";
   $("recommendationList").innerHTML = `<p class="field-hint">先选择目标，才会生成购买路线。</p>`;
+}
+
+function resetSimulationResults() {
+  renderNoTargets();
+  if (!state.selectedItemIds.length) return;
+  $("trialBadge").textContent = "等待模拟";
+  $("primaryResultLabel").textContent = state.previewMode ? "预览轮换全部毕业概率" : "本期目标全部毕业概率";
+  $("finishDetail").textContent = "轮换数据已更新";
+  $("resultSentence").textContent = "新轮换尚未产生模拟结果。";
+  $("runCaption").textContent = "正在为当前轮换重新模拟";
+  $("verdict").innerHTML = `<span class="verdict-mark" aria-hidden="true">✦</span><span>等待当前轮换的蒙地卡罗结果。</span>`;
+  $("timelineHeadline").textContent = "当前轮换等待模拟。";
+  $("timelineDetail").textContent = "旧轮换结果已清除。";
+  $("breakdownBody").innerHTML = `<tr><td class="empty-row" colspan="5">等待当前轮换模拟结果。</td></tr>`;
+  $("recommendationList").innerHTML = `<p class="field-hint">等待当前轮换生成购买路线。</p>`;
 }
 
 function clamp(value, minimum, maximum) {
@@ -921,47 +1020,183 @@ function renderRecommendation(result) {
 
 }
 
-async function loadData() {
-  state.dataLoadErrors = [];
-  const [rotation, primes, relicData] = await Promise.all([
-    readJson("data/rotation.json", fallbackRotation),
-    readJson("data/primes.json", { primeItems: [] }),
-    readJson("data/relics.json", { relics: [] })
-  ]);
-  try {
-    validateRotationData(rotation, primes, relicData);
-  } catch {
-    state.dataLoadErrors.push("data-validation");
-  }
-  state.rotation = rotation?.rotation ? rotation : fallbackRotation;
-  const allPrimeItems = primes?.primeItems || [];
-  const rotationItemIds = new Set(state.rotation.rotation?.itemIds || []);
-  state.primeItems = rotationItemIds.size
-    ? allPrimeItems.filter((item) => rotationItemIds.has(item.id))
-    : allPrimeItems;
-  state.relics = state.dataLoadErrors.length ? [] : (relicData?.relics || []);
-  if (state.dataLoadErrors.length) state.primeItems = [];
-  const saved = loadCollectionState(getStorage(), state.primeItems, state.rotation.rotation?.id || "");
+function cancelActiveSimulation() {
+  window.clearTimeout(state.runTimer);
+  state.runTimer = null;
+  state.workerRequestId += 1;
+  state.activeSimulation = null;
+  state.running = false;
+  state.pendingRun = false;
+  $("runButton").disabled = false;
+  setResultsUpdating(false);
+}
+
+function announceRotationChange(rotation) {
+  const announcement = $("rotationAnnouncement");
+  announcement.textContent = "";
+  window.requestAnimationFrame(() => {
+    announcement.textContent = rotation
+      ? `Prime 重生已切换至 ${rotation.displayName || rotation.id}。`
+      : "Prime 重生轮换状态已更新。";
+  });
+}
+
+function applyRotation(rotation, { preview = false, announce = false, scheduleSimulation = true } = {}) {
+  cancelActiveSimulation();
+  state.rotation = rotation || null;
+  state.previewMode = Boolean(preview && rotation);
+
+  const itemIds = new Set(rotation?.items || []);
+  const relicIds = new Set(rotation?.relics || []);
+  state.primeItems = rotation ? state.allPrimeItems.filter((item) => itemIds.has(item.id)) : [];
+  state.relics = rotation ? state.allRelics.filter((relic) => relicIds.has(relic.id)) : [];
+
+  const defaultAyaBudget = Math.max(0, Math.floor(Number(rotation?.defaults?.ayaBudget) || 0));
+  const saved = loadCollectionState(getStorage(), state.allPrimeItems, {
+    rotationId: rotation?.id || "",
+    activeItemIds: rotation?.items || [],
+    defaultAyaBudget,
+    preview: state.previewMode
+  });
   state.selectedItemIds = saved.selectedItemIds;
   state.owned = Object.fromEntries(Object.entries(saved.owned || {}).map(([itemId, partCounts]) => [
     itemId,
     new Map(Object.entries(partCounts).map(([partId, count]) => [partId, Number(count) || 0]))
   ]));
+  $("budget").value = String(saved.ayaBudget);
+  $("budgetHint").textContent = rotation
+    ? `本轮默认 ${format(defaultAyaBudget)} 个；你在本轮的手工输入会单独保存`
+    : "等待首期轮换生效后载入默认预算";
 
   renderRotation();
   renderItemOptions();
   renderCollections();
-  $("dataUpdatedAt").textContent = formatDate([rotation?.lastVerified, primes?.updatedAt, relicData?.updatedAt].filter(Boolean).sort().at(-1));
+  renderRotationSchedule();
+  resetSimulationResults();
+
+  if (!state.previewMode && rotation) persistCollection({ quiet: true });
+  if (announce) {
+    announceRotationChange(rotation);
+    setStatus(`Prime 重生已更新 · ${formatDate(state.scheduleData.lastVerified)}`);
+  } else if (state.previewMode) {
+    setStatus("预览模式 · 选择、收藏与阿耶输入不会写入本地");
+  }
+
+  if (scheduleSimulation && rotation && state.primeItems.length) scheduleRun();
+}
+
+function scheduleRotationWatcher(now = Date.now()) {
+  window.clearTimeout(state.rotationTimer);
+  state.rotationTimer = null;
+  const nextRotation = state.realRotationState.nextRotation;
+  if (!nextRotation) return;
+  const remaining = getTimeUntilRotation(nextRotation, now);
+  if (remaining <= 0) {
+    state.rotationTimer = window.setTimeout(() => checkForRotationChange(Date.now()), 0);
+    return;
+  }
+  state.rotationTimer = window.setTimeout(
+    () => checkForRotationChange(Date.now()),
+    countdownUpdateDelay(remaining)
+  );
+}
+
+function checkForRotationChange(now = Date.now()) {
+  if (state.dataLoadErrors.length) return;
+  let view = resolveRotationView(state.rotations, now, state.previewId);
+  if (view.invalidPreviewId) {
+    if (!state.invalidPreviewWarned) {
+      console.warn(`Varzia rotation preview not found: ${view.invalidPreviewId}`);
+      state.invalidPreviewWarned = true;
+    }
+    state.previewId = "";
+    view = resolveRotationView(state.rotations, now);
+  }
+
+  state.realRotationState = {
+    activeRotation: view.activeRotation,
+    nextRotation: view.nextRotation,
+    previousRotation: view.previousRotation
+  };
+  const displayChanged = (state.rotation?.id || "") !== (view.displayRotation?.id || "")
+    || state.previewMode !== view.isPreview;
+  if (displayChanged) {
+    applyRotation(view.displayRotation, { preview: view.isPreview, announce: true });
+  } else {
+    renderRotationSchedule(now);
+  }
+  scheduleRotationWatcher(now);
+}
+
+function clearRotationWatcher() {
+  window.clearTimeout(state.rotationTimer);
+  state.rotationTimer = null;
+}
+
+function bindRotationLifecycle() {
+  if (state.lifecycleBound) return;
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") checkForRotationChange(Date.now());
+  });
+  window.addEventListener("pageshow", () => checkForRotationChange(Date.now()));
+  window.addEventListener("focus", () => checkForRotationChange(Date.now()));
+  window.addEventListener("pagehide", clearRotationWatcher);
+  window.addEventListener("beforeunload", clearRotationWatcher);
+  state.lifecycleBound = true;
+}
+
+async function loadData() {
+  state.dataLoadErrors = [];
+  const [scheduleData, primes, relicData] = await Promise.all([
+    readJson("data/rotation.json", fallbackSchedule),
+    readJson("data/primes.json", { primeItems: [] }),
+    readJson("data/relics.json", { relics: [] })
+  ]);
+  try {
+    validateRotationData(scheduleData, primes, relicData);
+  } catch (error) {
+    console.warn("Varzia rotation data validation failed", error);
+    state.dataLoadErrors.push("data-validation");
+  }
+
+  state.scheduleData = state.dataLoadErrors.length ? fallbackSchedule : scheduleData;
+  state.rotations = state.scheduleData.rotations || [];
+  state.allPrimeItems = state.dataLoadErrors.length ? [] : (primes?.primeItems || []);
+  state.allRelics = state.dataLoadErrors.length ? [] : (relicData?.relics || []);
+  state.previewId = new URLSearchParams(window.location.search).get("rotation")?.trim() || "";
+
+  let view = resolveRotationView(state.rotations, Date.now(), state.previewId);
+  if (view.invalidPreviewId) {
+    console.warn(`Varzia rotation preview not found: ${view.invalidPreviewId}`);
+    state.invalidPreviewWarned = true;
+    state.previewId = "";
+    view = resolveRotationView(state.rotations, Date.now());
+  }
+  state.realRotationState = {
+    activeRotation: view.activeRotation,
+    nextRotation: view.nextRotation,
+    previousRotation: view.previousRotation
+  };
+  applyRotation(view.displayRotation, { preview: view.isPreview, scheduleSimulation: false });
+
+  $("dataUpdatedAt").textContent = formatDate([
+    scheduleData?.lastVerified,
+    primes?.updatedAt,
+    relicData?.updatedAt
+  ].filter(Boolean).sort().at(-1));
   if (state.dataLoadErrors.length) {
     setStatus("本期 Prime 重生数据暂时无法确认", true);
-  } else {
-    setStatus(`数据已核对 · ${formatDate(state.rotation.lastVerified)}`);
+  } else if (!state.previewMode) {
+    setStatus(`数据已核对 · ${formatDate(state.scheduleData.lastVerified)}`);
   }
   updateStrategyNote();
   bindEvents();
   initBudgetChartResize();
   initSimulationWorker();
-  run();
+  bindRotationLifecycle();
+  scheduleRotationWatcher(Date.now());
+  if (state.rotation && state.primeItems.length) run();
+  else renderNoTargets();
 }
 
 loadData();
