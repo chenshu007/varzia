@@ -1,7 +1,6 @@
 import {
   RARITIES,
   refinementFor,
-  simulateCurrentRotation,
   squadChance
 } from "./simulator.js";
 import { validateRotationData } from "./data-validation.js";
@@ -47,6 +46,11 @@ import {
   isSimulationResponseCurrent,
   resolveRotationView
 } from "./rotation-schedule.js";
+import {
+  createSimulationWorkerClient,
+  schedulePendingRunAfterFailure,
+  simulationWorkerUrl
+} from "./simulation-worker-client.js";
 
 const fallbackSchedule = {
   schemaVersion: 2,
@@ -74,7 +78,7 @@ const state = {
   runTimer: null,
   running: false,
   pendingRun: false,
-  simulationWorker: null,
+  simulationClient: null,
   workerRequestId: 0,
   activeSimulation: null,
   lastBudgetChart: null,
@@ -637,52 +641,49 @@ function finishRun(result, trials, completedRequest) {
   renderResult(result, trials, completedRequest?.options || {});
   setResultsUpdating(false);
   $("runButton").disabled = false;
+  $("runButtonLabel").textContent = message("run.button");
 }
 
-function runOnMainThread(request) {
-  window.requestAnimationFrame(() => {
-    if (!isSimulationResponseCurrent(state.activeSimulation, request, state.rotation?.id || "")) return;
-    try {
-      finishRun(simulateCurrentRotation(request.options), request.trials, request);
-    } catch {
-      if (!isSimulationResponseCurrent(state.activeSimulation, request, state.rotation?.id || "")) return;
-      state.running = false;
-      state.activeSimulation = null;
-      $("runButton").disabled = false;
-      setResultsUpdating(false);
-      $("trialBadge").textContent = message("run.failed");
-      $("runCaption").textContent = message("run.failed");
-      if (state.pendingRun) scheduleRun();
-    }
-  });
+function failRun(request = state.activeSimulation, failureKind = "simulation") {
+  if (request && !isSimulationResponseCurrent(
+    state.activeSimulation,
+    request,
+    state.rotation?.id || ""
+  )) return;
+  const rerunRequested = state.pendingRun;
+  state.running = false;
+  state.activeSimulation = null;
+  state.pendingRun = false;
+  $("runButton").disabled = false;
+  $("runButtonLabel").textContent = message("run.button");
+  setResultsUpdating(false);
+  const failureMessage = failureKind === "unavailable"
+    ? message("run.workerUnavailable")
+    : failureKind === "timeout"
+      ? message("run.timeout")
+      : message("run.workerFailed");
+  $("trialBadge").textContent = failureMessage;
+  $("runCaption").textContent = failureMessage;
+  schedulePendingRunAfterFailure(rerunRequested, scheduleRun);
 }
 
 function initSimulationWorker() {
-  if (!("Worker" in window)) return;
-  try {
-    const worker = new Worker(new URL("./simulation-worker.js", import.meta.url), { type: "module" });
-    worker.addEventListener("message", (event) => {
-      const { result, error } = event.data || {};
-      if (!isSimulationResponseCurrent(state.activeSimulation, event.data, state.rotation?.id || "")) return;
-      if (error || !result) {
-        worker.terminate();
-        state.simulationWorker = null;
-        runOnMainThread(state.activeSimulation);
-        return;
-      }
-      const completedRequest = state.activeSimulation;
+  if (state.simulationClient) return;
+  state.simulationClient = createSimulationWorkerClient({
+    workerUrl: simulationWorkerUrl(),
+    createWorker: (url) => {
+      if (!("Worker" in window)) throw new Error("Worker unavailable");
+      return new Worker(url, { type: "module" });
+    },
+    onResult: (result, completedRequest) => {
+      if (!isSimulationResponseCurrent(state.activeSimulation, completedRequest, state.rotation?.id || "")) return;
       finishRun(result, completedRequest.trials, completedRequest);
-    });
-    worker.addEventListener("error", () => {
-      if (state.simulationWorker !== worker) return;
-      worker.terminate();
-      state.simulationWorker = null;
-      if (state.activeSimulation) runOnMainThread(state.activeSimulation);
-    });
-    state.simulationWorker = worker;
-  } catch {
-    state.simulationWorker = null;
-  }
+    },
+    onFailure: (failedRequest, failureKind) => failRun(failedRequest, failureKind),
+    scheduleFrame: (callback) => window.requestAnimationFrame(callback),
+    setTimer: (callback, delay) => window.setTimeout(callback, delay),
+    clearTimer: (timer) => window.clearTimeout(timer)
+  });
 }
 
 function run() {
@@ -702,19 +703,19 @@ function run() {
   state.pendingRun = false;
   const button = $("runButton");
   button.disabled = true;
+  $("runButtonLabel").textContent = message("run.running");
   $("runCaption").textContent = message("run.running");
   const requestId = ++state.workerRequestId;
   const rotationId = state.rotation?.id || "";
   state.activeSimulation = { ...request, requestId, rotationId };
-  if (state.simulationWorker) {
-    state.simulationWorker.postMessage({ requestId, rotationId, options: request.options });
-  } else {
-    runOnMainThread(state.activeSimulation);
-  }
+  const activeRequest = state.activeSimulation;
+  initSimulationWorker();
+  state.simulationClient.start(activeRequest);
 }
 
 function renderNoTargets() {
   setResultsUpdating(false);
+  $("runButtonLabel").textContent = message("run.button");
   $("trialBadge").textContent = message("results.waiting");
   $("primaryResultLabel").textContent = message("result.waitingTarget");
   $("finishProbability").textContent = "—";
@@ -1339,11 +1340,13 @@ function renderRecommendation(result) {
 function cancelActiveSimulation() {
   window.clearTimeout(state.runTimer);
   state.runTimer = null;
+  state.simulationClient?.cancel(state.activeSimulation);
   state.workerRequestId += 1;
   state.activeSimulation = null;
   state.running = false;
   state.pendingRun = false;
   $("runButton").disabled = false;
+  $("runButtonLabel").textContent = message("run.button");
   setResultsUpdating(false);
 }
 

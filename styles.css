@@ -156,14 +156,14 @@ a { color: inherit; }
 .rotation-preview-body li { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; border: 1px solid var(--line); border-radius: 7px; padding: 8px 9px; background: rgba(7, 20, 30, .34); font-size: 10px; }
 .rotation-preview-body li span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rotation-preview-body li em { flex: 0 0 auto; color: var(--subtle); font-size: 8px; font-style: normal; }
-.rotation-plaque { position: relative; overflow: hidden; border: 1px solid rgba(216, 229, 226, 0.18); border-radius: var(--radius-xl); padding: 27px; background: linear-gradient(145deg, rgba(23, 55, 68, 0.92), rgba(9, 28, 39, 0.92)); box-shadow: var(--shadow); }
+.rotation-plaque { --rotation-featured-reserve: 16.25rem; position: relative; overflow: hidden; border: 1px solid rgba(216, 229, 226, 0.18); border-radius: var(--radius-xl); padding: 27px; background: linear-gradient(145deg, rgba(23, 55, 68, 0.92), rgba(9, 28, 39, 0.92)); box-shadow: var(--shadow); }
 .rotation-plaque::before { position: absolute; right: -50px; bottom: -90px; width: 230px; height: 230px; border: 1px solid rgba(243, 220, 166, 0.17); border-radius: 50%; content: ""; }
 .rotation-plaque::after { position: absolute; right: -6px; bottom: -34px; width: 160px; height: 160px; border: 1px solid rgba(243, 220, 166, 0.1); border-radius: 50%; content: ""; }
 .plaque-topline { position: relative; z-index: 1; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .plaque-index { max-width: 58%; overflow: hidden; color: var(--subtle); font-size: 10px; letter-spacing: 0.08em; text-overflow: ellipsis; white-space: nowrap; }
 .rotation-plaque h2 { position: relative; z-index: 1; max-width: 350px; margin: 18px 0 8px; color: var(--ivory); font-size: 25px; font-weight: 550; letter-spacing: -0.04em; }
 .rotation-plaque p { position: relative; z-index: 1; max-width: 330px; margin: 0; color: var(--muted); font-size: 12px; line-height: 1.65; }
-.rotation-featured { position: relative; z-index: 1; display: grid; gap: 14px; margin-top: 24px; }
+.rotation-featured { position: relative; z-index: 1; display: grid; gap: 14px; min-block-size: var(--rotation-featured-reserve); margin-top: 24px; }
 .rotation-group { display: grid; gap: 7px; }
 .rotation-group-label { color: var(--champagne); font-size: 9px; font-weight: 750; letter-spacing: .11em; }
 .rotation-group-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
