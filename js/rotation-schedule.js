@@ -62,7 +62,7 @@ function pad2(value) {
   return String(Math.max(0, Math.floor(value))).padStart(2, "0");
 }
 
-export function formatRotationCountdown(remainingMs) {
+export function formatRotationCountdown(remainingMs, locale = "zh") {
   const numericRemaining = Number(remainingMs);
   if (!Number.isFinite(numericRemaining)) return "—";
   const remaining = Math.max(0, numericRemaining);
@@ -73,10 +73,12 @@ export function formatRotationCountdown(remainingMs) {
   const seconds = totalSeconds % 60;
 
   if (remaining > 7 * DAY_MS) {
-    return hours ? `${days} 天 ${hours} 小时` : `${days} 天`;
+    return locale === "en"
+      ? (hours ? `${days}d ${hours}h` : `${days}d`)
+      : (hours ? `${days} 天 ${hours} 小时` : `${days} 天`);
   }
   if (remaining >= DAY_MS) {
-    return `${days} 天 ${pad2(hours)}:${pad2(minutes)}`;
+    return locale === "en" ? `${days}d ${pad2(hours)}:${pad2(minutes)}` : `${days} 天 ${pad2(hours)}:${pad2(minutes)}`;
   }
   return `${pad2(Math.floor(totalSeconds / (60 * 60)))}:${pad2(minutes)}:${pad2(seconds)}`;
 }

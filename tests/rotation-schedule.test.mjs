@@ -70,6 +70,12 @@ test("倒计时格式按时间范围降级且永不为负", () => {
   assert.equal(formatRotationCountdown(0), "00:00:00");
 });
 
+test("英文倒计时使用英文单位并保留既有时间范围", () => {
+  assert.equal(formatRotationCountdown(14 * ROTATION_TIME.DAY_MS + 6 * ROTATION_TIME.HOUR_MS, "en"), "14d 6h");
+  assert.equal(formatRotationCountdown(3 * ROTATION_TIME.DAY_MS + 6 * ROTATION_TIME.HOUR_MS + 27 * ROTATION_TIME.MINUTE_MS, "en"), "3d 06:27");
+  assert.equal(formatRotationCountdown(18 * ROTATION_TIME.HOUR_MS + 42 * ROTATION_TIME.MINUTE_MS + 16 * ROTATION_TIME.SECOND_MS, "en"), "18:42:16");
+});
+
 test("非有限倒计时输入显示安全占位符", () => {
   assert.equal(formatRotationCountdown(Infinity), "—");
   assert.equal(formatRotationCountdown(-Infinity), "—");

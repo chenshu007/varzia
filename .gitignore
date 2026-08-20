@@ -19,3 +19,8 @@ coverage/
 /artifacts/
 /outputs/
 /work/
+
+# Local release artifacts; keep them out of ordinary git add operations
+/release-screenshots/
+/release-video/
+/varzia-*-2026-08-16.zip

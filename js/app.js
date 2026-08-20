@@ -1,21 +1,43 @@
 import {
   RARITIES,
-  REFINEMENTS,
   refinementFor,
   simulateCurrentRotation,
-  squadChance,
-  strategyNote,
-  typeLabel
+  squadChance
 } from "./simulator.js";
 import { validateRotationData } from "./data-validation.js";
 import {
   assertValidBudgetCurve,
-  formatBudgetMarker,
   formatProbability,
-  formatProbabilityPrecise,
-  probabilityDescriptor,
-  zeroProbabilityGuidance
+  formatProbabilityPrecise
 } from "./presentation.js";
+import {
+  browserLocale,
+  getLocale,
+  loadLocaleMessages,
+  localizeDisplayData,
+  localeFromPathname,
+  localePath,
+  localeTag,
+  normalizeLocale,
+  readStoredLocale,
+  resolveLocale,
+  setLocaleMessages,
+  t,
+  typeLabelKey,
+  rarityKey,
+  refinementKey,
+  writeStoredLocale
+} from "./i18n.js";
+import {
+  calculateGraduationRecap,
+  calculatePercentileDeltas,
+  formatRecapPercent
+} from "./wave1.js";
+import {
+  buildShareCardModel,
+  renderShareCardSvg,
+  svgToPngBlob
+} from "./share-card.js";
 import { loadCollectionState, saveCollectionState } from "./storage.js";
 import {
   countdownUpdateDelay,
@@ -60,11 +82,20 @@ const state = {
   chartResizeTimer: null,
   rotationTimer: null,
   lifecycleBound: false,
-  dataLoadErrors: []
+  dataLoadErrors: [],
+  locale: "en",
+  localeMessages: {},
+  recapAya: "",
+  shareCardBlob: null,
+  shareCardUrl: "",
+  lastResult: null,
+  lastResultOptions: null,
+  lastTrials: 0,
+  currentRecap: null
 };
 
 const $ = (id) => document.getElementById(id);
-const format = (number) => Number(number || 0).toLocaleString("zh-CN");
+const format = (number) => Number(number || 0).toLocaleString(browserLocale(state.locale));
 const formatDate = (value) => String(value || "—").replaceAll("-", ".");
 
 function escapeHtml(value) {
@@ -74,6 +105,114 @@ function escapeHtml(value) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
+}
+
+function message(key, variables = {}) {
+  return t(key, variables);
+}
+
+function localizedTypeLabel(type) {
+  return message(typeLabelKey(type));
+}
+
+function localizedRarityLabel(rarity) {
+  return message(rarityKey(rarity));
+}
+
+function localizedRefinementLabel(refinement) {
+  return message(refinementKey(refinement));
+}
+
+function localizedProbabilityDescriptor(probability) {
+  const value = Math.max(0, Math.min(1, Number(probability) || 0));
+  if (value >= 0.99) return message("probability.almostCertain");
+  if (value >= 0.95) return message("probability.veryLikely");
+  if (value >= 0.90) return message("probability.likely");
+  if (value >= 0.75) return message("probability.advantage");
+  if (value >= 0.55) return message("probability.aboveHalf");
+  if (value >= 0.45) return message("probability.nearHalf");
+  if (value >= 0.25) return message("probability.risky");
+  if (value > 0) return message("probability.small");
+  return message("probability.zero");
+}
+
+export function localizedBudgetMarker(value, analysisCap) {
+  const unit = message("unit.aya");
+  if (value !== null && value !== undefined && Number.isFinite(Number(value))) return `${format(value)} ${unit}`;
+  if (analysisCap !== null && analysisCap !== undefined && Number.isFinite(Number(analysisCap))) return `>${format(analysisCap)} ${unit}`;
+  return "—";
+}
+
+function unit(key) {
+  return message(`unit.${key}`);
+}
+
+function applyStaticTranslations() {
+  document.documentElement.lang = localeTag(state.locale);
+  document.querySelectorAll("[data-i18n]").forEach((element) => {
+    element.textContent = message(element.dataset.i18n);
+  });
+  document.querySelectorAll("[data-i18n-aria-label]").forEach((element) => {
+    element.setAttribute("aria-label", message(element.dataset.i18nAriaLabel));
+  });
+  document.querySelectorAll("[data-i18n-title]").forEach((element) => {
+    element.setAttribute("title", message(element.dataset.i18nTitle));
+  });
+  document.querySelectorAll("[data-i18n-placeholder]").forEach((element) => {
+    element.setAttribute("placeholder", message(element.dataset.i18nPlaceholder));
+  });
+  document.querySelectorAll("[data-i18n-alt]").forEach((element) => {
+    element.setAttribute("alt", message(element.dataset.i18nAlt));
+  });
+  document.querySelectorAll("[data-i18n-href]").forEach((element) => {
+    element.setAttribute("href", message(element.dataset.i18nHref));
+  });
+  document.querySelectorAll("[data-locale-link]").forEach((link) => {
+    const linkLocale = normalizeLocale(link.dataset.localeLink);
+    link.href = localePath(linkLocale, window.location);
+    link.classList.toggle("is-active", linkLocale === state.locale);
+    link.setAttribute("aria-current", linkLocale === state.locale ? "page" : "false");
+  });
+  const brand = document.querySelector(".brand");
+  if (brand) brand.href = localePath(state.locale, window.location);
+  updateSeoMetadata();
+}
+
+function updateSeoMetadata() {
+  const locale = state.locale;
+  const canonicalPath = `/${locale}/`;
+  const canonical = document.querySelector('link[rel="canonical"]');
+  if (canonical) canonical.href = `https://varzia.starport1116.com${canonicalPath}`;
+  document.title = message("seo.title");
+  const description = document.querySelector('meta[name="description"]');
+  if (description) description.content = message("seo.description");
+  const ogLocale = document.querySelector('meta[property="og:locale"]');
+  if (ogLocale) ogLocale.content = locale === "zh" ? "zh_CN" : "en_US";
+  const ogTitle = document.querySelector('meta[property="og:title"]');
+  if (ogTitle) ogTitle.content = message("seo.title");
+  const ogDescription = document.querySelector('meta[property="og:description"]');
+  if (ogDescription) ogDescription.content = message("seo.ogDescription");
+  const ogUrl = document.querySelector('meta[property="og:url"]');
+  if (ogUrl) ogUrl.content = `https://varzia.starport1116.com${canonicalPath}`;
+  const twitterTitle = document.querySelector('meta[name="twitter:title"]');
+  if (twitterTitle) twitterTitle.content = message("seo.title");
+  const twitterDescription = document.querySelector('meta[name="twitter:description"]');
+  if (twitterDescription) twitterDescription.content = message("seo.description");
+}
+
+function ensureLocaleRoute() {
+  const pathLocale = localeFromPathname(window.location.pathname);
+  if (pathLocale) {
+    state.locale = pathLocale;
+    return true;
+  }
+  const preferred = resolveLocale({
+    savedLocale: readStoredLocale(getStorage()),
+    navigatorLanguage: window.navigator?.language,
+    defaultLocale: "en"
+  });
+  window.location.replace(localePath(preferred, window.location));
+  return false;
 }
 
 async function readJson(path, fallback) {
@@ -139,9 +278,9 @@ function setStatus(text, isError = false) {
 }
 
 function groupForType(type) {
-  if (type === "warframe") return { id: "warframes", label: "Prime 战甲", shortLabel: "战甲" };
-  if (["primary", "secondary", "melee"].includes(type)) return { id: "weapons", label: "Prime 武器", shortLabel: "武器" };
-  return { id: "other", label: "其他 Prime 装备", shortLabel: "其他" };
+  if (type === "warframe") return { id: "warframes", labelKey: "group.warframes", shortLabelKey: "type.warframe" };
+  if (["primary", "secondary", "melee"].includes(type)) return { id: "weapons", labelKey: "group.weapons", shortLabelKey: "type.weapon" };
+  return { id: "other", labelKey: "group.other", shortLabelKey: "type.other" };
 }
 
 function groupedPrimeItems(items) {
@@ -157,18 +296,18 @@ function groupedPrimeItems(items) {
 
 function renderRotation() {
   const rotation = state.rotation;
-  $("rotationName").textContent = rotation?.displayName || "首期尚未生效";
-  $("rotationIndex").textContent = rotation?.id || "等待轮换";
-  $("targetRotationTitle").textContent = state.previewMode ? "预览 Prime 重生" : "本期 Prime 重生";
+  $("rotationName").textContent = rotation?.displayName || message("rotation.empty");
+  $("rotationIndex").textContent = rotation?.id || message("rotation.waiting");
+  $("targetRotationTitle").textContent = state.previewMode ? message("target.previewTitle") : message("target.title");
   const featured = groupedPrimeItems(state.primeItems).map((group) => `
-    <section class="rotation-group" aria-label="${escapeHtml(group.label)}">
-      <span class="rotation-group-label">${escapeHtml(group.label)}</span>
+    <section class="rotation-group" aria-label="${escapeHtml(message(group.labelKey))}">
+      <span class="rotation-group-label">${escapeHtml(message(group.labelKey))}</span>
       <div class="rotation-group-grid">
-        ${group.items.map((item) => `<span class="rotation-chip">${escapeHtml(item.name)} <em>${escapeHtml(typeLabel(item.type))}</em></span>`).join("")}
+        ${group.items.map((item) => `<span class="rotation-chip">${escapeHtml(item.name)} <em>${escapeHtml(localizedTypeLabel(item.type))}</em></span>`).join("")}
       </div>
     </section>
   `).join("");
-  $("rotationFeatured").innerHTML = featured || `<p class="rotation-empty">等待已配置的 Prime 重生轮换生效。</p>`;
+  $("rotationFeatured").innerHTML = featured || `<p class="rotation-empty">${escapeHtml(message("rotation.empty"))}</p>`;
 }
 
 function itemNamesForRotation(rotation) {
@@ -184,16 +323,16 @@ function renderRotationSchedule(now = Date.now()) {
 
   $("previewModeBanner").hidden = !state.previewMode;
   if (state.previewMode) {
-    $("previewModeText").textContent = `预览模式 · ${state.rotation?.id || state.previewId}`;
+    $("previewModeText").textContent = message("status.previewWithId", { id: state.rotation?.id || state.previewId });
   }
 
   if (!upcoming) {
     schedule.classList.remove("is-imminent");
     schedule.classList.add("is-empty");
-    $("rotationScheduleStatus").textContent = "轮换时间表";
-    $("rotationCountdownLabel").textContent = "下一期尚未公布";
+    $("rotationScheduleStatus").textContent = message("schedule.table");
+    $("rotationCountdownLabel").textContent = message("schedule.nextNotAnnounced");
     $("rotationCountdown").textContent = "—";
-    $("nextRotationTime").textContent = "当前轮换持续生效";
+    $("nextRotationTime").textContent = message("schedule.ongoing");
     $("nextRotationTime").removeAttribute("datetime");
     preview.hidden = true;
     return;
@@ -202,16 +341,16 @@ function renderRotationSchedule(now = Date.now()) {
   const remaining = getTimeUntilRotation(upcoming, now);
   schedule.classList.remove("is-empty");
   schedule.classList.toggle("is-imminent", remaining <= 24 * 60 * 60 * 1_000);
-  $("rotationScheduleStatus").textContent = hasActive ? "下一期已公布" : "首期即将生效";
-  $("rotationCountdownLabel").textContent = hasActive ? "距离下一期轮换" : "距离首期生效";
-  $("rotationCountdown").textContent = formatRotationCountdown(remaining);
-  $("nextRotationTime").textContent = formatRotationLocalTime(upcoming.startsAt);
+  $("rotationScheduleStatus").textContent = hasActive ? message("schedule.nextAnnounced") : message("schedule.firstUpcoming");
+  $("rotationCountdownLabel").textContent = hasActive ? message("schedule.until") : message("schedule.firstUpcoming");
+  $("rotationCountdown").textContent = formatRotationCountdown(remaining, state.locale);
+  $("nextRotationTime").textContent = formatRotationLocalTime(upcoming.startsAt, browserLocale(state.locale));
   $("nextRotationTime").setAttribute("datetime", upcoming.startsAt);
   $("nextRotationPreviewName").textContent = upcoming.displayName || upcoming.id;
-  $("nextRotationPreviewTime").textContent = formatRotationLocalTime(upcoming.startsAt);
-  $("nextRotationPreviewCountdown").textContent = formatRotationCountdown(remaining);
+  $("nextRotationPreviewTime").textContent = formatRotationLocalTime(upcoming.startsAt, browserLocale(state.locale));
+  $("nextRotationPreviewCountdown").textContent = formatRotationCountdown(remaining, state.locale);
   $("nextRotationPreviewItems").innerHTML = itemNamesForRotation(upcoming)
-    .map((item) => `<li><span>${escapeHtml(item.name)}</span><em>${escapeHtml(typeLabel(item.type))}</em></li>`)
+    .map((item) => `<li><span>${escapeHtml(item.name)}</span><em>${escapeHtml(localizedTypeLabel(item.type))}</em></li>`)
     .join("");
   preview.hidden = false;
 }
@@ -219,7 +358,7 @@ function renderRotationSchedule(now = Date.now()) {
 function renderItemOptions() {
   $("targetOptions").innerHTML = state.primeItems.length
     ? groupedPrimeItems(state.primeItems).map((group) => `<section class="item-option-group">
-      <div class="item-option-group-heading"><span>${escapeHtml(group.label)}</span><em>${group.items.length} 件</em></div>
+      <div class="item-option-group-heading"><span>${escapeHtml(message(group.labelKey))}</span><em>${escapeHtml(message("target.group.count", { count: format(group.items.length) }))}</em></div>
       <div class="target-option-grid">
         ${group.items.map((item) => {
           const required = item.parts.reduce((sum, part) => sum + requiredCount(part), 0);
@@ -231,16 +370,16 @@ function renderItemOptions() {
             <input type="checkbox" data-item-id="${escapeHtml(item.id)}" ${selected ? "checked" : ""} />
             <span class="target-option-main">
               <span class="target-option-name">${escapeHtml(item.name)}</span>
-              <span class="target-option-meta">${escapeHtml(typeLabel(item.type))} · ${item.parts.length} 类部件</span>
+            <span class="target-option-meta">${escapeHtml(message("target.itemParts", { type: localizedTypeLabel(item.type), count: item.parts.length }))}</span>
             </span>
             <span class="target-option-progress">${owned} / ${required}</span>
-            <span class="target-option-status">${missing ? `还缺 <strong>${missing} 件</strong>` : "<strong>已毕业</strong>"}</span>
+            <span class="target-option-status">${missing ? message("target.missing", { count: missing }) : message("target.completed")}</span>
             <span class="target-option-meter" aria-hidden="true"><span style="width: ${completion}%"></span></span>
           </label>`;
         }).join("")}
       </div>
     </section>`).join("")
-    : `<p class="field-hint">暂无可用目标数据。</p>`;
+    : `<p class="field-hint">${escapeHtml(message("target.noData"))}</p>`;
 }
 
 function renderCollections() {
@@ -254,11 +393,11 @@ function renderCollections() {
         <div class="collection-card-heading">
           <div>
             <span class="collection-card-title">${escapeHtml(item.name)}</span>
-            <span class="collection-card-subtitle">${escapeHtml(item.description || typeLabel(item.type))} · ${totalOwned} / ${totalRequired} 已有</span>
+            <span class="collection-card-subtitle">${escapeHtml(message("collection.subtitle", { type: localizedTypeLabel(item.type), owned: totalOwned, total: totalRequired }))}</span>
           </div>
           ${complete
-            ? `<span class="complete-button">已毕业</span>`
-            : `<button type="button" class="complete-button" data-complete-item="${escapeHtml(item.id)}">已拥有整套</button>`}
+            ? `<span class="complete-button">${escapeHtml(message("collection.complete"))}</span>`
+            : `<button type="button" class="complete-button" data-complete-item="${escapeHtml(item.id)}">${escapeHtml(message("collection.ownAll"))}</button>`}
         </div>
         ${item.parts.map((part) => {
           const required = requiredCount(part);
@@ -266,34 +405,36 @@ function renderCollections() {
           const isOwned = count >= required;
           const relicCount = relicsForPart(item.id, part.id).length;
           const checkboxId = `owned-${item.id}-${part.id}`;
-          const quantityControl = required > 1 ? `<span class="part-quantity" aria-label="${escapeHtml(part.name)}已拥有数量">
-            <button type="button" data-item-id="${escapeHtml(item.id)}" data-part-id="${escapeHtml(part.id)}" data-part-delta="-1" aria-label="减少一件${escapeHtml(part.name)}">−</button>
+          const quantityControl = required > 1 ? `<span class="part-quantity" aria-label="${escapeHtml(message("collection.partQuantity", { name: part.name }))}">
+            <button type="button" data-item-id="${escapeHtml(item.id)}" data-part-id="${escapeHtml(part.id)}" data-part-delta="-1" aria-label="${escapeHtml(message("collection.decrease", { name: part.name }))}">−</button>
             <span>${count} / ${required}</span>
-            <button type="button" data-item-id="${escapeHtml(item.id)}" data-part-id="${escapeHtml(part.id)}" data-part-delta="1" aria-label="增加一件${escapeHtml(part.name)}">+</button>
+            <button type="button" data-item-id="${escapeHtml(item.id)}" data-part-id="${escapeHtml(part.id)}" data-part-delta="1" aria-label="${escapeHtml(message("collection.increase", { name: part.name }))}">+</button>
           </span>` : "";
           return `<div class="part-row${isOwned ? " is-owned" : ""}">
             <input id="${escapeHtml(checkboxId)}" type="checkbox" data-item-id="${escapeHtml(item.id)}" data-part-id="${escapeHtml(part.id)}" ${isOwned ? "checked" : ""} />
             <label class="part-name" for="${escapeHtml(checkboxId)}">${escapeHtml(part.name)}${required > 1 ? ` ×${required}` : ""}</label>
             ${quantityControl}
-            <span class="rarity rarity-${escapeHtml(part.rarity)}">${escapeHtml(RARITIES[part.rarity]?.label || part.rarity)}</span>
-            <span class="part-meta">${relicCount} 个遗物</span>
+            <span class="rarity rarity-${escapeHtml(part.rarity)}">${escapeHtml(localizedRarityLabel(part.rarity))}</span>
+            <span class="part-meta">${escapeHtml(message("collection.partMeta", { count: relicCount }))}</span>
           </div>`;
         }).join("")}
       </section>`;
     }).join("")
-    : `<p class="field-hint">先在上面选择一套或多套 Prime，下面会出现你的部件清单。</p>`;
+    : `<p class="field-hint">${escapeHtml(message("target.noSelection"))}</p>`;
 
   const selected = items.length;
   const totalParts = items.reduce((sum, item) => sum + item.parts.reduce((partSum, part) => partSum + requiredCount(part), 0), 0);
   const totalOwned = items.reduce((sum, item) => sum + item.parts.reduce((partSum, part) => (
     partSum + Math.min(requiredCount(part), ownedCount(item.id, part.id))
   ), 0), 0);
-  $("targetCount").textContent = selected ? `${selected} 件目标 · ${totalOwned} / ${totalParts} 已有` : "未选择目标";
+  $("targetCount").textContent = selected
+    ? message("target.count", { count: selected, owned: totalOwned, total: totalParts })
+    : message("target.none");
 }
 
 function persistCollection({ quiet = false } = {}) {
   if (state.previewMode || !state.rotation) {
-    if (!quiet && state.previewMode) setStatus("预览模式 · 本地状态未写入");
+    if (!quiet && state.previewMode) setStatus(message("status.preview"));
     return false;
   }
   const owned = Object.fromEntries(Object.entries(state.owned).map(([itemId, parts]) => [
@@ -306,13 +447,13 @@ function persistCollection({ quiet = false } = {}) {
     owned,
     ayaBudget: Number($("budget").value) || 0
   });
-  if (!quiet && saved && state.dataLoadErrors.length) setStatus("本期 Prime 重生数据暂时无法确认", true);
-  else if (!quiet && saved) setStatus(`数据已核对 · ${formatDate(state.scheduleData.lastVerified)} · 已保存在本地`);
+  if (!quiet && saved && state.dataLoadErrors.length) setStatus(message("status.dataError"), true);
+  else if (!quiet && saved) setStatus(message("status.dataSaved", { date: formatDate(state.scheduleData.lastVerified) }));
   return saved;
 }
 
 function updateStrategyNote() {
-  $("strategyNote").textContent = strategyNote($("strategy").value);
+  $("strategyNote").textContent = message(`strategy.note.${$("strategy").value}`);
 }
 
 function setMode(mode) {
@@ -320,12 +461,18 @@ function setMode(mode) {
   $("modePicker").querySelectorAll("button").forEach((button) => {
     button.setAttribute("aria-pressed", String(button.dataset.mode === mode));
   });
-  $("budgetLabel").textContent = mode === "goal" ? "最多愿意准备的阿耶精华" : "我有多少阿耶精华";
+  $("budgetLabel").textContent = message(mode === "goal" ? "budget.goalLabel" : "budget.label");
   $("goalLine").closest(".goal-line-field").hidden = mode !== "goal";
   scheduleRun();
 }
 
 function bindEvents() {
+  document.querySelectorAll("[data-locale-link]").forEach((link) => {
+    link.addEventListener("click", () => {
+      writeStoredLocale(getStorage(), link.dataset.localeLink);
+    });
+  });
+
   $("budgetJump")?.addEventListener("click", () => {
     $("planner")?.scrollIntoView({ behavior: "smooth", block: "start" });
     window.setTimeout(() => $("budget")?.focus(), 450);
@@ -423,6 +570,10 @@ function bindEvents() {
   $("strategy").addEventListener("change", () => { updateStrategyNote(); scheduleRun(); });
   $("trials").addEventListener("change", scheduleRun);
   $("goalLine").addEventListener("change", scheduleRun);
+  $("observedAya")?.addEventListener("input", (event) => {
+    state.recapAya = event.target.value;
+    renderGraduationRecap();
+  });
   $("squadPicker").addEventListener("click", (event) => {
     const button = event.target.closest("button[data-squad]");
     if (!button) return;
@@ -433,6 +584,10 @@ function bindEvents() {
     scheduleRun();
   });
   $("runButton").addEventListener("click", run);
+  $("shareResultButton")?.addEventListener("click", generateShareCard);
+  $("shareDownloadLink")?.addEventListener("click", (event) => {
+    if (!state.shareCardBlob) event.preventDefault();
+  });
 }
 
 function scheduleRun() {
@@ -446,7 +601,7 @@ function setResultsUpdating(updating) {
   results?.classList.toggle("is-updating", updating);
   results?.setAttribute("aria-busy", String(updating));
   $("budgetDistribution")?.setAttribute("aria-busy", String(updating));
-  if (updating) $("trialBadge").textContent = "结果更新中";
+  if (updating) $("trialBadge").textContent = message("results.updating");
 }
 
 function simulationOptions() {
@@ -495,8 +650,8 @@ function runOnMainThread(request) {
       state.activeSimulation = null;
       $("runButton").disabled = false;
       setResultsUpdating(false);
-      $("trialBadge").textContent = "模拟失败";
-      $("runCaption").textContent = "这次模拟没有跑完，请再试一次";
+      $("trialBadge").textContent = message("run.failed");
+      $("runCaption").textContent = message("run.failed");
       if (state.pendingRun) scheduleRun();
     }
   });
@@ -547,7 +702,7 @@ function run() {
   state.pendingRun = false;
   const button = $("runButton");
   button.disabled = true;
-  $("runCaption").textContent = "正在展开平行世界……";
+  $("runCaption").textContent = message("run.running");
   const requestId = ++state.workerRequestId;
   const rotationId = state.rotation?.id || "";
   state.activeSimulation = { ...request, requestId, rotationId };
@@ -560,42 +715,55 @@ function run() {
 
 function renderNoTargets() {
   setResultsUpdating(false);
-  $("trialBadge").textContent = "等待目标";
-  $("primaryResultLabel").textContent = "先选择 Prime 目标";
+  $("trialBadge").textContent = message("results.waiting");
+  $("primaryResultLabel").textContent = message("result.waitingTarget");
   $("finishProbability").textContent = "—";
-  $("finishDetail").textContent = "默认会模拟本期全部 Prime";
-  $("resultStatus").textContent = "—";
-  $("resultSentence").textContent = "选择目标后，Varzia 会替你跑完这条时间线。";
+  $("finishDetail").textContent = message("result.waitingDetail");
+  $("resultStatus").textContent = message("result.waitingStatus");
+  $("resultSentence").textContent = message("result.chooseSentence");
   $("probabilityBar").style.width = "0%";
   ["meanAya", "budgetKpiCurrent", "budgetKpiProbability", "budgetKpiP50", "budgetKpiP95", "budgetKpiP99"].forEach((id) => { $(id).textContent = "—"; });
-  $("budgetKpiProbabilityNote").textContent = "等待模拟";
+  $("budgetKpiProbabilityNote").textContent = message("kpi.waiting");
   ["summaryTargets", "summaryCompleted", "summaryRemaining", "summaryBudget"].forEach((id) => { $(id).textContent = "—"; });
   $("traceTotal").textContent = "—";
-  $("runCaption").textContent = "选择目标后开始模拟";
-  $("verdict").innerHTML = `<span class="verdict-mark" aria-hidden="true">✦</span><span>先选一套或多套 Prime，再让瓦奇娅展开平行世界。</span>`;
-  $("timelineHeadline").textContent = "还没有要毕业的目标。";
-  $("timelineDetail").textContent = "选择目标后，这里会显示模拟时间线。";
+  $("runCaption").textContent = message("run.waitingTarget");
+  $("verdict").innerHTML = `<span class="verdict-mark" aria-hidden="true">✦</span><span>${escapeHtml(message("verdict.choose"))}</span>`;
+  $("timelineHeadline").textContent = message("app.noTargetTimeline");
+  $("timelineDetail").textContent = message("app.noTargetTimelineDetail");
   $("timelineSuccess").textContent = "—";
   renderBudgetDistribution(null, Number($("budget").value) || 0);
-  $("breakdownBody").innerHTML = `<tr><td class="empty-row" colspan="5">还没有选择 Prime 目标。</td></tr>`;
+  $("breakdownBody").innerHTML = `<tr><td class="empty-row" colspan="5">${escapeHtml(message("app.noTargetSelection"))}</td></tr>`;
   renderItemResults({ itemProbabilities: [] });
   $("recommendationAya").textContent = "—";
-  $("recommendationList").innerHTML = `<p class="field-hint">先选择目标，才会生成购买路线。</p>`;
+  $("recommendationList").innerHTML = `<p class="field-hint">${escapeHtml(message("app.noTargetRecommendation"))}</p>`;
+  $("targetDeltaList").innerHTML = `<p class="field-hint">${escapeHtml(message("delta.waiting"))}</p>`;
+  $("sharePanel").hidden = true;
+  $("recapPanel").hidden = true;
+  $("observedAya").value = "";
+  state.recapAya = "";
 }
 
 function resetSimulationResults() {
   renderNoTargets();
   if (!state.selectedItemIds.length) return;
-  $("trialBadge").textContent = "等待模拟";
-  $("primaryResultLabel").textContent = state.previewMode ? "预览轮换全部毕业概率" : "本期目标全部毕业概率";
-  $("finishDetail").textContent = "轮换数据已更新";
-  $("resultSentence").textContent = "新轮换尚未产生模拟结果。";
-  $("runCaption").textContent = "正在为当前轮换重新模拟";
-  $("verdict").innerHTML = `<span class="verdict-mark" aria-hidden="true">✦</span><span>等待当前轮换的蒙地卡罗结果。</span>`;
-  $("timelineHeadline").textContent = "当前轮换等待模拟。";
-  $("timelineDetail").textContent = "旧轮换结果已清除。";
-  $("breakdownBody").innerHTML = `<tr><td class="empty-row" colspan="5">等待当前轮换模拟结果。</td></tr>`;
-  $("recommendationList").innerHTML = `<p class="field-hint">等待当前轮换生成购买路线。</p>`;
+  $("trialBadge").textContent = message("results.waiting");
+  $("primaryResultLabel").textContent = state.previewMode ? message("target.previewTitle") : message("result.primary");
+  $("finishDetail").textContent = message("result.updatedDetail");
+  $("resultSentence").textContent = message("result.newRotation");
+  $("runCaption").textContent = message("app.waitingCurrentRotation");
+  $("verdict").innerHTML = `<span class="verdict-mark" aria-hidden="true">✦</span><span>${escapeHtml(message("verdict.waitingRotation"))}</span>`;
+  $("timelineHeadline").textContent = message("app.waitingCurrentRotation");
+  $("timelineDetail").textContent = message("app.newRotation");
+  $("breakdownBody").innerHTML = `<tr><td class="empty-row" colspan="5">${escapeHtml(message("app.waitingRotation"))}</td></tr>`;
+  $("recommendationList").innerHTML = `<p class="field-hint">${escapeHtml(message("app.waitingRecommendation"))}</p>`;
+  $("targetDeltaList").innerHTML = `<p class="field-hint">${escapeHtml(message("delta.waiting"))}</p>`;
+  $("sharePanel").hidden = true;
+  $("recapPanel").hidden = true;
+  state.shareCardBlob = null;
+  if (state.shareCardUrl) {
+    URL.revokeObjectURL(state.shareCardUrl);
+    state.shareCardUrl = "";
+  }
 }
 
 function clamp(value, minimum, maximum) {
@@ -668,28 +836,28 @@ function emptyBudgetChart(message) {
 function renderBudgetDistribution(result, budget = Number($("budget").value) || 0, analysisCap = result?.analysisCap) {
   const renderStartedAt = performance.now();
   const currentBudget = Math.max(0, Math.floor(Number(budget) || 0));
-  $("budgetKpiCurrent").textContent = `${format(currentBudget)} 个`;
+  $("budgetKpiCurrent").textContent = localizedBudgetMarker(currentBudget, null);
   if (!result) {
     state.lastBudgetChart = null;
     $("budgetKpiProbability").textContent = "—";
-    $("budgetKpiProbabilityNote").textContent = "等待模拟";
+    $("budgetKpiProbabilityNote").textContent = message("kpi.waiting");
     ["budgetKpiP50", "budgetKpiP95", "budgetKpiP99"].forEach((id) => { $(id).textContent = "—"; });
-    emptyBudgetChart("选择目标后显示真实预算分布");
+    emptyBudgetChart(message("chart.waiting"));
     return;
   }
 
   state.lastBudgetChart = { result, budget: currentBudget, analysisCap };
   $("budgetKpiProbability").textContent = formatProbabilityPrecise(result.finishProbability);
-  $("budgetKpiProbabilityNote").textContent = probabilityDescriptor(result.finishProbability);
-  $("budgetKpiP50").textContent = formatBudgetMarker(result.p50, analysisCap);
-  $("budgetKpiP95").textContent = formatBudgetMarker(result.p95, analysisCap);
-  $("budgetKpiP99").textContent = formatBudgetMarker(result.p99, analysisCap);
+  $("budgetKpiProbabilityNote").textContent = localizedProbabilityDescriptor(result.finishProbability);
+  $("budgetKpiP50").textContent = localizedBudgetMarker(result.p50, analysisCap);
+  $("budgetKpiP95").textContent = localizedBudgetMarker(result.p95, analysisCap);
+  $("budgetKpiP99").textContent = localizedBudgetMarker(result.p99, analysisCap);
 
   try {
     assertValidBudgetCurve(result.budgetCurve);
   } catch (error) {
     console.warn("Varzia budget curve validation failed", error);
-    emptyBudgetChart("预算分布校验失败，未绘制曲线");
+    emptyBudgetChart(message("chart.validation"));
     return;
   }
 
@@ -728,7 +896,7 @@ function renderBudgetDistribution(result, budget = Number($("budget").value) || 
   )))];
   const pointAtBudget = (aya) => result.budgetCurve[Math.min(curveCap, Math.max(0, aya))];
   const markerSpecs = [
-    { id: "current", label: "你在这里", budget: currentBudget, probability: result.finishProbability, showLabel: true },
+    { id: "current", label: message("chart.current"), budget: currentBudget, probability: result.finishProbability, showLabel: true },
     { id: "p50", label: "P50", budget: result.p50, target: 0.50, showLabel: true },
     { id: "p90", label: "P90", budget: result.p90, target: 0.90, showLabel: !mobile },
     { id: "p95", label: "P95", budget: result.p95, target: 0.95, showLabel: true },
@@ -763,36 +931,40 @@ function renderBudgetDistribution(result, budget = Number($("budget").value) || 
   )).map((marker) => {
     const isCurrent = marker.id === "current";
     const labelValue = isCurrent
-      ? `${format(marker.markerBudget)} 个 · ${formatProbabilityPrecise(marker.probability)}`
-      : `${marker.capped ? ">" : ""}${format(marker.markerBudget)} 个`;
+      ? `${localizedBudgetMarker(marker.markerBudget, null)} · ${formatProbabilityPrecise(marker.probability)}`
+      : localizedBudgetMarker(marker.capped ? null : marker.markerBudget, marker.capped ? marker.markerBudget : null);
     const label = marker.box ? `<line class="budget-marker-line" x1="${marker.x}" y1="${marker.y}" x2="${marker.box.x + marker.box.width / 2}" y2="${marker.box.y + marker.box.height / 2}"></line>
       <rect class="budget-label-box${isCurrent ? " is-current" : ""}" x="${marker.box.x}" y="${marker.box.y}" width="${marker.box.width}" height="${marker.box.height}" rx="7"></rect>
       <text class="budget-label-kicker${isCurrent ? " is-current" : ""}" x="${marker.box.x + 8}" y="${marker.box.y + 13}">${escapeHtml(marker.label)}</text>
       <text class="budget-label-value" x="${marker.box.x + 8}" y="${marker.box.y + marker.box.height - 9}">${escapeHtml(labelValue)}</text>` : "";
     return `${label}<circle class="budget-marker-dot${isCurrent ? " is-current" : ""}" cx="${marker.x}" cy="${marker.y}" r="${isCurrent ? 5 : 3.5}"></circle>`;
   }).join("");
-  const ariaLabel = `毕业预算分布。当前预算 ${format(currentBudget)} 个阿耶精华，全部毕业概率 ${formatProbabilityPrecise(result.finishProbability)}，P95 为 ${formatBudgetMarker(result.p95, analysisCap)}。`;
+  const ariaLabel = message("chart.aria", {
+    budget: format(currentBudget),
+    probability: formatProbabilityPrecise(result.finishProbability),
+    p95: localizedBudgetMarker(result.p95, analysisCap)
+  });
 
   svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
   svg.setAttribute("aria-label", ariaLabel);
   svg.innerHTML = `<title>${escapeHtml(ariaLabel)}</title>
-    <desc>横轴是阿耶精华预算，纵轴是在预算内完成全部目标的真实蒙地卡罗模拟比例。</desc>
+    <desc>${escapeHtml(message("chart.desc"))}</desc>
     <defs><linearGradient id="budgetAreaGradient" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--champagne-bright)" stop-opacity=".11"></stop><stop offset="1" stop-color="var(--champagne-bright)" stop-opacity=".015"></stop></linearGradient></defs>
     ${gridMarkup}
     <line class="budget-axis-line" x1="${plot.left}" y1="${plot.top + plot.height}" x2="${plot.left + plot.width}" y2="${plot.top + plot.height}"></line>
     ${xAxisMarkup}
-    <text class="budget-axis-title" x="${plot.left}" y="11">毕业概率</text>
-    <text class="budget-axis-title" x="${plot.left + plot.width / 2}" y="${height - 7}" text-anchor="middle">阿耶精华预算（个）</text>
+    <text class="budget-axis-title" x="${plot.left}" y="11">${escapeHtml(message("chart.axisProbability"))}</text>
+    <text class="budget-axis-title" x="${plot.left + plot.width / 2}" y="${height - 7}" text-anchor="middle">${escapeHtml(message("chart.axisBudget"))}</text>
     <path class="budget-area" d="${areaPath}"></path>
     <path class="budget-path" d="${path}"></path>
     <line class="budget-current-line" x1="${xFor(currentBudget)}" y1="${plot.top}" x2="${xFor(currentBudget)}" y2="${plot.top + plot.height}"></line>
     ${markerMarkup}
     <g id="budgetHoverMarker" visibility="hidden"><line class="budget-hover-line" x1="0" y1="${plot.top}" x2="0" y2="${plot.top + plot.height}"></line><circle class="budget-hover-dot" cx="0" cy="0" r="4"></circle></g>
-    <rect class="budget-hit-target" x="${plot.left}" y="${plot.top}" width="${plot.width}" height="${plot.height}" tabindex="0" role="application" aria-label="使用左右方向键查看每个预算节点"></rect>`;
+    <rect class="budget-hit-target" x="${plot.left}" y="${plot.top}" width="${plot.width}" height="${plot.height}" tabindex="0" role="application" aria-label="${escapeHtml(message("chart.keyboard"))}"></rect>`;
 
   $("budgetMarkerLegend").innerHTML = [
     ["P50", result.p50], ["P90", result.p90], ["P95", result.p95], ["P99", result.p99]
-  ].map(([label, value]) => `<span class="${Number.isFinite(value) ? "" : "is-capped"}"><b>${label}</b><strong>${escapeHtml(formatBudgetMarker(value, analysisCap))}</strong></span>`).join("");
+  ].map(([label, value]) => `<span class="${Number.isFinite(value) ? "" : "is-capped"}"${Number.isFinite(value) ? "" : ` data-cap-note="${escapeHtml(message("chart.overCap"))}"`}><b>${label}</b><strong>${escapeHtml(localizedBudgetMarker(value, analysisCap))}</strong></span>`).join("");
 
   const hitTarget = svg.querySelector(".budget-hit-target");
   const hoverMarker = svg.querySelector("#budgetHoverMarker");
@@ -810,7 +982,7 @@ function renderBudgetDistribution(result, budget = Number($("budget").value) || 
     hoverDot.setAttribute("cx", x);
     hoverDot.setAttribute("cy", y);
     tooltip.hidden = false;
-    tooltip.innerHTML = `<strong>${format(activeBudget)} 个阿耶</strong>${formatProbabilityPrecise(point.finishProbability)} 毕业概率`;
+    tooltip.innerHTML = `<strong>${escapeHtml(message("chart.tooltip", { budget: format(activeBudget), probability: formatProbabilityPrecise(point.finishProbability) }))}</strong>`;
     const left = clamp((x / width) * shell.clientWidth + 10, 8, Math.max(8, shell.clientWidth - 166));
     const top = clamp((y / height) * shell.clientHeight - 58, 8, Math.max(8, shell.clientHeight - 58));
     tooltip.style.left = `${left}px`;
@@ -867,19 +1039,21 @@ function initBudgetChartResize() {
 
 function verdictFor(probability, result, budget) {
   if (probability >= 0.95) {
-    return { label: "大赢特赢", message: `按当前条件，约 ${formatProbability(probability)} 的时间线可以在预算内全部毕业。` };
+    return { label: message("verdict.lucky"), message: message("verdict.luckyMessage", { probability: formatProbability(probability) }) };
   }
   if (probability >= 0.90) {
-    return { label: "领奖台区", message: "你已经站进领奖台区。大多数时间线都会顺利冲过终点。" };
+    return { label: message("verdict.podium"), message: message("verdict.podiumMessage") };
   }
   if (probability >= 0.75) {
-    return { label: "优势局", message: `大多数时间线都能毕业；如果想少一点意外，可以看 P95 保险线。` };
+    return { label: message("verdict.advantage"), message: message("verdict.advantageMessage") };
   }
   if (probability >= 0.45) {
-    return { label: "五五开", message: `预算能覆盖一半左右的时间线，脸黑时还需要再准备一些阿耶精华。` };
+    return { label: message("verdict.coinflip"), message: message("verdict.coinflipMessage") };
   }
-  const extra = result.p90 === null ? "先把预算拉高，再观察毕业曲线。" : `建议至少攒到 P90 的 ${format(result.p90)} 个阿耶精华。`;
-  return { label: "阿耶精华红区", message: `这轮还比较悬。${extra}` };
+  const extra = result.p90 === null
+    ? message("verdict.redExtraCap")
+    : message("verdict.redExtraP90", { budget: format(result.p90) });
+  return { label: message("verdict.red"), message: message("verdict.redMessage", { extra }) };
 }
 
 function renderResult(result, trials, options = {}) {
@@ -887,74 +1061,214 @@ function renderResult(result, trials, options = {}) {
   const analysisCap = Number(options.analysisCap);
   const goal = Number($("goalLine").value) || 0.9;
   const goalBudget = goal === 0.5 ? result.p50 : goal === 0.95 ? result.p95 : goal === 0.99 ? result.p99 : result.p90;
-  const displayProbability = state.mode === "goal" ? formatBudgetMarker(goalBudget, analysisCap) : formatProbabilityPrecise(result.finishProbability);
+  const displayProbability = state.mode === "goal" ? localizedBudgetMarker(goalBudget, analysisCap) : formatProbabilityPrecise(result.finishProbability);
 
-  $("trialBadge").textContent = result.empty ? "已毕业" : `已跑 ${format(trials)} 次`;
+  state.lastResult = result;
+  state.lastResultOptions = options;
+  state.lastTrials = trials;
+
+  $("trialBadge").textContent = result.empty ? message("result.graduated") : `${format(trials)} ${unit("trial")}`;
   $("primaryResultLabel").textContent = state.mode === "goal"
-    ? `达到 ${Math.round(goal * 100)}% 全部毕业需要`
-    : "本期目标全部毕业概率";
+    ? message("result.goal", { percent: Math.round(goal * 100) })
+    : message("result.primary");
   $("finishProbability").textContent = displayProbability;
   $("finishDetail").textContent = result.empty
-    ? "所有部件都在你的仓库里"
+    ? message("result.emptyDetail")
     : state.mode === "goal"
-      ? `当前分析上限 ${format(analysisCap)} 阿耶精华`
-      : `当前预算 ${format(budget)} 阿耶精华`;
+      ? message("result.analysisDetail", { budget: localizedBudgetMarker(analysisCap, null) })
+      : message("result.currentDetail", { budget: localizedBudgetMarker(budget, null) });
   $("probabilityBar").style.width = `${Math.max(0, Math.min(100, result.finishProbability * 100))}%`;
-  $("meanAya").textContent = result.empty ? "0 个" : `${format(Math.ceil(result.averageAya))} 个`;
-  $("traceTotal").textContent = result.empty ? "虚空光体：0" : `中位虚空光体 · ${format(result.medianTraces)}`;
-  $("runCaption").textContent = result.empty ? "这个目标已经毕业" : `已根据当前条件更新 · ${format(trials)} 次抽样`;
-  $("summaryTargets").textContent = `${format(result.summary?.itemCount)} 件`;
+  $("meanAya").textContent = format(result.empty ? 0 : Math.ceil(result.averageAya));
+  $("traceTotal").textContent = result.empty ? message("trace.zero") : message("trace.median", { count: format(result.medianTraces) });
+  $("runCaption").textContent = result.empty ? message("run.completed") : message("run.updated", { trials: format(trials) });
+  $("summaryTargets").textContent = `${format(result.summary?.itemCount)} ${unit("item")}`;
   $("summaryCompleted").textContent = `${format(result.summary?.completedItems)} / ${format(result.summary?.itemCount)}`;
-  $("summaryRemaining").textContent = `${format(result.summary?.remainingParts)} 件`;
-  $("summaryBudget").textContent = `${format(result.summary?.budget)} 个`;
+  $("summaryRemaining").textContent = `${format(result.summary?.remainingParts)} ${unit("part")}`;
+  $("summaryBudget").textContent = localizedBudgetMarker(result.summary?.budget, null);
 
   const verdict = $("verdict");
   if (result.empty) {
-    $("resultStatus").textContent = "已毕业";
-    $("resultSentence").textContent = "本期已经毕业。瓦奇娅今天没有你的生意。";
-    verdict.innerHTML = `<span class="verdict-mark" aria-hidden="true">✦</span><strong class="verdict-status">已经毕业</strong><span>建议把省下来的阿耶精华留给下一轮，或者去飞船里发呆。</span>`;
+    $("resultStatus").textContent = message("result.graduated");
+    $("resultSentence").textContent = message("result.finishedSentence");
+    verdict.innerHTML = `<span class="verdict-mark" aria-hidden="true">✦</span><strong class="verdict-status">${escapeHtml(message("result.finishedVerdict"))}</strong><span>${escapeHtml(message("result.finishedAdvice"))}</span>`;
   } else if (result.finishProbability === 0) {
-    const guidance = zeroProbabilityGuidance({
-      budget,
-      trials,
-      p50: result.p50,
-      p90: result.p90,
-      p95: result.p95
-    });
-    $("resultStatus").textContent = guidance.status;
-    $("resultSentence").textContent = guidance.sentence;
-    verdict.innerHTML = `<span class="verdict-mark" aria-hidden="true">✦</span><strong class="verdict-status">${guidance.status}</strong><span>${guidance.message}</span><span class="verdict-tail">${guidance.tail}</span>`;
+    const gaps = [
+      ["P50", result.p50],
+      ["P90", result.p90],
+      ["P95", result.p95]
+    ].filter(([, line]) => Number.isFinite(line) && line >= budget)
+      .map(([label, line]) => message(`verdict.gap${label}`, { gap: format(line - budget) }));
+    const gapMessage = gaps.length ? gaps.join(state.locale === "zh" ? "；" : "; ") : message("verdict.noStableLine");
+    const status = message("verdict.zeroStatus");
+    $("resultStatus").textContent = status;
+    $("resultSentence").textContent = message("verdict.zeroSentence", { budget: format(budget), trials: format(trials) });
+    verdict.innerHTML = `<span class="verdict-mark" aria-hidden="true">✦</span><strong class="verdict-status">${escapeHtml(status)}</strong><span>${escapeHtml(message("verdict.zeroMessage", { gaps: gapMessage }))}</span><span class="verdict-tail">${escapeHtml(message("verdict.zeroTail"))}</span>`;
   } else {
     const outcome = verdictFor(result.finishProbability, result, budget);
     $("resultStatus").textContent = outcome.label;
     $("resultSentence").textContent = result.p95 === null
-      ? `你当前拥有 ${format(budget)} 个阿耶精华；P95 尚未在当前搜索范围内出现。`
+      ? message("verdict.p95Missing", { budget: format(budget) })
       : budget < result.p95
-        ? `你当前拥有 ${format(budget)} 个阿耶精华。再准备 ${format(result.p95 - budget)} 个，可进入约 95% 的模拟区间。`
-        : `你当前拥有 ${format(budget)} 个阿耶精华，已经进入 P95 保险线。`;
+        ? message("verdict.p95Short", { budget: format(budget), gap: format(result.p95 - budget) })
+        : message("verdict.p95Reached", { budget: format(budget) });
     const insurance = result.p95 !== null && budget < result.p95
-      ? `<span class="verdict-tail">距 P95 还差 ${format(result.p95 - budget)} 个阿耶精华</span>`
-      : `<span class="verdict-tail">已进入 P95 保险线</span>`;
+      ? `<span class="verdict-tail">${escapeHtml(message("verdict.p95ShortTail", { gap: format(result.p95 - budget) }))}</span>`
+      : `<span class="verdict-tail">${escapeHtml(message("verdict.p95ReachedTail"))}</span>`;
     verdict.innerHTML = `<span class="verdict-mark" aria-hidden="true">✦</span><strong class="verdict-status">${outcome.label}</strong><span>${outcome.message}</span>${insurance}`;
   }
 
   renderBudgetDistribution(result, budget, result.analysisCap || analysisCap);
 
   $("timelineHeadline").textContent = result.empty
-    ? "你的所有目标都已经收集完成。"
+    ? message("timeline.emptyHeadline")
     : result.finishProbability === 0
-      ? `${format(trials)} 条时间线中没有一条完成全部目标。`
-      : `我们让你刷了 ${format(trials)} 条时间线。`;
+      ? message("timeline.zeroHeadline", { trials: format(trials) })
+      : message("timeline.normalHeadline", { trials: format(trials) });
   $("timelineDetail").textContent = result.empty
-    ? "这一次没有新的随机数需要面对。"
+    ? message("timeline.emptyDetail")
     : result.finishProbability === 0
-      ? "当前预算更适合优先完成部分 Prime，而不是追求本期全部毕业。"
-      : `${format(result.timelines.failed)} 条时间线没能在当前预算内毕业。`;
-  $("timelineSuccess").textContent = result.empty ? "100%" : `${format(result.timelines.success)} 条毕业`;
+      ? message("timeline.zeroDetail")
+      : message("timeline.normalDetail", { failed: format(result.timelines.failed) });
+  $("timelineSuccess").textContent = result.empty ? "100%" : message("timeline.success", { count: format(result.timelines.success) });
 
   renderBreakdown();
   renderItemResults(result);
   renderRecommendation(result);
+  renderPercentileDeltas(result, budget);
+  $("sharePanel").hidden = false;
+  $("recapPanel").hidden = false;
+  renderGraduationRecap();
+}
+
+function renderPercentileDeltas(result, currentBudget) {
+  const deltas = calculatePercentileDeltas({ currentBudget, percentiles: result });
+  $("targetDeltaList").innerHTML = deltas.map((entry) => {
+    const body = entry.status === "capped"
+      ? message("delta.exceeds", { label: entry.label })
+      : entry.status === "remaining"
+        ? message("delta.remaining", { delta: format(entry.delta), label: entry.label })
+        : message("delta.reached", { label: entry.label });
+    const tone = entry.status === "remaining" ? "is-open" : entry.status === "capped" ? "is-capped" : "is-reached";
+    return `<article class="target-delta-card ${tone}"><span class="target-delta-label">${escapeHtml(entry.label)}</span><strong>${escapeHtml(body)}</strong>${entry.status === "remaining" ? `<small>${escapeHtml(localizedBudgetMarker(entry.budget, null))}</small>` : ""}</article>`;
+  }).join("");
+}
+
+function renderGraduationRecap() {
+  const input = $("observedAya");
+  const output = $("recapResult");
+  if (!input || !output) return;
+  if (!state.lastResult) {
+    input.disabled = true;
+    output.textContent = message("recap.waiting");
+    state.currentRecap = null;
+    return;
+  }
+  input.disabled = false;
+  const value = input.value.trim();
+  if (!value) {
+    output.textContent = message("recap.waiting");
+    state.currentRecap = null;
+    return;
+  }
+  const recap = calculateGraduationRecap({ curve: state.lastResult.budgetCurve, observedAya: value });
+  state.currentRecap = recap;
+  if (recap.status !== "ok") {
+    output.innerHTML = `<span class="recap-result-status is-outside">${escapeHtml(message("recap.outside"))}</span>`;
+    return;
+  }
+  const percentile = formatRecapPercent(recap.faceBlackIndex);
+  const beat = formatRecapPercent(recap.beatPercentage);
+  const band = message(`recap.band.${recap.band}`);
+  const description = recap.percentile < 0.1
+    ? message("recap.luckyMessage", { aya: format(recap.observedAya), value: beat })
+    : message("recap.message", { value: percentile });
+  output.innerHTML = `<div class="recap-result-heading"><strong>${escapeHtml(band)}</strong><span>${escapeHtml(message("recap.index", { value: percentile }))}</span><span>${escapeHtml(message("recap.beat", { value: beat }))}</span></div><p>${escapeHtml(description)}</p>`;
+}
+
+function shareCardLabels() {
+  return {
+    brand: "VARZIA",
+    subtitle: message("share.cardSubtitle"),
+    rotation: message("share.cardRotation"),
+    targets: message("share.cardTargets"),
+    targetUnit: message("share.cardTargetUnit"),
+    currentAya: message("share.cardCurrentAya"),
+    probability: message("share.cardProbability"),
+    percentile: message("share.cardPercentile"),
+    squad: message("share.cardSquad"),
+    simulations: message("share.cardSimulations"),
+    recap: message("share.cardRecap"),
+    faceBlack: message("share.cardFaceBlack"),
+    beat: message("share.cardBeat"),
+    overCap: message("share.cardOverCap")
+  };
+}
+
+function shareFilename() {
+  const id = state.rotation?.id || "rotation";
+  return `varzia-${state.locale}-${id}-result.png`;
+}
+
+async function generateShareCard() {
+  if (!state.lastResult) {
+    $("shareStatus").textContent = message("share.needsResult");
+    return;
+  }
+  const button = $("shareResultButton");
+  const status = $("shareStatus");
+  button.disabled = true;
+  status.textContent = message("share.generating");
+  try {
+    const result = state.lastResult;
+    const model = buildShareCardModel({
+      locale: state.locale,
+      rotationName: state.rotation?.displayName || state.rotation?.id,
+      itemCount: result.summary?.itemCount,
+      currentBudget: state.lastResultOptions?.budget,
+      finishProbability: result.finishProbability,
+      percentiles: result,
+      analysisCap: result.analysisCap || state.lastResultOptions?.analysisCap,
+      squad: state.squad,
+      trials: state.lastTrials,
+      recap: state.currentRecap,
+      labels: shareCardLabels()
+    });
+    const svg = renderShareCardSvg(model);
+    const png = await svgToPngBlob(svg);
+    state.shareCardBlob = png;
+    if (state.shareCardUrl) URL.revokeObjectURL(state.shareCardUrl);
+    state.shareCardUrl = URL.createObjectURL(png);
+    const preview = $("sharePreview");
+    const image = $("sharePreviewImage");
+    const link = $("shareDownloadLink");
+    image.src = state.shareCardUrl;
+    link.href = state.shareCardUrl;
+    link.download = shareFilename();
+    preview.hidden = false;
+    status.textContent = message("share.success");
+
+    const canUseSystemShare = typeof navigator !== "undefined"
+      && typeof navigator.share === "function"
+      && typeof File === "function";
+    if (canUseSystemShare) {
+      const file = new File([png], shareFilename(), { type: "image/png" });
+      const canShare = typeof navigator.canShare !== "function"
+        || navigator.canShare({ files: [file] });
+      if (!canShare) return;
+      try {
+        const sharePromise = navigator.share({ title: message("share.title"), text: message("share.subtitle"), files: [file] });
+        button.disabled = false;
+        await sharePromise;
+      } catch (error) {
+        if (error?.name === "AbortError") status.textContent = message("share.canceled");
+      }
+    }
+  } catch (error) {
+    console.warn("Varzia share card generation failed", error);
+    status.textContent = message("share.failed");
+  } finally {
+    button.disabled = false;
+  }
 }
 
 function renderBreakdown() {
@@ -963,7 +1277,7 @@ function renderBreakdown() {
     .filter((part) => part.ownedCount < requiredCount(part))
     .map((part) => ({ ...part, item, missingCount: requiredCount(part) - part.ownedCount })));
   if (!missing.length) {
-    body.innerHTML = `<tr><td class="empty-row" colspan="5">没有缺件。瓦奇娅本轮无法从你身上赚到一枚阿耶精华。</td></tr>`;
+    body.innerHTML = `<tr><td class="empty-row" colspan="5">${escapeHtml(message("breakdown.noMissing"))}</td></tr>`;
     return;
   }
   const strategy = $("strategy").value;
@@ -984,11 +1298,11 @@ function renderBreakdown() {
     const quantityLabel = missingCount > 1 ? ` ×${missingCount}` : "";
     const label = state.selectedItemIds.length > 1 ? `${item.name} · ${part.name}${quantityLabel}` : `${part.name}${quantityLabel}`;
     return `<tr>
-      <td>${escapeHtml(label)}${routeLabel ? `<small class="table-route">${escapeHtml(routeLabel)}</small>` : ""}</td>
-      <td><span class="rarity rarity-${escapeHtml(rarity)}">${escapeHtml(RARITIES[rarity]?.label || rarity)}</span></td>
-      <td>${escapeHtml(REFINEMENTS[refinement]?.label || refinement)}</td>
-      <td>${(chance * 100).toFixed(2)}%</td>
-      <td>${chance ? (1 / chance).toFixed(2) : "—"} 个</td>
+      <td data-label="${escapeHtml(message("breakdown.missing"))}">${escapeHtml(label)}${routeLabel ? `<small class="table-route">${escapeHtml(routeLabel)}</small>` : ""}</td>
+      <td data-label="${escapeHtml(message("breakdown.rarity"))}"><span class="rarity rarity-${escapeHtml(rarity)}">${escapeHtml(localizedRarityLabel(rarity))}</span></td>
+      <td data-label="${escapeHtml(message("breakdown.refinement"))}">${escapeHtml(localizedRefinementLabel(refinement))}</td>
+      <td data-label="${escapeHtml(message("breakdown.chance"))}">${(chance * 100).toFixed(2)}%</td>
+      <td data-label="${escapeHtml(message("breakdown.average"))}">${chance ? (1 / chance).toFixed(2) : "—"} ${unit("relic")}</td>
     </tr>`;
   }).join("");
 }
@@ -997,26 +1311,28 @@ function renderItemResults(result) {
   $("targetResultList").innerHTML = result.itemProbabilities?.length
     ? result.itemProbabilities.map((item) => `<div class="target-result-row">
       <span class="target-result-name">${escapeHtml(item.name)}</span>
-      <span class="target-result-probability">${formatProbability(item.probability)} 全部毕业</span>
+      <span class="target-result-probability">${escapeHtml(message("targetBoard.itemProbability", { probability: formatProbability(item.probability) }))}</span>
     </div>`).join("")
-    : `<p class="field-hint">选择目标后，这里会显示每件 Prime 在同一份共享预算下的毕业概率。</p>`;
+    : `<p class="field-hint">${escapeHtml(message("targetBoard.empty"))}</p>`;
 }
 
 function renderRecommendation(result) {
   const recommendation = result.recommendation || { items: [], totalAya: 0 };
-  $("recommendationAya").textContent = recommendation.items.length ? `总计 ${format(recommendation.totalAya)} 阿耶精华` : "暂无推荐";
+  $("recommendationAya").textContent = recommendation.items.length
+    ? message("recommendation.total", { count: format(recommendation.totalAya) })
+    : message("recommendation.none");
   $("recommendationList").innerHTML = recommendation.items.length
     ? recommendation.items.map((item) => {
       const tokens = Array.from({ length: Math.min(item.count, 8) }, () => `<i class="aya-token" aria-hidden="true"></i>`).join("");
       return `<div class="recommendation-row">
         <div class="recommendation-main">
           <strong>${escapeHtml(item.name)}</strong>
-          <span>覆盖 ${format(item.rewardCount)} 类缺件 · ${format(item.itemCount)} 件 Prime</span>
+          <span>${escapeHtml(message("recommendation.item", { rewards: format(item.rewardCount), items: format(item.itemCount) }))}</span>
         </div>
         <div class="aya-stack"><span class="aya-tokens">${tokens}</span><span>× ${format(item.count)}</span></div>
       </div>`;
     }).join("")
-    : `<p class="field-hint">当前没有缺件，或预算还不足以形成购买路线。</p>`;
+    : `<p class="field-hint">${escapeHtml(message("recommendation.empty"))}</p>`;
 
 }
 
@@ -1036,8 +1352,8 @@ function announceRotationChange(rotation) {
   announcement.textContent = "";
   window.requestAnimationFrame(() => {
     announcement.textContent = rotation
-      ? `Prime 重生已切换至 ${rotation.displayName || rotation.id}。`
-      : "Prime 重生轮换状态已更新。";
+      ? message("status.rotationChanged", { name: rotation.displayName || rotation.id })
+      : message("status.rotationStateUpdated");
   });
 }
 
@@ -1065,8 +1381,8 @@ function applyRotation(rotation, { preview = false, announce = false, scheduleSi
   ]));
   $("budget").value = String(saved.ayaBudget);
   $("budgetHint").textContent = rotation
-    ? `本轮默认 ${format(defaultAyaBudget)} 个；你在本轮的手工输入会单独保存`
-    : "等待首期轮换生效后载入默认预算";
+    ? message("budget.savedHint", { budget: format(defaultAyaBudget) })
+    : message("status.waitingFirstRotation");
 
   renderRotation();
   renderItemOptions();
@@ -1077,9 +1393,9 @@ function applyRotation(rotation, { preview = false, announce = false, scheduleSi
   if (!state.previewMode && rotation) persistCollection({ quiet: true });
   if (announce) {
     announceRotationChange(rotation);
-    setStatus(`Prime 重生已更新 · ${formatDate(state.scheduleData.lastVerified)}`);
+    setStatus(message("status.rotationUpdated", { date: formatDate(state.scheduleData.lastVerified) }));
   } else if (state.previewMode) {
-    setStatus("预览模式 · 选择、收藏与阿耶输入不会写入本地");
+    setStatus(message("status.preview"));
   }
 
   if (scheduleSimulation && rotation && state.primeItems.length) scheduleRun();
@@ -1146,11 +1462,22 @@ function bindRotationLifecycle() {
 }
 
 async function loadData() {
+  if (!ensureLocaleRoute()) return;
+  try {
+    const localeMessages = await loadLocaleMessages(state.locale);
+    setLocaleMessages(state.locale, localeMessages, localeMessages);
+    state.localeMessages = localeMessages;
+  } catch (error) {
+    console.warn("Varzia locale data failed to load", error);
+    setLocaleMessages(state.locale, {}, {});
+    state.localeMessages = {};
+  }
+  applyStaticTranslations();
   state.dataLoadErrors = [];
   const [scheduleData, primes, relicData] = await Promise.all([
-    readJson("data/rotation.json", fallbackSchedule),
-    readJson("data/primes.json", { primeItems: [] }),
-    readJson("data/relics.json", { relics: [] })
+    readJson("/data/rotation.json", fallbackSchedule),
+    readJson("/data/primes.json", { primeItems: [] }),
+    readJson("/data/relics.json", { relics: [] })
   ]);
   try {
     validateRotationData(scheduleData, primes, relicData);
@@ -1160,9 +1487,14 @@ async function loadData() {
   }
 
   state.scheduleData = state.dataLoadErrors.length ? fallbackSchedule : scheduleData;
-  state.rotations = state.scheduleData.rotations || [];
-  state.allPrimeItems = state.dataLoadErrors.length ? [] : (primes?.primeItems || []);
-  state.allRelics = state.dataLoadErrors.length ? [] : (relicData?.relics || []);
+  const displayData = localizeDisplayData({
+    rotations: state.scheduleData.rotations || [],
+    primeItems: state.dataLoadErrors.length ? [] : (primes?.primeItems || []),
+    relics: state.dataLoadErrors.length ? [] : (relicData?.relics || [])
+  }, state.locale);
+  state.rotations = displayData.rotations;
+  state.allPrimeItems = displayData.primeItems;
+  state.allRelics = displayData.relics;
   state.previewId = new URLSearchParams(window.location.search).get("rotation")?.trim() || "";
 
   let view = resolveRotationView(state.rotations, Date.now(), state.previewId);
@@ -1185,9 +1517,9 @@ async function loadData() {
     relicData?.updatedAt
   ].filter(Boolean).sort().at(-1));
   if (state.dataLoadErrors.length) {
-    setStatus("本期 Prime 重生数据暂时无法确认", true);
+    setStatus(message("status.dataError"), true);
   } else if (!state.previewMode) {
-    setStatus(`数据已核对 · ${formatDate(state.scheduleData.lastVerified)}`);
+    setStatus(message("status.dataChecked", { date: formatDate(state.scheduleData.lastVerified) }));
   }
   updateStrategyNote();
   bindEvents();
@@ -1199,4 +1531,4 @@ async function loadData() {
   else renderNoTargets();
 }
 
-loadData();
+if (typeof document !== "undefined" && typeof window !== "undefined") loadData();

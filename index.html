@@ -1,123 +1,130 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#07141e" />
-    <meta name="description" content="VARZIA Prime 重生规划器：选择本期 Prime，计算阿耶精华预算和毕业概率。" />
+    <meta name="description" content="Estimate how much Aya you need for Warframe Prime Resurgence using Monte Carlo simulation." />
     <meta property="og:type" content="website" />
-    <meta property="og:locale" content="zh_CN" />
+    <meta property="og:locale" content="en_US" />
     <meta property="og:site_name" content="VARZIA" />
-    <meta property="og:title" content="Varzia | Warframe Prime 重生规划器" />
-    <meta property="og:description" content="选择本期 Prime，计算阿耶精华预算和整期联合毕业概率。" />
+    <meta property="og:title" content="Varzia - Warframe Prime Resurgence Aya Planner" />
+    <meta property="og:description" content="Select Prime targets and estimate whole-rotation completion probability and Aya budget thresholds." />
     <meta property="og:url" content="https://varzia.starport1116.com/" />
     <meta name="twitter:card" content="summary" />
-    <meta name="twitter:title" content="Varzia | Warframe Prime 重生规划器" />
-    <meta name="twitter:description" content="选择本期 Prime，计算阿耶精华预算和整期联合毕业概率。" />
-    <title>Varzia | Warframe Prime 重生规划器</title>
+    <meta name="twitter:title" content="Varzia - Warframe Prime Resurgence Aya Planner" />
+    <meta name="twitter:description" content="Select Prime targets and estimate whole-rotation completion probability and Aya budget thresholds." />
+    <title>Varzia - Warframe Prime Resurgence Aya Planner</title>
     <link rel="canonical" href="https://varzia.starport1116.com/" />
     <link rel="icon" href="/assets/ocisly-m.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="styles.css" />
+    <link rel="alternate" hreflang="zh-CN" href="https://varzia.starport1116.com/zh/" />
+    <link rel="alternate" hreflang="en" href="https://varzia.starport1116.com/en/" />
+    <link rel="alternate" hreflang="x-default" href="https://varzia.starport1116.com/" />
+    <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
     <div class="ambient ambient-one" aria-hidden="true"></div>
     <div class="ambient ambient-two" aria-hidden="true"></div>
 
     <header class="site-header">
-      <a class="brand" href="./" aria-label="VARZIA Prime 重生规划器首页">
-        <img class="brand-mark" src="assets/ocisly-m.svg" alt="" aria-hidden="true" />
+      <a class="brand" href="/en/" aria-label="VARZIA Warframe Prime Resurgence planner home" data-i18n-aria-label="brand.aria">
+        <img class="brand-mark" src="/assets/ocisly-m.svg" alt="" aria-hidden="true" />
         <span>
           <strong>VARZIA</strong>
-          <small>Prime 重生规划器</small>
+          <small data-i18n="brand.subtitle">Prime Resurgence Planner</small>
         </span>
       </a>
-      <div class="header-orbit" aria-label="蒙地卡罗模拟">
+      <div class="header-orbit" aria-label="Monte Carlo simulation" data-i18n-aria-label="header.aria">
         <span>MONTE CARLO</span>
-        <strong>100,000 LAPS</strong>
+        <strong data-i18n="header.laps">100,000 LAPS</strong>
       </div>
+      <nav class="language-switch" aria-label="Choose language" data-i18n-aria-label="language.aria">
+        <a href="/zh/" data-locale-link="zh" data-i18n="language.zh">中文</a>
+        <a href="/en/" data-locale-link="en" data-i18n="language.en">EN</a>
+      </nav>
     </header>
 
     <main class="page-shell">
       <section class="hero" aria-labelledby="page-title">
         <div class="hero-main">
-          <div class="hero-kicker"><span class="eyebrow-dot"></span> MONTE CARLO · 本期 Prime 重生</div>
-          <h1 id="page-title">让随机数<br /><em>跑 100,000 圈。</em></h1>
-          <p class="hero-copy">默认选中本期全部可刷 Prime 装备。告诉瓦奇娅你有多少阿耶精华，看看这一期到底能不能全毕业。</p>
+          <div class="hero-kicker"><span class="eyebrow-dot"></span> <span data-i18n="hero.kicker">MONTE CARLO · CURRENT PRIME RESURGENCE</span></div>
+          <h1 id="page-title"><span data-i18n="hero.titleLead">Let randomness</span><br /><em data-i18n="hero.titleAccent">run 100,000 laps.</em></h1>
+          <p class="hero-copy" data-i18n="hero.copy">All currently available Prime targets start selected. Tell Varzia how much Aya you have and see whether this rotation can be finished.</p>
           <div class="hero-actions">
-            <a class="button button-primary" id="heroPrimaryAction" href="#planner">开始规划 <span aria-hidden="true">↘</span></a>
-            <button class="button button-secondary" id="budgetJump" type="button">看看我的阿耶精华够不够</button>
+            <a class="button button-primary" id="heroPrimaryAction" href="#planner"><span data-i18n="hero.start">Start planning</span> <span aria-hidden="true">↘</span></a>
+            <button class="button button-secondary" id="budgetJump" type="button" data-i18n="hero.budgetJump">Check whether my Aya is enough</button>
           </div>
           <div class="source-line">
-            <span class="source-status"><span class="status-dot"></span><span id="dataStatus">正在读取轮换数据</span></span>
-            <a href="https://www.warframe.com/zh-hans/prime-resurgence" target="_blank" rel="noreferrer">查看官方 Prime 重生页面 <span aria-hidden="true">↗</span></a>
+            <span class="source-status"><span class="status-dot"></span><span id="dataStatus" data-i18n="hero.loading">Loading rotation data</span></span>
+            <a href="https://www.warframe.com/prime-resurgence" target="_blank" rel="noreferrer" data-i18n-href="links.primeResurgence"><span data-i18n="hero.official">View official Prime Resurgence page</span> <span aria-hidden="true">↗</span></a>
           </div>
         </div>
 
-        <aside class="hero-side" aria-label="本期 Prime 重生轮换">
+        <aside class="hero-side" aria-label="Current Prime Resurgence rotation" data-i18n-aria-label="rotation.aria">
           <div class="preview-mode-banner" id="previewModeBanner" hidden>
             <span class="status-dot" aria-hidden="true"></span>
-            <strong id="previewModeText">预览模式</strong>
-            <span>本地状态不会保存</span>
+            <strong id="previewModeText" data-i18n="preview.mode">Preview mode</strong>
+            <span data-i18n="preview.unsaved">Local state will not be saved</span>
           </div>
-          <section class="rotation-schedule is-empty" id="rotationSchedule" aria-label="Prime 重生轮换时间表">
+          <section class="rotation-schedule is-empty" id="rotationSchedule" aria-label="Prime Resurgence rotation schedule" data-i18n-aria-label="schedule.aria">
             <div class="rotation-schedule-main">
-              <span class="section-label" id="rotationScheduleStatus">轮换时间表</span>
-              <span class="rotation-countdown-label" id="rotationCountdownLabel">下一期尚未公布</span>
+              <span class="section-label" id="rotationScheduleStatus" data-i18n="schedule.table">Rotation schedule</span>
+              <span class="rotation-countdown-label" id="rotationCountdownLabel" data-i18n="schedule.nextNotAnnounced">Next rotation not announced</span>
               <strong class="rotation-countdown" id="rotationCountdown">—</strong>
-              <time class="rotation-next-time" id="nextRotationTime">正在读取轮换时间表</time>
+              <time class="rotation-next-time" id="nextRotationTime" data-i18n="schedule.loading">Loading rotation schedule</time>
             </div>
-            <details class="rotation-preview" id="nextRotationPreview" hidden>
-              <summary>查看预告 <span aria-hidden="true">→</span></summary>
+          <details class="rotation-preview" id="nextRotationPreview" hidden>
+              <summary><span data-i18n="schedule.view">View preview</span> <span aria-hidden="true">→</span></summary>
               <div class="rotation-preview-body">
-                <span class="section-label">下一期 Prime 重生</span>
+                <span class="section-label" data-i18n="schedule.next">Next Prime Resurgence</span>
                 <strong id="nextRotationPreviewName">—</strong>
-                <p><time id="nextRotationPreviewTime">—</time> 生效 · 距离轮换 <span id="nextRotationPreviewCountdown">—</span></p>
+                <p><time id="nextRotationPreviewTime">—</time> <span data-i18n="schedule.effective">effective</span> · <span data-i18n="schedule.until">until rotation</span> <span id="nextRotationPreviewCountdown">—</span></p>
                 <ul id="nextRotationPreviewItems"></ul>
               </div>
             </details>
           </section>
           <div class="rotation-plaque">
             <div class="plaque-topline">
-              <span class="section-label">本期 Prime 重生</span>
-              <span class="plaque-index" id="rotationIndex">读取中</span>
+              <span class="section-label" data-i18n="rotation.label">Current Prime Resurgence</span>
+              <span class="plaque-index" id="rotationIndex">Loading</span>
             </div>
-            <h2 id="rotationName">读取中</h2>
-            <p>本期可刷 Prime 共享同一份阿耶精华预算，一次跑完整期。</p>
-            <div class="rotation-featured" id="rotationFeatured" aria-label="本期 Prime 重生物品"></div>
+            <h2 id="rotationName" data-i18n="rotation.waiting">Loading</h2>
+            <p data-i18n="rotation.description">All Prime targets in this rotation share one Aya wallet; plan the whole rotation at once.</p>
+            <div class="rotation-featured" id="rotationFeatured" aria-label="Current Prime Resurgence items" data-i18n-aria-label="rotation.aria"></div>
             <div class="plaque-route" aria-hidden="true"><span></span><i></i><span></span></div>
           </div>
           <div class="hero-side-note">
             <span class="note-mark">V</span>
-            <span>精密概率规划 · 本地保存收藏</span>
+            <span data-i18n="rotation.note">Precision probability planning · Local collection saved</span>
           </div>
         </aside>
       </section>
 
-      <section class="workbench" id="planner" aria-label="模拟器设置">
+      <section class="workbench" id="planner" aria-label="Simulator settings" data-i18n-aria-label="planner.aria">
         <div class="panel panel-target">
           <div class="panel-heading">
             <div>
-              <span class="panel-kicker">01 / TARGET</span>
-              <h2 id="targetRotationTitle">本期 Prime 重生</h2>
+              <span class="panel-kicker" data-i18n="target.kicker">01 / TARGET</span>
+              <h2 id="targetRotationTitle" data-i18n="target.title">Current Prime Resurgence</h2>
             </div>
             <span class="panel-count" id="targetCount">—</span>
           </div>
-          <p class="panel-intro">默认模拟本期全部 Prime。你可以取消不想刷的装备，再补上已有部件。</p>
+          <p class="panel-intro" data-i18n="target.intro">All Prime targets start selected. Remove anything you do not need, then mark parts already owned.</p>
 
           <div class="target-toolbar">
-            <span class="field-label">本期目标</span>
+            <span class="field-label" data-i18n="target.label">Current targets</span>
             <div class="toolbar-actions">
-              <button type="button" class="text-button" id="selectAllTargets">全选本期</button>
-              <button type="button" class="text-button" id="selectWarframes">只选战甲</button>
-              <button type="button" class="text-button" id="selectWeapons">只选武器</button>
-              <button type="button" class="text-button" id="clearTargets">全不选</button>
+              <button type="button" class="text-button" id="selectAllTargets" data-i18n="target.selectAll">Select all</button>
+              <button type="button" class="text-button" id="selectWarframes" data-i18n="target.selectWarframes">Warframes only</button>
+              <button type="button" class="text-button" id="selectWeapons" data-i18n="target.selectWeapons">Weapons only</button>
+              <button type="button" class="text-button" id="clearTargets" data-i18n="target.clear">Select none</button>
             </div>
           </div>
           <div class="target-options" id="targetOptions" aria-live="polite"></div>
 
           <div class="parts-heading">
-            <span>我的 Prime 收藏</span>
-            <span class="parts-legend"><span class="legend-check">✓</span> 已拥有</span>
+            <span data-i18n="target.parts">My Prime collection</span>
+            <span class="parts-legend"><span class="legend-check">✓</span> <span data-i18n="target.owned">Owned</span></span>
           </div>
           <div class="collection-list" id="collectionList" aria-live="polite"></div>
         </div>
@@ -125,69 +132,69 @@
         <div class="panel panel-settings">
           <div class="panel-heading">
             <div>
-              <span class="panel-kicker">02 / CONDITIONS</span>
-              <h2>把你的现实交给概率</h2>
+              <span class="panel-kicker" data-i18n="settings.kicker">02 / CONDITIONS</span>
+              <h2 data-i18n="settings.title">Plan around the odds</h2>
             </div>
             <span class="panel-seal" aria-hidden="true">MC</span>
           </div>
-          <p class="panel-intro">数学藏在后台，你只需要告诉我资源和队伍。</p>
+          <p class="panel-intro" data-i18n="settings.intro">The math stays behind the scenes; tell me about your resources and squad.</p>
 
-          <div class="mode-picker" id="modePicker" role="group" aria-label="计算模式">
-            <button type="button" data-mode="budget" aria-pressed="true">我有多少阿耶精华</button>
-            <button type="button" data-mode="goal" aria-pressed="false">我要这些 Prime</button>
+          <div class="mode-picker" id="modePicker" role="group" aria-label="Calculation mode" data-i18n-aria-label="settings.aria">
+            <button type="button" data-mode="budget" aria-pressed="true" data-i18n="mode.budget">How much Aya do I have?</button>
+            <button type="button" data-mode="goal" aria-pressed="false" data-i18n="mode.goal">How much Aya do I need?</button>
           </div>
 
           <div class="settings-grid">
             <label class="field-group field-budget" for="budget">
-              <span class="field-label" id="budgetLabel">我有多少阿耶精华</span>
+              <span class="field-label" id="budgetLabel" data-i18n="budget.label">How much Aya do I have?</span>
               <span class="number-input-wrap">
                 <input id="budget" type="number" min="0" max="999" value="33" inputmode="numeric" aria-describedby="budgetHint" />
-                <span>个</span>
+                <span data-i18n="budget.unit">Aya</span>
               </span>
-              <span class="field-hint" id="budgetHint">本期建议从 P50 毕业线的 33 个开始规划</span>
+              <span class="field-hint" id="budgetHint">Start planning from the P50 line: 33 Aya</span>
             </label>
 
             <label class="field-group goal-line-field" for="goalLine" hidden>
-              <span class="field-label">想达到的毕业线</span>
+              <span class="field-label" data-i18n="goal.label">Target probability</span>
               <div class="select-wrap">
                 <select id="goalLine">
-                  <option value="0.5">P50 · 五成毕业</option>
-                  <option value="0.9" selected>P90 · 九成毕业</option>
-                  <option value="0.95">P95 · 保险线</option>
-                  <option value="0.99">P99 · 极稳</option>
+                  <option value="0.5" data-i18n="goal.p50">P50 · 50% chance</option>
+                  <option value="0.9" selected data-i18n="goal.p90">P90 · 90% chance</option>
+                  <option value="0.95" data-i18n="goal.p95">P95 · 95% chance</option>
+                  <option value="0.99" data-i18n="goal.p99">P99 · 99% chance</option>
                 </select>
               </div>
             </label>
 
             <div class="field-group">
-              <span class="field-label">同遗物队伍人数</span>
-              <div class="segmented" id="squadPicker" role="group" aria-label="同遗物队伍人数">
-                <button type="button" data-squad="1" aria-pressed="false">单人</button>
-                <button type="button" data-squad="2" aria-pressed="false">2 人</button>
-                <button type="button" data-squad="3" aria-pressed="false">3 人</button>
-                <button type="button" data-squad="4" aria-pressed="true">4 人</button>
+              <span class="field-label" data-i18n="squad.label">Players opening the same Void Relic</span>
+              <div class="segmented" id="squadPicker" role="group" aria-label="Players opening the same Void Relic" data-i18n-aria-label="squad.aria">
+                <button type="button" data-squad="1" aria-pressed="false" data-i18n="squad.one">Solo</button>
+                <button type="button" data-squad="2" aria-pressed="false" data-i18n="squad.two">2 players</button>
+                <button type="button" data-squad="3" aria-pressed="false" data-i18n="squad.three">3 players</button>
+                <button type="button" data-squad="4" aria-pressed="true" data-i18n="squad.four">4 players</button>
               </div>
             </div>
 
             <label class="field-group" for="strategy">
-              <span class="field-label">精炼策略</span>
+              <span class="field-label" data-i18n="strategy.label">Refinement strategy</span>
               <div class="select-wrap">
                 <select id="strategy">
-                  <option value="finish">毕业率优先</option>
-                  <option value="efficient">省虚空光体</option>
-                  <option value="intact">全完整</option>
-                  <option value="radiant">全光辉</option>
+                  <option value="finish" data-i18n="strategy.finish">Completion first</option>
+                  <option value="efficient" data-i18n="strategy.efficient">Save Void Traces</option>
+                  <option value="intact" data-i18n="strategy.intact">All Intact</option>
+                  <option value="radiant" data-i18n="strategy.radiant">All Radiant</option>
                 </select>
               </div>
             </label>
 
             <label class="field-group" for="trials">
-              <span class="field-label">模拟次数</span>
+              <span class="field-label" data-i18n="trials.label">Simulations</span>
               <div class="select-wrap">
                 <select id="trials">
-                  <option value="5000">5,000 · 快速</option>
-                  <option value="20000">20,000 · 快速</option>
-                  <option value="100000" selected>100,000 · 推荐</option>
+                  <option value="5000" data-i18n="trials.fast5">5,000 · fast</option>
+                  <option value="20000" data-i18n="trials.fast20">20,000 · fast</option>
+                  <option value="100000" selected data-i18n="trials.recommended">100,000 · recommended</option>
                 </select>
               </div>
             </label>
@@ -198,10 +205,10 @@
           <div class="run-area">
             <button class="run-button" id="runButton" type="button">
               <span class="run-icon" aria-hidden="true">↗</span>
-              <span>运行蒙地卡罗</span>
+              <span data-i18n="run.button">Run Monte Carlo</span>
               <span class="run-arrow" aria-hidden="true">→</span>
             </button>
-            <span class="run-caption" id="runCaption">模拟结果会在这里更新</span>
+            <span class="run-caption" id="runCaption" data-i18n="run.caption">Simulation results will update here</span>
           </div>
         </div>
       </section>
@@ -209,17 +216,17 @@
       <section class="results" id="resultsSection" aria-labelledby="results-title" aria-live="polite" aria-busy="false">
         <div class="results-header">
           <div>
-            <span class="results-overline">MONTE CARLO RUN</span>
-            <h2 id="results-title">你的毕业曲线</h2>
-            <p class="results-subline">让每一条可能的时间线都先替你走一遍。</p>
+            <span class="results-overline" data-i18n="results.overline">MONTE CARLO RUN</span>
+            <h2 id="results-title" data-i18n="results.title">Your completion curve</h2>
+            <p class="results-subline" data-i18n="results.subline">Let thousands of possible timelines play out before you do.</p>
           </div>
-          <span class="trial-badge" id="trialBadge">等待模拟</span>
+          <span class="trial-badge" id="trialBadge" data-i18n="results.waiting">Waiting for simulation</span>
         </div>
 
         <div class="results-summary">
           <article class="result-card result-primary">
             <div class="result-topline">
-              <span class="result-label" id="primaryResultLabel">本期目标全部毕业概率</span>
+              <span class="result-label" id="primaryResultLabel" data-i18n="result.primary">Probability of completing all targets</span>
               <span class="result-status" id="resultStatus">—</span>
             </div>
             <strong class="result-value" id="finishProbability">—</strong>
@@ -227,58 +234,105 @@
             <div class="probability-track" aria-hidden="true"><span id="probabilityBar"></span></div>
           </article>
           <div class="result-aside">
-            <div class="result-sentence" id="resultSentence">勾选部件并运行一次，看看这轮随机数会不会对你温柔一点。</div>
+            <div class="result-sentence" id="resultSentence" data-i18n="result.waitingSentence">Select targets, mark the parts you own, and run the simulation.</div>
             <article class="metric-card">
-              <span class="metric-label">平均消耗</span>
+              <span class="metric-label" data-i18n="result.metricMean">Average spend</span>
               <strong id="meanAya">—</strong>
-              <span>阿耶精华</span>
+              <span data-i18n="result.metricAya">Aya</span>
             </article>
           </div>
         </div>
 
-        <div class="rotation-summary" aria-label="本期联合模拟范围">
-          <article><span>当前目标</span><strong id="summaryTargets">—</strong><em>Prime 装备</em></article>
-          <article><span>已完成</span><strong id="summaryCompleted">—</strong><em>整件装备</em></article>
-          <article><span>剩余部件</span><strong id="summaryRemaining">—</strong><em>含重复需求</em></article>
-          <article><span>当前阿耶精华</span><strong id="summaryBudget">—</strong><em>共享预算</em></article>
+        <div class="rotation-summary" aria-label="Current joint simulation scope" data-i18n-aria-label="summary.aria">
+          <article><span data-i18n="summary.targets">Current targets</span><strong id="summaryTargets">—</strong><em data-i18n="summary.targetsUnit">Prime items</em></article>
+          <article><span data-i18n="summary.completed">Complete</span><strong id="summaryCompleted">—</strong><em data-i18n="summary.completedUnit">full items</em></article>
+          <article><span data-i18n="summary.remaining">Remaining parts</span><strong id="summaryRemaining">—</strong><em data-i18n="summary.remainingUnit">including duplicates</em></article>
+          <article><span data-i18n="summary.budget">Current Aya</span><strong id="summaryBudget">—</strong><em data-i18n="summary.budgetUnit">shared wallet</em></article>
         </div>
 
         <section class="probability-section budget-distribution" id="budgetDistribution" aria-labelledby="probability-title" aria-busy="false">
           <div class="section-heading-inline">
             <div>
-              <span class="section-label">概率预算</span>
-              <h3 id="probability-title">你的阿耶精华在哪个区间？</h3>
-              <p>本期全部目标 · 联合蒙地卡罗预算分布</p>
+              <span class="section-label" data-i18n="distribution.label">BUDGET DISTRIBUTION</span>
+              <h3 id="probability-title" data-i18n="distribution.title">Where does your Aya budget land?</h3>
+              <p data-i18n="distribution.subtitle">All current targets · Joint Monte Carlo budget distribution</p>
             </div>
-            <button class="chart-info" type="button" aria-label="说明预算分布" title="曲线表示：在不同阿耶精华预算下，完成全部所选 Prime 目标的模拟比例。">i</button>
+            <button class="chart-info" type="button" aria-label="Explain budget distribution" data-i18n-aria-label="distribution.infoAria" title="The curve shows the simulated share that completes all selected Prime targets at each Aya budget." data-i18n-title="distribution.infoTitle">i</button>
           </div>
 
-          <div class="budget-kpis" aria-label="预算关键指标">
-            <article class="budget-kpi is-current"><span>当前预算</span><strong id="budgetKpiCurrent">—</strong><em>你的预算</em></article>
-            <article class="budget-kpi is-probability"><span>当前毕业概率</span><strong id="budgetKpiProbability">—</strong><em id="budgetKpiProbabilityNote">等待模拟</em></article>
-            <article class="budget-kpi"><span>P50</span><strong id="budgetKpiP50">—</strong><em>50% 的模拟在此预算内毕业</em></article>
-            <article class="budget-kpi"><span>P95</span><strong id="budgetKpiP95">—</strong><em>更安心的保险线</em></article>
-            <article class="budget-kpi"><span>P99</span><strong id="budgetKpiP99">—</strong><em>极高毕业概率</em></article>
+          <div class="budget-kpis" aria-label="Budget key metrics" data-i18n-aria-label="distribution.label">
+            <article class="budget-kpi is-current"><span data-i18n="kpi.current">Current budget</span><strong id="budgetKpiCurrent">—</strong><em data-i18n="kpi.currentNote">Your budget</em></article>
+            <article class="budget-kpi is-probability"><span data-i18n="kpi.probability">Current completion probability</span><strong id="budgetKpiProbability">—</strong><em id="budgetKpiProbabilityNote" data-i18n="kpi.waiting">Waiting for simulation</em></article>
+            <article class="budget-kpi"><span data-i18n="kpi.p50">P50</span><strong id="budgetKpiP50">—</strong><em data-i18n="kpi.p50Note">50% of simulations finish within this budget</em></article>
+            <article class="budget-kpi"><span data-i18n="kpi.p95">P95</span><strong id="budgetKpiP95">—</strong><em data-i18n="kpi.p95Note">A more comfortable safety line</em></article>
+            <article class="budget-kpi"><span data-i18n="kpi.p99">P99</span><strong id="budgetKpiP99">—</strong><em data-i18n="kpi.p99Note">99% completion chance</em></article>
           </div>
 
           <div class="budget-chart-shell" id="budgetChartShell">
-            <div class="budget-chart-status" id="budgetChartStatus" role="status">正在计算预算分布…</div>
-            <svg class="budget-chart" id="budgetChart" role="img" aria-label="毕业预算分布，等待模拟结果"></svg>
+            <div class="budget-chart-status" id="budgetChartStatus" role="status" data-i18n="chart.computing">Computing budget distribution…</div>
+            <svg class="budget-chart" id="budgetChart" role="img" aria-label="Completion budget distribution, waiting for simulation"></svg>
             <div class="budget-chart-tooltip" id="budgetChartTooltip" role="status" aria-live="polite" hidden></div>
           </div>
-          <div class="budget-marker-legend" id="budgetMarkerLegend" aria-label="预算百分位详情"></div>
-          <p class="budget-chart-note">曲线的每个节点均来自本次联合模拟；P95 表示约 95% 的模拟在该预算以内完成全部目标。</p>
+          <div class="budget-marker-legend" id="budgetMarkerLegend" aria-label="Budget percentile details"></div>
+          <p class="budget-chart-note" data-i18n="distribution.note">Every curve point comes from this joint simulation; P95 means about 95% of simulations finish all targets within that budget.</p>
+        </section>
+
+        <section class="target-delta-panel" id="targetDeltaPanel" aria-labelledby="target-delta-title" aria-label="Aya gap to safety lines" data-i18n-aria-label="delta.aria">
+          <div class="section-heading-inline">
+            <div>
+              <span class="section-label" data-i18n="delta.label">SAFETY-LINE GAP</span>
+              <h3 id="target-delta-title" data-i18n="delta.title">How much Aya is left to reach a safety line?</h3>
+              <p data-i18n="delta.subtitle">Reads the percentiles from this simulation; it does not run another simulation.</p>
+            </div>
+          </div>
+          <div class="target-delta-list" id="targetDeltaList">
+            <p class="field-hint" data-i18n="delta.waiting">Run a simulation to see the Aya gap to P90, P95, and P99.</p>
+          </div>
+        </section>
+
+        <section class="share-panel" id="sharePanel" aria-labelledby="share-title" aria-label="Share result" data-i18n-aria-label="share.aria" hidden>
+          <div class="share-panel-copy">
+            <span class="section-label" data-i18n="share.label">SHARE RESULT</span>
+            <h3 id="share-title" data-i18n="share.title">Take this timeline with you</h3>
+            <p data-i18n="share.subtitle">Generate a 1200 × 1500 Varzia result card from the current simulation.</p>
+          </div>
+          <div class="share-panel-actions">
+            <button class="button button-secondary share-button" id="shareResultButton" type="button" aria-label="Share result" data-i18n-aria-label="share.aria"><span data-i18n="share.button">Share result</span> <span aria-hidden="true">↗</span></button>
+            <span class="share-status" id="shareStatus" role="status" aria-live="polite"></span>
+          </div>
+          <div class="share-preview" id="sharePreview" hidden>
+            <img id="sharePreviewImage" alt="Varzia simulation result share card preview" data-i18n-alt="share.previewAlt" />
+            <a class="text-button share-download" id="shareDownloadLink" href="#" download="varzia-result.png" data-i18n="share.download">Download PNG</a>
+          </div>
+        </section>
+
+        <section class="recap-panel" id="recapPanel" aria-labelledby="recap-title" aria-label="Aya spend recap" data-i18n-aria-label="recap.aria" hidden>
+          <div class="section-heading-inline">
+            <div>
+              <span class="section-label" data-i18n="recap.label">AYA SPEND RECAP</span>
+              <h3 id="recap-title" data-i18n="recap.title">Aya spend recap: how did this timeline compare?</h3>
+              <p data-i18n="recap.subtitle">Enter the Aya you actually spent; this looks up the existing empirical CDF and never re-runs the simulation.</p>
+            </div>
+          </div>
+          <div class="recap-input-row">
+            <label class="field-group" for="observedAya">
+              <span class="field-label" data-i18n="recap.inputLabel">I completed everything with</span>
+              <span class="number-input-wrap"><input id="observedAya" type="number" min="0" max="999" inputmode="numeric" placeholder="e.g. 45" data-i18n-placeholder="recap.placeholder" /><span data-i18n="recap.inputUnit">Aya</span></span>
+            </label>
+            <p class="field-hint" data-i18n="recap.helper">Optional. Enter your actual Aya spend, not your current budget.</p>
+          </div>
+          <div class="recap-result" id="recapResult" role="status" aria-live="polite" data-i18n="recap.waiting">Enter the Aya you actually spent to see where this timeline sits among simulations.</div>
         </section>
 
         <div class="verdict" id="verdict">
           <span class="verdict-mark" aria-hidden="true">✦</span>
-          <span>勾选部件并运行一次，看看这轮随机数会不会对你温柔一点。</span>
+          <span data-i18n="verdict.default">Select targets, mark the parts you own, and run the simulation.</span>
         </div>
 
         <div class="timeline-panel" id="timelinePanel">
           <div class="timeline-copy">
-            <span class="timeline-kicker">PARALLEL WORLDS</span>
-            <strong id="timelineHeadline">我们让你刷了 100,000 条时间线。</strong>
+            <span class="timeline-kicker" data-i18n="timeline.kicker">PARALLEL WORLDS</span>
+            <strong id="timelineHeadline">We ran 100,000 timelines for you.</strong>
             <span id="timelineDetail">—</span>
           </div>
           <div class="timeline-number" id="timelineSuccess">—</div>
@@ -287,9 +341,9 @@
         <div class="breakdown-panel">
           <div class="breakdown-heading">
             <div>
-              <span class="section-label">PRECISION READOUT</span>
-              <h3>缺件拆解</h3>
-              <p>按你当前的队伍和精炼策略，每一件有多难。</p>
+                <span class="section-label" data-i18n="breakdown.label">PRECISION READOUT</span>
+                <h3 data-i18n="breakdown.title">Missing-part breakdown</h3>
+                <p data-i18n="breakdown.subtitle">How difficult each part is with your current squad and refinement strategy.</p>
             </div>
             <span class="trace-total" id="traceTotal">—</span>
           </div>
@@ -297,11 +351,11 @@
             <table>
               <thead>
                 <tr>
-                  <th>缺少的部件</th>
-                  <th>奖励稀有度</th>
-                  <th>精炼</th>
-                  <th>本队命中率</th>
-                  <th>平均遗物数</th>
+                  <th data-i18n="breakdown.missing">Missing part</th>
+                  <th data-i18n="breakdown.rarity">Reward rarity</th>
+                  <th data-i18n="breakdown.refinement">Refinement</th>
+                  <th data-i18n="breakdown.chance">Squad hit chance</th>
+                  <th data-i18n="breakdown.average">Average Void Relics</th>
                 </tr>
               </thead>
               <tbody id="breakdownBody"></tbody>
@@ -313,9 +367,9 @@
           <div class="secondary-panel">
             <div class="breakdown-heading">
               <div>
-                <span class="section-label">TARGET BOARD</span>
-                <h3>各 Prime 单件毕业概率</h3>
-                <p>来自同一批联合 trial，不是分别独立分配预算。</p>
+                <span class="section-label" data-i18n="targetBoard.label">TARGET BOARD</span>
+                <h3 data-i18n="targetBoard.title">Per-Prime completion probability</h3>
+                <p data-i18n="targetBoard.subtitle">From the same joint trials, not separately assigned budgets.</p>
               </div>
             </div>
             <div class="target-result-list" id="targetResultList"></div>
@@ -323,9 +377,9 @@
           <div class="secondary-panel">
             <div class="breakdown-heading">
               <div>
-                <span class="section-label">GRID STRATEGY</span>
-                <h3>推荐购买配置</h3>
-                <p>每次掉落后重算下一枚；这里展示代表性购买分布。</p>
+                <span class="section-label" data-i18n="recommendation.label">GRID STRATEGY</span>
+                <h3 data-i18n="recommendation.title">Recommended Void Relic plan</h3>
+                <p data-i18n="recommendation.subtitle">Recomputed after each drop; this shows a representative purchase distribution.</p>
               </div>
               <span class="trace-total" id="recommendationAya">—</span>
             </div>
@@ -336,29 +390,29 @@
 
       <section class="boundary-note">
         <span class="boundary-icon" aria-hidden="true">i</span>
-        <p><strong>数据与模型：</strong>所有选中的 Prime 共用一份阿耶精华预算。每次裂缝只领取一个奖励，领取后按剩余缺件重新选择遗物。推荐方案根据缺件、遗物覆盖与奖励稀有度动态计算，属于启发式优化，不保证全局最优。未列出的 Forma 与非目标奖励由剩余概率表示；当前不输入已有遗物库存，也不计算交易与招募时间。</p>
+        <p><strong data-i18n="boundary.title">Data and model:</strong> <span data-i18n="boundary.text">All selected Primes share one Aya wallet. In each simulated Void Fissure Mission, you claim one reward from the squad's opened Void Relics; after each reward, the next Void Relic is chosen from the remaining missing parts. Recommendations are a heuristic based on missing parts, Relic coverage, and reward rarity, not a global optimum. Unlisted Forma and non-target rewards are represented by the remaining probability; existing Relic inventory, trading, and recruitment time are not modeled.</span></p>
       </section>
 
       <section class="wish-entry">
         <div>
           <span class="wish-kicker">TIME-LINE COURTESY</span>
-          <p>这条时间线替你省下了几枚阿耶精华？往 Starport 的喷泉投一枚硬币。</p>
+          <p data-i18n="wish.text">How many Aya did this timeline save you? Toss one coin into Starport's fountain.</p>
         </div>
-        <a href="https://starport1116.com/wish" target="_blank" rel="noreferrer">投一枚硬币 <span aria-hidden="true">↗</span></a>
+        <a href="https://starport1116.com/wish" target="_blank" rel="noreferrer"><span data-i18n="wish.button">Toss a coin</span> <span aria-hidden="true">↗</span></a>
       </section>
 
       <section class="data-sources">
-        <span>数据更新时间：<strong id="dataUpdatedAt">—</strong></span>
-        <span>来源：<a href="https://www.warframe.com/zh-hans/prime-resurgence" target="_blank" rel="noreferrer">官方 Prime 重生</a> · <a href="https://www.warframe.com/droptables" target="_blank" rel="noreferrer">官方掉落表</a> · <a href="https://www.warframe.com/zh-hans/game/warframes" target="_blank" rel="noreferrer">官方简中名称</a></span>
+        <span><span data-i18n="data.updated">Data updated: </span><strong id="dataUpdatedAt">—</strong></span>
+        <span><span data-i18n="data.source">Sources: </span><a href="https://www.warframe.com/prime-resurgence" target="_blank" rel="noreferrer" data-i18n="data.primeResurgence" data-i18n-href="links.primeResurgence">official Prime Resurgence</a> · <a href="https://www.warframe.com/droptables" target="_blank" rel="noreferrer" data-i18n="data.dropTables">official drop tables</a> · <a href="https://www.warframe.com/zh-hans/game/warframes" target="_blank" rel="noreferrer" data-i18n="data.officialNames">official Chinese names</a></span>
       </section>
       <p class="visually-hidden" id="rotationAnnouncement" role="status" aria-live="polite"></p>
     </main>
 
     <footer class="site-footer">
-      <span><strong>VARZIA</strong> · Prime 重生规划器</span>
-      <span>非官方 Warframe 玩家工具 · Starport</span>
+      <span data-i18n="footer.name"><strong>VARZIA</strong> · Prime Resurgence Planner</span>
+      <span data-i18n="footer.note">Unofficial Warframe player tool · Starport</span>
     </footer>
 
-    <script type="module" src="js/app.js"></script>
+    <script type="module" src="/js/app.js"></script>
   </body>
 </html>
