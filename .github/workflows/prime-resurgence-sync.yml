@@ -1,0 +1,216 @@
+name: Prime Resurgence data sync
+
+on:
+  schedule:
+    - cron: "17 9 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: prime-resurgence-data-sync
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    name: Prepare and validate provisional candidate
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    outputs:
+      changed: ${{ steps.package.outputs.changed }}
+    steps:
+      - name: Check out the default branch without persisted credentials
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Verify Public Export decompressor
+        run: xz --version
+
+      - name: Fetch, parse, and validate official data
+        run: >-
+          node scripts/prime-resurgence-sync.mjs
+          --summary-file "$RUNNER_TEMP/prime-resurgence-summary.md"
+          --pr-body-file "$RUNNER_TEMP/prime-resurgence-pr.md"
+
+      - name: Run repository tests
+        run: npm test
+
+      - name: Check patch formatting
+        run: git diff --check
+
+      - name: Package an allowlisted candidate artifact
+        id: package
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t changed_paths < <(git diff --name-only)
+          for changed_path in "${changed_paths[@]}"; do
+            case "$changed_path" in
+              data/rotation.json|data/primes.json|data/relics.json) ;;
+              *) echo "Unexpected generated path: $changed_path" >&2; exit 1 ;;
+            esac
+          done
+
+          if git diff --quiet -- data/rotation.json data/primes.json data/relics.json; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          artifact="$RUNNER_TEMP/prime-resurgence-candidate"
+          mkdir -p "$artifact/data"
+          cp data/rotation.json data/primes.json data/relics.json "$artifact/data/"
+          cp "$RUNNER_TEMP/prime-resurgence-summary.md" "$artifact/summary.md"
+          cp "$RUNNER_TEMP/prime-resurgence-pr.md" "$artifact/pr-body.md"
+          git rev-parse HEAD > "$artifact/base-sha.txt"
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+
+      - name: Upload the validated candidate
+        if: steps.package.outputs.changed == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: prime-resurgence-candidate
+          path: ${{ runner.temp }}/prime-resurgence-candidate
+          if-no-files-found: error
+          retention-days: 1
+
+  publish:
+    name: Update the candidate branch and Draft PR
+    needs: prepare
+    if: needs.prepare.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
+    env:
+      BASE_BRANCH: ${{ github.event.repository.default_branch }}
+      AUTOMATION_BRANCH: automation/prime-resurgence-sync
+      PR_TITLE: "chore: prepare Prime Resurgence data update"
+    steps:
+      - name: Check out the validated base without persisted credentials
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Download the validated candidate
+        uses: actions/download-artifact@v4
+        with:
+          name: prime-resurgence-candidate
+          path: ${{ runner.temp }}/prime-resurgence-candidate
+
+      - name: Validate and update the automation branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git check-ref-format --branch "$BASE_BRANCH" >/dev/null
+          git check-ref-format --branch "$AUTOMATION_BRANCH" >/dev/null
+
+          artifact="$RUNNER_TEMP/prime-resurgence-candidate"
+          base_sha="$(tr -d '\n' < "$artifact/base-sha.txt")"
+          test "$(git rev-parse HEAD)" = "$base_sha"
+
+          gh auth setup-git
+          remote_base_line="$(git ls-remote --heads origin "refs/heads/$BASE_BRANCH")"
+          test -n "$remote_base_line"
+          remote_base_sha="${remote_base_line%%[[:space:]]*}"
+          if [ "$remote_base_sha" != "$base_sha" ]; then
+            echo "Default branch advanced after validation; refusing to publish stale candidate data." >&2
+            exit 1
+          fi
+
+          cp "$artifact/data/rotation.json" data/rotation.json
+          cp "$artifact/data/primes.json" data/primes.json
+          cp "$artifact/data/relics.json" data/relics.json
+          git diff --check
+
+          mapfile -t generated_paths < <(git diff --name-only)
+          test "${#generated_paths[@]}" -gt 0
+          for generated_path in "${generated_paths[@]}"; do
+            case "$generated_path" in
+              data/rotation.json|data/primes.json|data/relics.json) ;;
+              *) echo "Unexpected artifact path: $generated_path" >&2; exit 1 ;;
+            esac
+          done
+
+          remote_branch_line="$(git ls-remote --heads origin "refs/heads/$AUTOMATION_BRANCH")"
+          remote_branch_sha="${remote_branch_line%%[[:space:]]*}"
+          branch_update=true
+          if [ -n "$remote_branch_sha" ]; then
+            git fetch --no-tags origin "+refs/heads/$AUTOMATION_BRANCH:refs/remotes/origin/$AUTOMATION_BRANCH"
+            remote_ref="refs/remotes/origin/$AUTOMATION_BRANCH"
+            test "$(git rev-parse "$remote_ref")" = "$remote_branch_sha"
+            merge_base="$(git merge-base "$base_sha" "$remote_ref")"
+            if [ "$(git rev-list --count "$merge_base..$remote_ref")" != "1" ]; then
+              echo "Automation branch is not exactly one bot-owned candidate commit; refusing to overwrite it." >&2
+              exit 1
+            fi
+            if [ "$(git show -s --format=%ae "$remote_ref")" != "41898282+github-actions[bot]@users.noreply.github.com" ]; then
+              echo "Automation branch author is not the expected bot; refusing to overwrite it." >&2
+              exit 1
+            fi
+            if [ "$(git show -s --format=%s "$remote_ref")" != "$PR_TITLE" ]; then
+              echo "Automation branch commit subject is not the expected candidate title; refusing to overwrite it." >&2
+              exit 1
+            fi
+            while IFS= read -r remote_path; do
+              case "$remote_path" in
+                data/rotation.json|data/primes.json|data/relics.json) ;;
+                *) echo "Automation branch contains a non-data change: $remote_path" >&2; exit 1 ;;
+              esac
+            done < <(git diff --name-only "$merge_base" "$remote_ref")
+            if git diff --quiet "$remote_ref" -- data/rotation.json data/primes.json data/relics.json; then
+              branch_update=false
+            fi
+          fi
+
+          if [ "$branch_update" = true ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git switch -C "$AUTOMATION_BRANCH" "$base_sha"
+            git add -- data/rotation.json data/primes.json data/relics.json
+            git diff --cached --check
+            git commit -m "$PR_TITLE"
+            if [ -n "$remote_branch_sha" ]; then
+              git push --force-with-lease="refs/heads/$AUTOMATION_BRANCH:$remote_branch_sha" origin "HEAD:refs/heads/$AUTOMATION_BRANCH"
+            else
+              git push origin "HEAD:refs/heads/$AUTOMATION_BRANCH"
+            fi
+          fi
+
+      - name: Create or update the Draft candidate pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          pr_data="$(gh pr list --repo "$GITHUB_REPOSITORY" --state open --base "$BASE_BRANCH" --head "$AUTOMATION_BRANCH" --json number,isDraft)"
+          pr_count="$(jq 'length' <<< "$pr_data")"
+          if [ "$pr_count" -gt 1 ]; then
+            echo "Multiple open automation PRs found; refusing to choose one." >&2
+            exit 1
+          fi
+          if [ "$pr_count" = "1" ]; then
+            if [ "$(jq -r '.[0].isDraft' <<< "$pr_data")" != "true" ]; then
+              echo "The existing automation PR is no longer Draft; refusing to update reviewed branch state." >&2
+              exit 1
+            fi
+            pr_number="$(jq -r '.[0].number' <<< "$pr_data")"
+            gh pr edit "$pr_number" --repo "$GITHUB_REPOSITORY" --title "$PR_TITLE" --body-file "$RUNNER_TEMP/prime-resurgence-candidate/pr-body.md"
+          else
+            gh pr create --repo "$GITHUB_REPOSITORY" --base "$BASE_BRANCH" --head "$AUTOMATION_BRANCH" --title "$PR_TITLE" --body-file "$RUNNER_TEMP/prime-resurgence-candidate/pr-body.md" --draft
+          fi

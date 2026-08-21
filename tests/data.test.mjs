@@ -7,6 +7,7 @@ const rotation = JSON.parse(await readFile(new URL("../data/rotation.json", impo
 const primes = JSON.parse(await readFile(new URL("../data/primes.json", import.meta.url), "utf8"));
 const relicData = JSON.parse(await readFile(new URL("../data/relics.json", import.meta.url), "utf8"));
 const currentRotation = rotation.rotations.find(({ id }) => id === "revenant-baruuk-2026-08");
+const nextRotation = rotation.rotations.find(({ id }) => id === "banshee-mirage-2026-09");
 const DAY_MS = 24 * 60 * 60 * 1_000;
 
 function utcSecondsAfter(startsAt, days) {
@@ -38,6 +39,7 @@ function appendFixtureRotation(schedule, primeCatalog, relicCatalog, suffix, sta
   });
   schedule.rotations.push({
     id: rotationId,
+    publicationStatus: "published",
     displayName: `Future Rotation ${suffix.toUpperCase()}`,
     startsAt,
     items: [itemId],
@@ -137,6 +139,61 @@ test("每一期都引用非空、存在且相互一致的装备与遗物", () =>
   }
 });
 
+test("下一期详细数据保持 provisional，并记录已确认来源及待更新轮换页", () => {
+  assert.equal(rotation.lastVerified, "2026-08-14");
+  assert.equal(primes.updatedAt, "2026-08-14");
+  assert.equal(relicData.updatedAt, "2026-08-14");
+  assert.equal(nextRotation.publicationStatus, "provisional");
+  assert.deepEqual(
+    [nextRotation.source.rotationUrl, nextRotation.source.announcementUrl, nextRotation.source.dropTableUrl],
+    [
+      null,
+      "https://x.com/PlayWarframe/status/2090499222894231614",
+      "https://www.warframe.com/droptables"
+    ]
+  );
+  assert.match(nextRotation.source.recipeExportUrl, /^https:\/\/content\.warframe\.com\/PublicExport\/Manifest\/ExportRecipes_en\.json/);
+  assert.deepEqual(nextRotation.source.recipeExceptions.map(({ itemId, status, sourceUrl, publicExportStatus }) => ({ itemId, status, sourceUrl, publicExportStatus })), [
+    { itemId: "euphona-prime", status: "curated-manual", sourceUrl: null, publicExportStatus: "missing" }
+  ]);
+  assert.ok(nextRotation.source.rarityWarnings.length > 0);
+});
+
+test("Meso E5 的 Banshee route 与官方 fixture 一致为 blueprint", () => {
+  const relic = relicData.relics.find(({ id }) => id === "meso-e5");
+  assert.ok(relic.rewards.some((reward) => reward.itemId === "banshee-prime" && reward.partId === "blueprint" && reward.rarity === "uncommon"));
+  assert.ok(!relic.rewards.some((reward) => reward.itemId === "banshee-prime" && reward.partId === "chassis"));
+  const banshee = primes.primeItems.find(({ id }) => id === "banshee-prime");
+  assert.ok(banshee.parts.find(({ id }) => id === "blueprint").relics.includes("meso-e5"));
+  assert.ok(!banshee.parts.find(({ id }) => id === "chassis").relics.includes("meso-e5"));
+});
+
+test("provisional 轮换缺少角色化来源占位时校验失败", () => {
+  const missingSourceField = structuredClone(rotation);
+  delete missingSourceField.rotations.find(({ id }) => id === nextRotation.id).source.dropTableUrl;
+  assert.throws(
+    () => validateRotationData(missingSourceField, primes, relicData),
+    /Missing provisional source field/
+  );
+
+  const missingRecipeSource = structuredClone(primes);
+  delete missingRecipeSource.provisionalSources[nextRotation.id].recipeExportUrl;
+  assert.throws(
+    () => validateRotationData(rotation, missingRecipeSource, relicData),
+    /Missing provisional source field: primes .* recipeExportUrl/
+  );
+});
+
+test("curated recipe exception 不能伪装成 official source", () => {
+  const invalidException = structuredClone(rotation);
+  invalidException.rotations.find(({ id }) => id === nextRotation.id).source.recipeExceptions[0].sourceUrl = "https://content.warframe.com/fake";
+  assert.throws(() => validateRotationData(invalidException, primes, relicData), /sourceUrl must be null/);
+
+  const unsafeQuantity = structuredClone(primes);
+  unsafeQuantity.primeItems.find(({ id }) => id === "akbolto-prime").parts.find(({ id }) => id === "barrel").required = 65_536;
+  assert.throws(() => validateRotationData(rotation, unsafeQuantity, relicData), /Invalid required quantity/);
+});
+
 test("追加未来 B、C 的装备、遗物和时间表后仍通过通用校验", () => {
   const futureSchedule = structuredClone(rotation);
   const futurePrimes = structuredClone(primes);
@@ -176,11 +233,11 @@ test("startsAt 必须是精确到秒的 ISO 8601 UTC 且时间表严格递增", 
 test("轮换引用未知装备或未知遗物时校验失败", () => {
   const unknownItem = structuredClone(rotation);
   unknownItem.rotations[0].items[0] = "future-item";
-  assert.throws(() => validateRotationData(unknownItem, primes, relicData), /Missing rotation item/);
+  assert.throws(() => validateRotationData(unknownItem, primes, relicData), /Item is not listed by rotation|Missing rotation item/);
 
   const unknownRelic = structuredClone(rotation);
   unknownRelic.rotations[0].relics[0] = "future-relic";
-  assert.throws(() => validateRotationData(unknownRelic, primes, relicData), /Missing rotation relic source|Missing rotation relic/);
+  assert.throws(() => validateRotationData(unknownRelic, primes, relicData), /Relic is not listed by rotation|Missing rotation relic source|Missing rotation relic/);
 });
 
 test("同一期 relic 不能重复且默认 Aya 必须是非负整数", () => {

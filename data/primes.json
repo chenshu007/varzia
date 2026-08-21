@@ -5,6 +5,30 @@
     "name": "Warframe 官方简体中文 Prime 重生页面与游戏掉落数据",
     "url": "https://www.warframe.com/zh-hans/prime-resurgence"
   },
+  "provisionalSources": {
+    "banshee-mirage-2026-09": {
+      "status": "provisional",
+      "rotationUrl": null,
+      "announcementUrl": "https://x.com/PlayWarframe/status/2090499222894231614",
+      "dropTableUrl": "https://www.warframe.com/droptables",
+      "recipeExportUrl": "https://content.warframe.com/PublicExport/Manifest/ExportRecipes_en.json!00_ftaIks7bCpxZmaQMDvAN7Q",
+      "preparedAt": "2026-08-21",
+      "recipeExceptions": [
+        {
+          "itemId": "euphona-prime",
+          "status": "curated-manual",
+          "sourceUrl": null,
+          "publicExportStatus": "missing",
+          "publicExportCheckedUrl": "https://content.warframe.com/PublicExport/Manifest/ExportRecipes_en.json!00_ftaIks7bCpxZmaQMDvAN7Q",
+          "reason": "The official Public Export recipe manifest contains no Euphona entry. Blueprint, barrel, and receiver quantities are manually curated as one each and require human review; they are not Public Export verification."
+        }
+      ],
+      "rarityWarnings": [
+        "Official Drop Tables currently labels 14 selected 25.33% target rewards as Uncommon; Varzia uses the numeric 25.33% probability as canonical common rarity and requires this disagreement to remain visible in review."
+      ],
+      "note": "官方社媒已确认两名 Prime 战甲与切换时间；官方掉落表已确认遗物部件映射。五件装备的数量来自 Public Export；Euphona Prime 的数量是显式 curated-manual exception，不能描述为 Public Export 验证。游戏官网轮换页仍待更新。"
+    }
+  },
   "primeItems": [
     {
       "id": "revenant-prime",
@@ -87,6 +111,88 @@
         { "id": "blade", "name": "刀刃", "required": 1, "rarity": "uncommon", "relics": ["meso-r6"] },
         { "id": "hilt", "name": "握柄", "required": 1, "rarity": "common", "relics": ["lith-a9"] },
         { "id": "guard", "name": "护手", "required": 1, "rarity": "rare", "relics": ["axi-c9"] }
+      ]
+    },
+    {
+      "id": "banshee-prime",
+      "name": "Banshee Prime",
+      "type": "warframe",
+      "description": "以致命声波撼动战场。",
+      "rotation": "banshee-mirage-2026-09",
+      "relics": ["lith-k5", "lith-m7", "meso-e5", "neo-b6", "axi-a12", "axi-h5"],
+      "parts": [
+        { "id": "blueprint", "name": "蓝图", "required": 1, "rarity": "uncommon", "relics": ["meso-e5", "axi-a12"] },
+        { "id": "chassis", "name": "机体", "required": 1, "rarity": "rare", "relics": ["neo-b6"] },
+        { "id": "neuroptics", "name": "神经光元", "required": 1, "rarity": "common", "relics": ["lith-m7", "axi-h5"] },
+        { "id": "systems", "name": "系统", "required": 1, "rarity": "uncommon", "relics": ["lith-k5"] }
+      ]
+    },
+    {
+      "id": "mirage-prime",
+      "name": "Mirage Prime",
+      "type": "warframe",
+      "description": "以光影戏法迷惑并摧毁敌人。",
+      "rotation": "banshee-mirage-2026-09",
+      "relics": ["lith-k5", "lith-m7", "meso-e5", "neo-b6", "axi-a12", "axi-h5"],
+      "parts": [
+        { "id": "blueprint", "name": "蓝图", "required": 1, "rarity": "rare", "relics": ["lith-m7"] },
+        { "id": "chassis", "name": "机体", "required": 1, "rarity": "common", "relics": ["lith-k5", "axi-a12"] },
+        { "id": "neuroptics", "name": "神经光元", "required": 1, "rarity": "common", "relics": ["meso-e5", "neo-b6"] },
+        { "id": "systems", "name": "系统", "required": 1, "rarity": "uncommon", "relics": ["axi-h5"] }
+      ]
+    },
+    {
+      "id": "helios-prime",
+      "name": "赫利俄斯 Prime",
+      "type": "companion",
+      "description": "Banshee Prime 的配套 Prime 守护。",
+      "rotation": "banshee-mirage-2026-09",
+      "relics": ["lith-k5", "meso-e5", "axi-a12", "axi-h5"],
+      "parts": [
+        { "id": "blueprint", "name": "蓝图", "required": 1, "rarity": "uncommon", "relics": ["meso-e5"] },
+        { "id": "cerebrum", "name": "头部", "required": 1, "rarity": "rare", "relics": ["axi-h5"] },
+        { "id": "carapace", "name": "外壳", "required": 1, "rarity": "common", "relics": ["lith-k5", "meso-e5"] },
+        { "id": "systems", "name": "系统", "required": 1, "rarity": "uncommon", "relics": ["axi-a12"] }
+      ]
+    },
+    {
+      "id": "akbolto-prime",
+      "name": "螺钉双枪 Prime",
+      "type": "secondary",
+      "description": "Mirage Prime 的配套次要武器。",
+      "rotation": "banshee-mirage-2026-09",
+      "relics": ["lith-k5", "lith-m7", "neo-b6", "axi-a12", "axi-h5"],
+      "parts": [
+        { "id": "blueprint", "name": "蓝图", "required": 1, "rarity": "common", "relics": ["lith-m7", "axi-h5"] },
+        { "id": "barrel", "name": "枪管", "required": 2, "rarity": "uncommon", "relics": ["lith-k5"] },
+        { "id": "receiver", "name": "枪机", "required": 2, "rarity": "rare", "relics": ["axi-a12"] },
+        { "id": "link", "name": "连接器", "required": 1, "rarity": "uncommon", "relics": ["neo-b6"] }
+      ]
+    },
+    {
+      "id": "kogake-prime",
+      "name": "科加基 Prime",
+      "type": "melee",
+      "description": "Mirage Prime 的配套近战武器。",
+      "rotation": "banshee-mirage-2026-09",
+      "relics": ["lith-k5", "lith-m7", "neo-b6", "axi-a12"],
+      "parts": [
+        { "id": "blueprint", "name": "蓝图", "required": 1, "rarity": "uncommon", "relics": ["neo-b6"] },
+        { "id": "boot", "name": "靴子", "required": 2, "rarity": "common", "relics": ["lith-m7", "axi-a12"] },
+        { "id": "gauntlet", "name": "拳套", "required": 2, "rarity": "rare", "relics": ["lith-k5"] }
+      ]
+    },
+    {
+      "id": "euphona-prime",
+      "name": "悦音 Prime",
+      "type": "secondary",
+      "description": "Banshee Prime 的标志性次要武器。",
+      "rotation": "banshee-mirage-2026-09",
+      "relics": ["lith-m7", "meso-e5", "neo-b6", "axi-h5"],
+      "parts": [
+        { "id": "blueprint", "name": "蓝图", "required": 1, "rarity": "common", "relics": ["neo-b6", "axi-h5"] },
+        { "id": "barrel", "name": "枪管", "required": 1, "rarity": "uncommon", "relics": ["lith-m7"] },
+        { "id": "receiver", "name": "枪机", "required": 1, "rarity": "rare", "relics": ["meso-e5"] }
       ]
     }
   ]

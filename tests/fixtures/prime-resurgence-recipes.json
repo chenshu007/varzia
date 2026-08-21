@@ -1,0 +1,54 @@
+{
+  "ExportRecipes": [
+    {
+      "uniqueName": "/Lotus/Types/Recipes/WarframeRecipes/BansheePrimeBlueprint",
+      "consumeOnUse": true,
+      "num": 1,
+      "ingredients": [
+        { "ItemType": "/Lotus/Types/Recipes/WarframeRecipes/BansheePrimeHelmetComponent", "ItemCount": 1 },
+        { "ItemType": "/Lotus/Types/Recipes/WarframeRecipes/BansheePrimeChassisComponent", "ItemCount": 1 },
+        { "ItemType": "/Lotus/Types/Recipes/WarframeRecipes/BansheePrimeSystemsComponent", "ItemCount": 1 }
+      ]
+    },
+    {
+      "uniqueName": "/Lotus/Types/Recipes/WarframeRecipes/MiragePrimeBlueprint",
+      "consumeOnUse": true,
+      "num": 1,
+      "ingredients": [
+        { "ItemType": "/Lotus/Types/Recipes/WarframeRecipes/MiragePrimeChassisComponent", "ItemCount": 1 },
+        { "ItemType": "/Lotus/Types/Recipes/WarframeRecipes/MiragePrimeHelmetComponent", "ItemCount": 1 },
+        { "ItemType": "/Lotus/Types/Recipes/WarframeRecipes/MiragePrimeSystemsComponent", "ItemCount": 1 }
+      ]
+    },
+    {
+      "uniqueName": "/Lotus/Types/Recipes/SentinelRecipes/PrimeHeliosSentinelBlueprint",
+      "consumeOnUse": true,
+      "num": 1,
+      "ingredients": [
+        { "ItemType": "/Lotus/Types/Recipes/Weapons/WeaponParts/PrimeHeliosCerebrum", "ItemCount": 1 },
+        { "ItemType": "/Lotus/Types/Recipes/Weapons/WeaponParts/PrimeHeliosCarapace", "ItemCount": 1 },
+        { "ItemType": "/Lotus/Types/Recipes/Weapons/WeaponParts/PrimeHeliosSystems", "ItemCount": 1 },
+        { "ItemType": "/Lotus/Types/Items/MiscItems/OrokinCell", "ItemCount": 6 }
+      ]
+    },
+    {
+      "uniqueName": "/Lotus/Types/Recipes/Weapons/AkboltoPrimeBlueprint",
+      "consumeOnUse": true,
+      "num": 1,
+      "ingredients": [
+        { "ItemType": "/Lotus/Types/Recipes/Weapons/WeaponParts/AkboltoPrimeBarrel", "ItemCount": 2 },
+        { "ItemType": "/Lotus/Types/Recipes/Weapons/WeaponParts/AkboltoPrimeReceiver", "ItemCount": 2 },
+        { "ItemType": "/Lotus/Types/Recipes/Weapons/WeaponParts/AkboltoPrimeLink", "ItemCount": 1 }
+      ]
+    },
+    {
+      "uniqueName": "/Lotus/Types/Recipes/Weapons/KogakePrimeBlueprint",
+      "consumeOnUse": true,
+      "num": 1,
+      "ingredients": [
+        { "ItemType": "/Lotus/Types/Recipes/Weapons/WeaponParts/KogakePrimeBoot", "ItemCount": 2 },
+        { "ItemType": "/Lotus/Types/Recipes/Weapons/WeaponParts/KogakePrimeGauntlet", "ItemCount": 2 }
+      ]
+    }
+  ]
+}

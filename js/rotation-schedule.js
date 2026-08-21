@@ -36,11 +36,15 @@ export function resolveRotationState(rotations, now) {
   };
 }
 
-export function resolveRotationView(rotations, now, previewId = "") {
+export function publishedRotations(rotations) {
+  return (Array.isArray(rotations) ? rotations : []).filter((rotation) => rotation?.publicationStatus === "published");
+}
+
+export function resolveRotationView(rotations, now, previewId = "", previewRotations = rotations) {
   const resolved = resolveRotationState(rotations, now);
   const requestedPreviewId = String(previewId || "").trim();
   const previewRotation = requestedPreviewId
-    ? (Array.isArray(rotations) ? rotations : []).find((rotation) => rotation?.id === requestedPreviewId) || null
+    ? (Array.isArray(previewRotations) ? previewRotations : []).find((rotation) => rotation?.id === requestedPreviewId) || null
     : null;
 
   return {

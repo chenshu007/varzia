@@ -1,0 +1,17 @@
+{
+  "feed": [
+    {
+      "post": {
+        "uri": "at://did:plc:24m2xjetjmjfdbgo752skciu/app.bsky.feed.post/3mtjt7pmvpr2o",
+        "author": {
+          "handle": "warframe.com",
+          "did": "did:plc:24m2xjetjmjfdbgo752skciu"
+        },
+        "record": {
+          "createdAt": "2026-08-20T18:00:25.031Z",
+          "text": "Prepare to strike a chord and conjure up illusions.\n\nBanshee Prime and Mirage Prime return with the next Prime Resurgence rotation on September 3 at 2 p.m. ET."
+        }
+      }
+    }
+  ]
+}

@@ -4,7 +4,8 @@ export const LOCALE_STORAGE_KEY = "varzia.locale";
 
 const ENGLISH_DISPLAY_OVERLAY = Object.freeze({
   rotations: {
-    "revenant-baruuk-2026-08": { displayName: "Revenant Prime & Baruuk Prime" }
+    "revenant-baruuk-2026-08": { displayName: "Revenant Prime & Baruuk Prime" },
+    "banshee-mirage-2026-09": { displayName: "Banshee Prime & Mirage Prime" }
   },
   items: {
     "revenant-prime": {
@@ -30,6 +31,30 @@ const ENGLISH_DISPLAY_OVERLAY = Object.freeze({
     "cobra-crane-prime": {
       name: "Cobra & Crane Prime",
       parts: { blueprint: "Blueprint", blade: "Blade", hilt: "Hilt", guard: "Guard" }
+    },
+    "banshee-prime": {
+      name: "Banshee Prime",
+      parts: { blueprint: "Blueprint", chassis: "Chassis", neuroptics: "Neuroptics", systems: "Systems" }
+    },
+    "mirage-prime": {
+      name: "Mirage Prime",
+      parts: { blueprint: "Blueprint", chassis: "Chassis", neuroptics: "Neuroptics", systems: "Systems" }
+    },
+    "helios-prime": {
+      name: "Helios Prime",
+      parts: { blueprint: "Blueprint", cerebrum: "Cerebrum", carapace: "Carapace", systems: "Systems" }
+    },
+    "akbolto-prime": {
+      name: "Akbolto Prime",
+      parts: { blueprint: "Blueprint", barrel: "Barrel", receiver: "Receiver", link: "Link" }
+    },
+    "kogake-prime": {
+      name: "Kogake Prime",
+      parts: { blueprint: "Blueprint", boot: "Boot", gauntlet: "Gauntlet" }
+    },
+    "euphona-prime": {
+      name: "Euphona Prime",
+      parts: { blueprint: "Blueprint", barrel: "Barrel", receiver: "Receiver" }
     }
   },
   relics: {
@@ -38,7 +63,13 @@ const ENGLISH_DISPLAY_OVERLAY = Object.freeze({
     "meso-r6": { name: "Meso R6", era: "Meso" },
     "neo-p8": { name: "Neo P8", era: "Neo" },
     "axi-b9": { name: "Axi B9", era: "Axi" },
-    "axi-c9": { name: "Axi C9", era: "Axi" }
+    "axi-c9": { name: "Axi C9", era: "Axi" },
+    "lith-k5": { name: "Lith K5", era: "Lith" },
+    "lith-m7": { name: "Lith M7", era: "Lith" },
+    "meso-e5": { name: "Meso E5", era: "Meso" },
+    "neo-b6": { name: "Neo B6", era: "Neo" },
+    "axi-a12": { name: "Axi A12", era: "Axi" },
+    "axi-h5": { name: "Axi H5", era: "Axi" }
   }
 });
 
@@ -145,23 +176,26 @@ export function localizeDisplayData({ rotations = [], primeItems = [], relics = 
   return {
     rotations: rotations.map((rotation) => {
       const overlay = ENGLISH_DISPLAY_OVERLAY.rotations[rotation?.id];
-      return overlay ? { ...rotation, ...overlay } : rotation;
+      const displayName = overlay?.displayName || rotation?.displayNameEn;
+      return displayName ? { ...rotation, displayName } : rotation;
     }),
     primeItems: primeItems.map((item) => {
       const overlay = ENGLISH_DISPLAY_OVERLAY.items[item?.id];
-      if (!overlay) return item;
+      const name = overlay?.name || item?.nameEn;
+      if (!name && !(item?.parts || []).some((part) => part?.nameEn)) return item;
       return {
         ...item,
-        name: overlay.name,
+        name: name || item.name,
         parts: (item.parts || []).map((part) => ({
           ...part,
-          name: overlay.parts[part.id] || part.name
+          name: overlay?.parts?.[part.id] || part.nameEn || part.name
         }))
       };
     }),
     relics: relics.map((relic) => {
       const overlay = ENGLISH_DISPLAY_OVERLAY.relics[relic?.id];
-      return overlay ? { ...relic, ...overlay } : relic;
+      const localized = overlay || (relic?.nameEn ? { name: relic.nameEn, era: relic.eraEn || relic.era } : null);
+      return localized ? { ...relic, ...localized } : relic;
     })
   };
 }

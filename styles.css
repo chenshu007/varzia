@@ -229,6 +229,7 @@ a { color: inherit; }
 .part-quantity button { display: grid; place-items: center; width: 23px; height: 23px; border: 1px solid var(--line); border-radius: 6px; padding: 0; background: rgba(7, 20, 30, .55); color: var(--champagne); }
 .part-quantity button:hover { border-color: var(--champagne); }
 .part-meta { color: var(--subtle); font-size: 10px; white-space: nowrap; }
+.part-rarities { display: flex; gap: 4px; }
 .rarity { padding: 3px 7px; border-radius: 999px; font-size: 10px; white-space: nowrap; }
 .rarity-common { color: var(--rarity-copper); background: var(--rarity-copper-soft); }
 .rarity-uncommon { color: var(--rarity-silver); background: var(--rarity-silver-soft); }

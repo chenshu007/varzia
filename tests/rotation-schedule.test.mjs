@@ -6,14 +6,15 @@ import {
   formatRotationCountdown,
   getTimeUntilRotation,
   isSimulationResponseCurrent,
+  publishedRotations,
   resolveRotationState,
   resolveRotationView
 } from "../js/rotation-schedule.js";
 
 const rotations = [
-  { id: "A", startsAt: "2026-08-01T18:00:00Z" },
-  { id: "B", startsAt: "2026-09-01T18:00:00Z" },
-  { id: "C", startsAt: "2026-10-01T18:00:00Z" }
+  { id: "A", publicationStatus: "published", startsAt: "2026-08-01T18:00:00Z" },
+  { id: "B", publicationStatus: "published", startsAt: "2026-09-01T18:00:00Z" },
+  { id: "C", publicationStatus: "published", startsAt: "2026-10-01T18:00:00Z" }
 ];
 const boundary = Date.parse(rotations[1].startsAt);
 
@@ -101,6 +102,22 @@ test("预览参数临时选择指定轮换，无效 id 回退真实轮换", () =
   assert.equal(invalid.displayRotation.id, "A");
   assert.equal(invalid.isPreview, false);
   assert.equal(invalid.invalidPreviewId, "missing");
+});
+
+test("provisional 轮换不进入正常排期但仍可通过显式参数预览", () => {
+  const allRotations = [
+    rotations[0],
+    { ...rotations[1], publicationStatus: "provisional" }
+  ];
+  const productionSchedule = publishedRotations(allRotations);
+  const normal = resolveRotationView(productionSchedule, boundary + 1);
+  assert.equal(normal.activeRotation.id, "A");
+  assert.equal(normal.nextRotation, null);
+
+  const preview = resolveRotationView(productionSchedule, boundary + 1, "B", allRotations);
+  assert.equal(preview.activeRotation.id, "A");
+  assert.equal(preview.displayRotation.id, "B");
+  assert.equal(preview.isPreview, true);
 });
 
 test("轮换改变后旧 Worker 结果会被拒绝", () => {

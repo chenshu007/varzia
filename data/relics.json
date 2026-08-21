@@ -6,7 +6,20 @@
     "officialUrl": "https://www.warframe.com/droptables",
     "rotationUrl": "https://www.warframe.com/zh-hans/prime-resurgence"
   },
-  "notes": "只包含本期可用 1 阿耶精华兑换的六枚遗物。rewards 收录本期六件 Prime 的目标奖励；Forma 与其他非目标奖励由剩余概率隐式表示。",
+  "provisionalSources": {
+    "banshee-mirage-2026-09": {
+      "status": "provisional",
+      "rotationUrl": null,
+      "announcementUrl": "https://x.com/PlayWarframe/status/2090499222894231614",
+      "dropTableUrl": "https://www.warframe.com/droptables",
+      "preparedAt": "2026-08-21",
+      "rarityWarnings": [
+        "Official Drop Tables currently labels 14 selected 25.33% target rewards as Uncommon; Varzia uses the numeric 25.33% probability as canonical common rarity and requires this disagreement to remain visible in review."
+      ],
+      "note": "六枚遗物的奖励、稀有度与部件映射已由官方掉落表逐项核对；游戏官网轮换页仍待更新。"
+    }
+  },
+  "notes": "已发布轮换只包含可用 1 阿耶精华兑换的六枚遗物。rewards 收录对应轮换的目标奖励；Forma 与其他非目标奖励由剩余概率隐式表示。provisionalSources 对应的数据只供显式预览，不能进入正常轮换。",
   "relics": [
     {
       "id": "lith-a9",
@@ -83,6 +96,90 @@
         { "itemId": "phantasma-prime", "partId": "stock", "rarity": "uncommon" },
         { "itemId": "tatsu-prime", "partId": "blade", "rarity": "uncommon" },
         { "itemId": "cobra-crane-prime", "partId": "guard", "rarity": "rare" }
+      ]
+    },
+    {
+      "id": "lith-k5",
+      "name": "古纪 K5",
+      "era": "古纪",
+      "costAya": 1,
+      "rotation": "banshee-mirage-2026-09",
+      "rewards": [
+        { "itemId": "helios-prime", "partId": "carapace", "rarity": "common" },
+        { "itemId": "mirage-prime", "partId": "chassis", "rarity": "common" },
+        { "itemId": "banshee-prime", "partId": "systems", "rarity": "uncommon" },
+        { "itemId": "akbolto-prime", "partId": "barrel", "rarity": "uncommon" },
+        { "itemId": "kogake-prime", "partId": "gauntlet", "rarity": "rare" }
+      ]
+    },
+    {
+      "id": "lith-m7",
+      "name": "古纪 M7",
+      "era": "古纪",
+      "costAya": 1,
+      "rotation": "banshee-mirage-2026-09",
+      "rewards": [
+        { "itemId": "banshee-prime", "partId": "neuroptics", "rarity": "common" },
+        { "itemId": "kogake-prime", "partId": "boot", "rarity": "common" },
+        { "itemId": "akbolto-prime", "partId": "blueprint", "rarity": "common" },
+        { "itemId": "euphona-prime", "partId": "barrel", "rarity": "uncommon" },
+        { "itemId": "mirage-prime", "partId": "blueprint", "rarity": "rare" }
+      ]
+    },
+    {
+      "id": "meso-e5",
+      "name": "前纪 E5",
+      "era": "前纪",
+      "costAya": 1,
+      "rotation": "banshee-mirage-2026-09",
+      "rewards": [
+        { "itemId": "helios-prime", "partId": "carapace", "rarity": "common" },
+        { "itemId": "mirage-prime", "partId": "neuroptics", "rarity": "common" },
+        { "itemId": "helios-prime", "partId": "blueprint", "rarity": "uncommon" },
+        { "itemId": "banshee-prime", "partId": "blueprint", "rarity": "uncommon" },
+        { "itemId": "euphona-prime", "partId": "receiver", "rarity": "rare" }
+      ]
+    },
+    {
+      "id": "neo-b6",
+      "name": "中纪 B6",
+      "era": "中纪",
+      "costAya": 1,
+      "rotation": "banshee-mirage-2026-09",
+      "rewards": [
+        { "itemId": "euphona-prime", "partId": "blueprint", "rarity": "common" },
+        { "itemId": "mirage-prime", "partId": "neuroptics", "rarity": "common" },
+        { "itemId": "akbolto-prime", "partId": "link", "rarity": "uncommon" },
+        { "itemId": "kogake-prime", "partId": "blueprint", "rarity": "uncommon" },
+        { "itemId": "banshee-prime", "partId": "chassis", "rarity": "rare" }
+      ]
+    },
+    {
+      "id": "axi-a12",
+      "name": "后纪 A12",
+      "era": "后纪",
+      "costAya": 1,
+      "rotation": "banshee-mirage-2026-09",
+      "rewards": [
+        { "itemId": "kogake-prime", "partId": "boot", "rarity": "common" },
+        { "itemId": "mirage-prime", "partId": "chassis", "rarity": "common" },
+        { "itemId": "banshee-prime", "partId": "blueprint", "rarity": "uncommon" },
+        { "itemId": "helios-prime", "partId": "systems", "rarity": "uncommon" },
+        { "itemId": "akbolto-prime", "partId": "receiver", "rarity": "rare" }
+      ]
+    },
+    {
+      "id": "axi-h5",
+      "name": "后纪 H5",
+      "era": "后纪",
+      "costAya": 1,
+      "rotation": "banshee-mirage-2026-09",
+      "rewards": [
+        { "itemId": "akbolto-prime", "partId": "blueprint", "rarity": "common" },
+        { "itemId": "banshee-prime", "partId": "neuroptics", "rarity": "common" },
+        { "itemId": "euphona-prime", "partId": "blueprint", "rarity": "common" },
+        { "itemId": "mirage-prime", "partId": "systems", "rarity": "uncommon" },
+        { "itemId": "helios-prime", "partId": "cerebrum", "rarity": "rare" }
       ]
     }
   ]

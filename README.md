@@ -115,7 +115,7 @@ assets/
 
 - Prime 重生轮换：[Warframe 官方 Prime 重生页面](https://www.warframe.com/zh-hans/prime-resurgence)
 - 掉落概率：[Warframe 官方掉落表](https://www.warframe.com/droptables)
-- 中文名称：Warframe 官方简体中文优先，中文 Wiki 可用于辅助核对
+- 中文名称：Warframe 官方简体中文页面与官方游戏数据
 
 轮换和掉落数据会随游戏官方内容变化。提交数据更新时，请在 JSON 中同步更新核验日期、来源和映射，并运行完整测试。
 
@@ -136,6 +136,35 @@ assets/
 9. 提前部署。普通 URL 会继续按浏览器当前时间显示真实轮换；到达 `startsAt` 后，已打开的页面也会在当前状态内自动切换。
 
 正常轮换当天不需要重新部署、刷新页面或执行服务端定时任务。
+
+## Prime Resurgence 候选数据自动化
+
+`.github/workflows/prime-resurgence-sync.yml` 每天在非整点 UTC 时间运行，也支持手动触发。它使用确定性 Node 代码读取以下官方来源：
+
+- Prime Resurgence 中英文页面：完整 Prime 商品阵容及官方页面是否已经切换。
+- `warframe.com` 官方账号公告：两名 Prime 战甲和精确生效时间；账号 DID 固定校验，变化时停止。
+- Official Drop Tables：Intact 遗物奖励、文本 rarity label 与数值概率。规划器以数值概率作为 canonical simulation input；label 不一致会进入 Actions/PR audit warning，不能被静默隐藏。
+- Digital Extremes Public Export：由当期 `ExportRecipes_en.json` recipe ingredient 计算部件数量及总数。
+
+Public Export 确认缺失某件装备 recipe 时，只有 `data/prime-resurgence-recipe-exceptions.json` 中逐 item 审核的 `curated-manual` exception 可以补足数量。exception 必须使用 `sourceUrl: null`，并记录检查过的官方 manifest；它不会被描述成 Public Export 验证。当前 Euphona Prime 是唯一 exception。任何未列明的缺失 recipe 仍然 fail closed。
+
+本地只读检查：
+
+```bash
+npm run prime-resurgence:dry-run
+```
+
+本地生成候选数据（只写三个 data JSON，不执行 Git 操作）：
+
+```bash
+npm run prime-resurgence:sync
+```
+
+解析器要求官方公告、Prime Resurgence 页面、六遗物唯一最高覆盖组合、双向奖励映射和 recipe evidence 全部一致。缺字段、歧义、未知概率、未知 Prime ingredient、未列明的缺 recipe 或页面结构变化都会直接失败。三文件写入会保留 mode，并对 cleanup/rollback 结果进行检查；GitHub Actions 还会在测试通过后把三份 JSON 作为一个 allowlisted artifact 交给独立 publish job，失败的本地状态不会进入 bot branch。
+
+workflow 的 prepare job 只有 `contents: read`，checkout 不持久化 credential。`contents: write` / `pull-requests: write` 只存在于 publish job，token 也只注入固定的 branch/PR step；仓库 parser 与测试代码不会接触写 token。
+
+自动生成的 rotation 永远是 `publicationStatus: "provisional"`。流水线不推进正式数据的 `lastVerified` 或目录级 `updatedAt`，不从官方来源推导 `ayaBudget`，也不会把候选加入 `publishedRotations()`。只有人工 Review 后单独把状态改为 `published`，正常排期才可能消费该轮换。
 
 ## 贡献
 

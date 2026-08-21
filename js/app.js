@@ -44,6 +44,7 @@ import {
   formatRotationLocalTime,
   getTimeUntilRotation,
   isSimulationResponseCurrent,
+  publishedRotations,
   resolveRotationView
 } from "./rotation-schedule.js";
 import {
@@ -62,6 +63,7 @@ const fallbackSchedule = {
 const state = {
   scheduleData: fallbackSchedule,
   rotations: [],
+  publishedRotations: [],
   realRotationState: { activeRotation: null, nextRotation: null, previousRotation: null },
   rotation: null,
   previewId: "",
@@ -265,6 +267,15 @@ function relicsForPart(itemId, partId) {
   )));
 }
 
+function raritiesForPart(itemId, partId, fallback) {
+  const rarities = relicsForPart(itemId, partId).flatMap((relic) => relic.rewards
+    .filter((reward) => reward.itemId === itemId && reward.partId === partId)
+    .map((reward) => reward.rarity))
+    .filter((rarity) => RARITIES[rarity]);
+  return [...new Set(rarities.length ? rarities : [fallback])]
+    .sort((left, right) => RARITIES[left].rank - RARITIES[right].rank);
+}
+
 function currentPrimeItems() {
   return selectedItems().map((item) => ({
     ...item,
@@ -327,7 +338,10 @@ function renderRotationSchedule(now = Date.now()) {
 
   $("previewModeBanner").hidden = !state.previewMode;
   if (state.previewMode) {
-    $("previewModeText").textContent = message("status.previewWithId", { id: state.rotation?.id || state.previewId });
+    const key = state.rotation?.publicationStatus === "provisional"
+      ? "status.provisionalPreviewWithId"
+      : "status.previewWithId";
+    $("previewModeText").textContent = message(key, { id: state.rotation?.id || state.previewId });
   }
 
   if (!upcoming) {
@@ -408,6 +422,9 @@ function renderCollections() {
           const count = Math.min(required, ownedCount(item.id, part.id));
           const isOwned = count >= required;
           const relicCount = relicsForPart(item.id, part.id).length;
+          const rarityBadges = raritiesForPart(item.id, part.id, part.rarity)
+            .map((rarity) => `<span class="rarity rarity-${escapeHtml(rarity)}">${escapeHtml(localizedRarityLabel(rarity))}</span>`)
+            .join(" ");
           const checkboxId = `owned-${item.id}-${part.id}`;
           const quantityControl = required > 1 ? `<span class="part-quantity" aria-label="${escapeHtml(message("collection.partQuantity", { name: part.name }))}">
             <button type="button" data-item-id="${escapeHtml(item.id)}" data-part-id="${escapeHtml(part.id)}" data-part-delta="-1" aria-label="${escapeHtml(message("collection.decrease", { name: part.name }))}">−</button>
@@ -418,7 +435,7 @@ function renderCollections() {
             <input id="${escapeHtml(checkboxId)}" type="checkbox" data-item-id="${escapeHtml(item.id)}" data-part-id="${escapeHtml(part.id)}" ${isOwned ? "checked" : ""} />
             <label class="part-name" for="${escapeHtml(checkboxId)}">${escapeHtml(part.name)}${required > 1 ? ` ×${required}` : ""}</label>
             ${quantityControl}
-            <span class="rarity rarity-${escapeHtml(part.rarity)}">${escapeHtml(localizedRarityLabel(part.rarity))}</span>
+            <span class="part-rarities">${rarityBadges}</span>
             <span class="part-meta">${escapeHtml(message("collection.partMeta", { count: relicCount }))}</span>
           </div>`;
         }).join("")}
@@ -438,7 +455,9 @@ function renderCollections() {
 
 function persistCollection({ quiet = false } = {}) {
   if (state.previewMode || !state.rotation) {
-    if (!quiet && state.previewMode) setStatus(message("status.preview"));
+    if (!quiet && state.previewMode) {
+      setStatus(message(state.rotation?.publicationStatus === "provisional" ? "status.provisionalPreview" : "status.preview"));
+    }
     return false;
   }
   const owned = Object.fromEntries(Object.entries(state.owned).map(([itemId, parts]) => [
@@ -1364,6 +1383,8 @@ function applyRotation(rotation, { preview = false, announce = false, scheduleSi
   cancelActiveSimulation();
   state.rotation = rotation || null;
   state.previewMode = Boolean(preview && rotation);
+  const provisionalPreview = state.previewMode && rotation?.publicationStatus === "provisional";
+  $("dataSources").hidden = provisionalPreview;
 
   const itemIds = new Set(rotation?.items || []);
   const relicIds = new Set(rotation?.relics || []);
@@ -1394,11 +1415,11 @@ function applyRotation(rotation, { preview = false, announce = false, scheduleSi
   resetSimulationResults();
 
   if (!state.previewMode && rotation) persistCollection({ quiet: true });
-  if (announce) {
+  if (state.previewMode) {
+    setStatus(message(provisionalPreview ? "status.provisionalPreview" : "status.preview"));
+  } else if (announce) {
     announceRotationChange(rotation);
     setStatus(message("status.rotationUpdated", { date: formatDate(state.scheduleData.lastVerified) }));
-  } else if (state.previewMode) {
-    setStatus(message("status.preview"));
   }
 
   if (scheduleSimulation && rotation && state.primeItems.length) scheduleRun();
@@ -1422,14 +1443,14 @@ function scheduleRotationWatcher(now = Date.now()) {
 
 function checkForRotationChange(now = Date.now()) {
   if (state.dataLoadErrors.length) return;
-  let view = resolveRotationView(state.rotations, now, state.previewId);
+  let view = resolveRotationView(state.publishedRotations, now, state.previewId, state.rotations);
   if (view.invalidPreviewId) {
     if (!state.invalidPreviewWarned) {
       console.warn(`Varzia rotation preview not found: ${view.invalidPreviewId}`);
       state.invalidPreviewWarned = true;
     }
     state.previewId = "";
-    view = resolveRotationView(state.rotations, now);
+    view = resolveRotationView(state.publishedRotations, now, "", state.rotations);
   }
 
   state.realRotationState = {
@@ -1496,16 +1517,17 @@ async function loadData() {
     relics: state.dataLoadErrors.length ? [] : (relicData?.relics || [])
   }, state.locale);
   state.rotations = displayData.rotations;
+  state.publishedRotations = publishedRotations(state.rotations);
   state.allPrimeItems = displayData.primeItems;
   state.allRelics = displayData.relics;
   state.previewId = new URLSearchParams(window.location.search).get("rotation")?.trim() || "";
 
-  let view = resolveRotationView(state.rotations, Date.now(), state.previewId);
+  let view = resolveRotationView(state.publishedRotations, Date.now(), state.previewId, state.rotations);
   if (view.invalidPreviewId) {
     console.warn(`Varzia rotation preview not found: ${view.invalidPreviewId}`);
     state.invalidPreviewWarned = true;
     state.previewId = "";
-    view = resolveRotationView(state.rotations, Date.now());
+    view = resolveRotationView(state.publishedRotations, Date.now(), "", state.rotations);
   }
   state.realRotationState = {
     activeRotation: view.activeRotation,

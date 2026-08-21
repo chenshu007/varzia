@@ -27,7 +27,13 @@ test("English display overlay uses official names without mutating Chinese canon
     "Phantasma Prime",
     "Tatsu Prime",
     "Afuris Prime",
-    "Cobra & Crane Prime"
+    "Cobra & Crane Prime",
+    "Banshee Prime",
+    "Mirage Prime",
+    "Helios Prime",
+    "Akbolto Prime",
+    "Kogake Prime",
+    "Euphona Prime"
   ]);
   assert.deepEqual(localized.relics.map((relic) => relic.name), [
     "Lith A9",
@@ -35,7 +41,13 @@ test("English display overlay uses official names without mutating Chinese canon
     "Meso R6",
     "Neo P8",
     "Axi B9",
-    "Axi C9"
+    "Axi C9",
+    "Lith K5",
+    "Lith M7",
+    "Meso E5",
+    "Neo B6",
+    "Axi A12",
+    "Axi H5"
   ]);
   assert.deepEqual(
     localized.primeItems.find((item) => item.id === "revenant-prime").parts.map((part) => part.name),
@@ -64,6 +76,25 @@ test("Chinese display data remains the canonical source objects", () => {
   assert.equal(localized.rotations[0].displayName, "Revenant Prime 与 Baruuk Prime");
   assert.equal(localized.primeItems.find((item) => item.id === "phantasma-prime").name, "幻离子 Prime");
   assert.equal(localized.relics[0].name, "古纪 A9");
+});
+
+test("automation-generated bilingual fields localize future provisional data without a code overlay", () => {
+  const localized = localizeDisplayData({
+    rotations: [{ id: "future", displayName: "未来轮换", displayNameEn: "Future Rotation" }],
+    primeItems: [{
+      id: "future-prime",
+      name: "未来 Prime",
+      nameEn: "Future Prime",
+      parts: [{ id: "blueprint", name: "蓝图", nameEn: "Blueprint" }]
+    }],
+    relics: [{ id: "lith-f1", name: "古纪 F1", nameEn: "Lith F1", era: "古纪", eraEn: "Lith" }]
+  }, "en");
+
+  assert.equal(localized.rotations[0].displayName, "Future Rotation");
+  assert.equal(localized.primeItems[0].name, "Future Prime");
+  assert.equal(localized.primeItems[0].parts[0].name, "Blueprint");
+  assert.equal(localized.relics[0].name, "Lith F1");
+  assert.equal(localized.relics[0].era, "Lith");
 });
 
 test("English display names do not change simulation results", () => {

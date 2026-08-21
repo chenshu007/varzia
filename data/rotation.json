@@ -10,6 +10,7 @@
   "rotations": [
     {
       "id": "revenant-baruuk-2026-08",
+      "publicationStatus": "published",
       "displayName": "Revenant Prime 与 Baruuk Prime",
       "startsAt": "2026-08-06T18:00:00Z",
       "items": [
@@ -30,6 +31,52 @@
       ],
       "defaults": {
         "ayaBudget": 33
+      }
+    },
+    {
+      "id": "banshee-mirage-2026-09",
+      "publicationStatus": "provisional",
+      "source": {
+        "status": "provisional",
+        "rotationUrl": null,
+        "announcementUrl": "https://x.com/PlayWarframe/status/2090499222894231614",
+        "dropTableUrl": "https://www.warframe.com/droptables",
+        "recipeExportUrl": "https://content.warframe.com/PublicExport/Manifest/ExportRecipes_en.json!00_ftaIks7bCpxZmaQMDvAN7Q",
+        "recipeExceptions": [
+          {
+            "itemId": "euphona-prime",
+            "status": "curated-manual",
+            "sourceUrl": null,
+            "publicExportStatus": "missing",
+            "publicExportCheckedUrl": "https://content.warframe.com/PublicExport/Manifest/ExportRecipes_en.json!00_ftaIks7bCpxZmaQMDvAN7Q",
+            "reason": "The official Public Export recipe manifest contains no Euphona entry. Blueprint, barrel, and receiver quantities are manually curated as one each and require human review; they are not Public Export verification."
+          }
+        ],
+        "rarityWarnings": [
+          "Official Drop Tables currently labels 14 selected 25.33% target rewards as Uncommon; Varzia uses the numeric 25.33% probability as canonical common rarity and requires this disagreement to remain visible in review."
+        ],
+        "note": "官方社媒确认 Banshee Prime 与 Mirage Prime 将于 2026-09-03 18:00 UTC 进入下一期轮换；官方掉落表确认六枚遗物的奖励、数值概率与部件映射。五件装备的制造数量来自 Public Export；Euphona Prime 因官方 export 缺失而使用显式 curated-manual exception，不属于 Public Export 验证。游戏官网轮换页仍未更新，默认阿耶预算 31 仍为规划器预设值，因此本期继续只供显式预览。"
+      },
+      "displayName": "Banshee Prime 与 Mirage Prime",
+      "startsAt": "2026-09-03T18:00:00Z",
+      "items": [
+        "banshee-prime",
+        "mirage-prime",
+        "helios-prime",
+        "akbolto-prime",
+        "kogake-prime",
+        "euphona-prime"
+      ],
+      "relics": [
+        "lith-k5",
+        "lith-m7",
+        "meso-e5",
+        "neo-b6",
+        "axi-a12",
+        "axi-h5"
+      ],
+      "defaults": {
+        "ayaBudget": 31
       }
     }
   ]

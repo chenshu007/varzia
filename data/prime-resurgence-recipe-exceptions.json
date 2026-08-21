@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "exceptions": [
+    {
+      "itemId": "euphona-prime",
+      "status": "curated-manual",
+      "sourceUrl": null,
+      "reason": "The official Public Export recipe manifest contains no Euphona entry. Blueprint, barrel, and receiver quantities are manually curated as one each and require human review; they are not Public Export verification.",
+      "publicExportEvidence": {
+        "status": "missing",
+        "checkedAt": "2026-08-22",
+        "manifestUrl": "https://content.warframe.com/PublicExport/Manifest/ExportRecipes_en.json!00_ftaIks7bCpxZmaQMDvAN7Q"
+      },
+      "quantities": {
+        "blueprint": 1,
+        "barrel": 1,
+        "receiver": 1
+      }
+    }
+  ]
+}
