@@ -22,6 +22,7 @@ import {
   commitSessionGains,
   commitSuspendedSessionGains,
   injectOwnedCounts,
+  ownershipChangesSimulationInput,
   persistSessionCandidate,
   shouldShowSessionGraduationRecap
 } from "../js/app.js";
@@ -422,6 +423,7 @@ test("故障注入：Undo 候选写入失败后，内存/持久化/派生显示�
   });
 });
 
+// TODO(test-hardening): directly test finishSuspendedSession so CI catches removed renderItemOptions() and removed/unconditional scheduleRun().
 test("挂起 Finish 只合并历史收藏，严格保留当前轮换规划字段", () => {
   const storage = memoryStorage();
   const planner = {
@@ -455,6 +457,42 @@ test("挂起 Finish 只合并历史收藏，严格保留当前轮换规划字段
   assert.equal(after.inputRotationId, beforePlanner.inputRotationId);
   assert.equal(after.ayaBudget, beforePlanner.ayaBudget);
   assert.deepEqual(after.plannerSentinel, beforePlanner.plannerSentinel);
+});
+
+test("挂起 Finish 只在当前选中目标的有效 owned 输入改变时重跑现有模拟", () => {
+  const unchanged = ownershipChangesSimulationInput({
+    primeItems,
+    selectedItemIds: ["frame"],
+    previousOwned: { weapon: { barrel: 0 } },
+    nextOwned: { weapon: { barrel: 1 } }
+  });
+  assert.equal(unchanged, false);
+
+  const changed = ownershipChangesSimulationInput({
+    primeItems,
+    selectedItemIds: ["weapon"],
+    previousOwned: { weapon: { barrel: 0 } },
+    nextOwned: { weapon: { barrel: 1 } }
+  });
+  assert.equal(changed, true);
+
+  const alreadyCapped = ownershipChangesSimulationInput({
+    primeItems,
+    selectedItemIds: ["weapon"],
+    previousOwned: { weapon: { barrel: 2 } },
+    nextOwned: { weapon: { barrel: 3 } }
+  });
+  assert.equal(alreadyCapped, false);
+});
+
+test("仅接受当前 Worker 结果后才刷新实时会话派生展示", () => {
+  const source = fs.readFileSync(new URL("../js/app.js", import.meta.url), "utf8");
+  const finishRun = source.slice(source.indexOf("function finishRun"), source.indexOf("function failRun"));
+  const guard = finishRun.indexOf("isSimulationResponseCurrent");
+  const normalResult = finishRun.indexOf("renderResult(result, trials, completedRequest?.options || {});");
+  const sessionRefresh = finishRun.indexOf("if (state.activeSession) renderSessionPanel();");
+  assert.match(finishRun, /if \(!isSimulationResponseCurrent\([\s\S]*?\)\) return;/);
+  assert.ok(guard >= 0 && normalResult > guard && sessionRefresh > normalResult);
 });
 
 test("挂起 Finish 的两阶段故障保持会话可恢复，且不改写当前规划", () => {

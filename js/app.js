@@ -310,6 +310,16 @@ export function injectOwnedCounts(primeItems, owned) {
   }));
 }
 
+/** Whether a collection merge changes the owned counts sent to the Worker. */
+export function ownershipChangesSimulationInput({ primeItems, selectedItemIds, previousOwned, nextOwned }) {
+  const selected = new Set(selectedItemIds || []);
+  return (primeItems || []).some((item) => selected.has(item.id) && item.parts.some((part) => {
+    const required = requiredCount(part);
+    return Math.min(required, ownedCountIn(previousOwned, item.id, part.id))
+      !== Math.min(required, ownedCountIn(nextOwned, item.id, part.id));
+  }));
+}
+
 function itemById(itemId) {
   return state.primeItems.find((item) => item.id === itemId);
 }
@@ -748,6 +758,7 @@ function finishRun(result, trials, completedRequest) {
     return;
   }
   renderResult(result, trials, completedRequest?.options || {});
+  if (state.activeSession) renderSessionPanel();
   setResultsUpdating(false);
   $("runButton").disabled = false;
   $("runButtonLabel").textContent = message("run.button");
@@ -1827,10 +1838,18 @@ function finishSuspendedSession() {
     announceSession(message("session.error.clearFailed"));
     return;
   }
+  const ownershipChanged = ownershipChangesSimulationInput({
+    primeItems: state.primeItems,
+    selectedItemIds: state.selectedItemIds,
+    previousOwned: state.owned,
+    nextOwned: result.final.ownedParts
+  });
   state.suspendedSession = null;
   state.owned = ownedMapsFromPlain(result.final.ownedParts);
+  renderItemOptions();
   renderCollections();
   renderSessionPanel();
+  if (ownershipChanged) scheduleRun();
   announceSession(message("session.suspendedFinishedAnnounce", { count: summary.fissures }));
   $("sessionStartButton")?.focus();
 }
@@ -1944,7 +1963,7 @@ function renderSessionPanel() {
   $("sessionStatAya").textContent = format(summary.ayaSpent);
   $("sessionStatClaims").textContent = format(summary.claims);
   $("sessionStatRemaining").textContent = format(missing.reduce((sum, entry) => sum + entry.missingCount, 0));
-  $("sessionStatChance").textContent = state.lastResult && !state.lastResult.empty
+  $("sessionStatChance").textContent = state.lastResult
     ? formatProbabilityPrecise(state.lastResult.finishProbability)
     : "—";
 
