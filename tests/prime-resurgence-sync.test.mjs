@@ -57,6 +57,7 @@ async function temporaryRepositoryWithoutPreparedCandidate() {
   const rotationPath = path.join(directory, "data/rotation.json");
   const primesPath = path.join(directory, "data/primes.json");
   const relicsPath = path.join(directory, "data/relics.json");
+  const candidatesPath = path.join(directory, "data/prime-resurgence-candidates.json");
   const rotation = JSON.parse(await readFile(rotationPath, "utf8"));
   const candidate = rotation.rotations.find((entry) => entry.publicationStatus === "provisional");
   assert.ok(candidate, "fixture repository must contain an existing full provisional candidate");
@@ -73,7 +74,8 @@ async function temporaryRepositoryWithoutPreparedCandidate() {
   await Promise.all([
     writeFile(rotationPath, `${JSON.stringify(rotation, null, 2)}\n`, "utf8"),
     writeFile(primesPath, `${JSON.stringify(primes, null, 2)}\n`, "utf8"),
-    writeFile(relicsPath, `${JSON.stringify(relics, null, 2)}\n`, "utf8")
+    writeFile(relicsPath, `${JSON.stringify(relics, null, 2)}\n`, "utf8"),
+    writeFile(candidatesPath, '{\n  "schemaVersion": 1,\n  "candidates": []\n}\n', "utf8")
   ]);
   return directory;
 }

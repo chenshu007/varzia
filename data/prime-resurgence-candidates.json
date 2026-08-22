@@ -1,4 +1,36 @@
 {
   "schemaVersion": 1,
-  "candidates": []
+  "candidates": [
+    {
+      "id": "banshee-mirage-2026-09",
+      "status": "announced",
+      "primeWarframes": [
+        "Banshee Prime",
+        "Mirage Prime"
+      ],
+      "effectiveAt": "2026-09-03T18:00:00Z",
+      "effectiveDate": "2026-09-03",
+      "source": {
+        "type": "digital-extremes-official-announcement",
+        "url": "https://bsky.app/profile/warframe.com/post/3mtjt7pmvpr2o",
+        "publishedAt": "2026-08-20T18:00:25.031Z",
+        "rawPublishedAt": "2026-08-20T18:00:25.031475844Z",
+        "discoveredAt": "2026-08-22T21:30:11.939Z",
+        "rawPrimeWarframes": [
+          "Banshee Prime",
+          "Mirage Prime"
+        ],
+        "rawEffectiveText": "September 3 at 2 p.m. ET"
+      },
+      "relicDataStatus": "pending",
+      "verified": false,
+      "statusHistory": [
+        {
+          "status": "announced",
+          "at": "2026-08-22T21:30:11.939Z"
+        }
+      ],
+      "reviewReason": "Officially announced by Digital Extremes; awaiting official relic and reward data."
+    }
+  ]
 }
