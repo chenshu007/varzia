@@ -2,9 +2,20 @@ import {
   MAX_SIMULATION_BUDGET,
   RARITIES,
   refinementFor,
+  rankRelicsForMissing,
   squadChance,
   validateSimulationBudget
 } from "./simulator.js";
+import {
+  appendSessionEvent,
+  createSession,
+  createSessionContext,
+  deriveSessionSummary,
+  isLegacySessionDocument,
+  replaySession,
+  undoLastSessionEvent,
+  validateSession
+} from "./session.js";
 import { validateRotationData } from "./data-validation.js";
 import {
   assertValidBudgetCurve,
@@ -39,7 +50,15 @@ import {
   renderShareCardSvg,
   svgToPngBlob
 } from "./share-card.js";
-import { loadCollectionState, saveCollectionState } from "./storage.js";
+import {
+  loadCollectionState,
+  saveCollectionState,
+  readActiveSession,
+  saveActiveSession,
+  hasFutureSchemaDocument,
+  readStoredOwnedParts,
+  saveOwnedParts
+} from "./storage.js";
 import {
   countdownUpdateDelay,
   formatRotationCountdown,
@@ -99,7 +118,12 @@ const state = {
   lastResult: null,
   lastResultOptions: null,
   lastTrials: 0,
-  currentRecap: null
+  currentRecap: null,
+  activeSession: null,
+  suspendedSession: null,
+  unresolvedSession: null,
+  storageLocked: false,
+  sessionTicker: null
 };
 
 const $ = (id) => document.getElementById(id);
@@ -246,13 +270,44 @@ function requiredCount(part) {
   return Math.max(1, Math.floor(Number(part.required || part.quantity || 1)));
 }
 
+function ownedCountIn(owned, itemId, partId) {
+  const parts = owned?.[itemId];
+  if (!parts) return 0;
+  const count = parts instanceof Map ? parts.get(partId) : parts[partId];
+  return Math.max(0, Number(count) || 0);
+}
+
 function ownedMap(itemId) {
   if (!state.owned[itemId]) state.owned[itemId] = new Map();
   return state.owned[itemId];
 }
 
 function ownedCount(itemId, partId) {
-  return Math.max(0, Number(ownedMap(itemId).get(partId)) || 0);
+  return ownedCountIn(state.owned, itemId, partId);
+}
+
+function ownedPlainObject() {
+  return Object.fromEntries(Object.entries(state.owned).map(([itemId, parts]) => [
+    itemId,
+    Object.fromEntries([...parts].filter(([, count]) => count > 0))
+  ]));
+}
+
+function ownedMapsFromPlain(plain) {
+  return Object.fromEntries(Object.entries(plain || {}).map(([itemId, partCounts]) => [
+    itemId,
+    new Map(Object.entries(partCounts).map(([partId, count]) => [partId, Number(count) || 0]))
+  ]));
+}
+
+export function injectOwnedCounts(primeItems, owned) {
+  return (primeItems || []).map((item) => ({
+    ...item,
+    parts: (item.parts || []).map((part) => ({
+      ...part,
+      ownedCount: Math.min(requiredCount(part), ownedCountIn(owned, item.id, part.id))
+    }))
+  }));
 }
 
 function itemById(itemId) {
@@ -279,13 +334,7 @@ function raritiesForPart(itemId, partId, fallback) {
 }
 
 function currentPrimeItems() {
-  return selectedItems().map((item) => ({
-    ...item,
-    parts: item.parts.map((part) => ({
-      ...part,
-      ownedCount: Math.min(requiredCount(part), ownedCount(item.id, part.id))
-    }))
-  }));
+  return injectOwnedCounts(selectedItems(), state.owned);
 }
 
 function setStatus(text, isError = false) {
@@ -387,7 +436,7 @@ function renderItemOptions() {
           const missing = Math.max(0, required - owned);
           const completion = Math.round((owned / Math.max(1, required)) * 100);
           return `<label class="target-option${selected ? " is-selected" : ""}">
-            <input type="checkbox" data-item-id="${escapeHtml(item.id)}" ${selected ? "checked" : ""} />
+            <input type="checkbox" data-item-id="${escapeHtml(item.id)}" ${selected ? "checked" : ""} ${state.activeSession ? "disabled" : ""} />
             <span class="target-option-main">
               <span class="target-option-name">${escapeHtml(item.name)}</span>
             <span class="target-option-meta">${escapeHtml(message("target.itemParts", { type: localizedTypeLabel(item.type), count: item.parts.length }))}</span>
@@ -417,7 +466,7 @@ function renderCollections() {
           </div>
           ${complete
             ? `<span class="complete-button">${escapeHtml(message("collection.complete"))}</span>`
-            : `<button type="button" class="complete-button" data-complete-item="${escapeHtml(item.id)}">${escapeHtml(message("collection.ownAll"))}</button>`}
+            : `<button type="button" class="complete-button" data-complete-item="${escapeHtml(item.id)}" ${state.activeSession ? "disabled" : ""}>${escapeHtml(message("collection.ownAll"))}</button>`}
         </div>
         ${item.parts.map((part) => {
           const required = requiredCount(part);
@@ -429,12 +478,12 @@ function renderCollections() {
             .join(" ");
           const checkboxId = `owned-${item.id}-${part.id}`;
           const quantityControl = required > 1 ? `<span class="part-quantity" aria-label="${escapeHtml(message("collection.partQuantity", { name: part.name }))}">
-            <button type="button" data-item-id="${escapeHtml(item.id)}" data-part-id="${escapeHtml(part.id)}" data-part-delta="-1" aria-label="${escapeHtml(message("collection.decrease", { name: part.name }))}">−</button>
+            <button type="button" data-item-id="${escapeHtml(item.id)}" data-part-id="${escapeHtml(part.id)}" data-part-delta="-1" aria-label="${escapeHtml(message("collection.decrease", { name: part.name }))}" ${state.activeSession ? "disabled" : ""}>−</button>
             <span>${count} / ${required}</span>
-            <button type="button" data-item-id="${escapeHtml(item.id)}" data-part-id="${escapeHtml(part.id)}" data-part-delta="1" aria-label="${escapeHtml(message("collection.increase", { name: part.name }))}">+</button>
+            <button type="button" data-item-id="${escapeHtml(item.id)}" data-part-id="${escapeHtml(part.id)}" data-part-delta="1" aria-label="${escapeHtml(message("collection.increase", { name: part.name }))}" ${state.activeSession ? "disabled" : ""}>+</button>
           </span>` : "";
           return `<div class="part-row${isOwned ? " is-owned" : ""}">
-            <input id="${escapeHtml(checkboxId)}" type="checkbox" data-item-id="${escapeHtml(item.id)}" data-part-id="${escapeHtml(part.id)}" ${isOwned ? "checked" : ""} />
+            <input id="${escapeHtml(checkboxId)}" type="checkbox" data-item-id="${escapeHtml(item.id)}" data-part-id="${escapeHtml(part.id)}" ${isOwned ? "checked" : ""} ${state.activeSession ? "disabled" : ""} />
             <label class="part-name" for="${escapeHtml(checkboxId)}">${escapeHtml(part.name)}${required > 1 ? ` ×${required}` : ""}</label>
             ${quantityControl}
             <span class="part-rarities">${rarityBadges}</span>
@@ -456,20 +505,20 @@ function renderCollections() {
 }
 
 function persistCollection({ quiet = false } = {}) {
+  // While a live session is active the persisted collection stays untouched:
+  // effective state lives in baseline + replay and is committed exactly once
+  // on finish.
+  if (state.activeSession) return false;
   if (state.previewMode || !state.rotation) {
     if (!quiet && state.previewMode) {
       setStatus(message(state.rotation?.publicationStatus === "provisional" ? "status.provisionalPreview" : "status.preview"));
     }
     return false;
   }
-  const owned = Object.fromEntries(Object.entries(state.owned).map(([itemId, parts]) => [
-    itemId,
-    Object.fromEntries([...parts].filter(([, count]) => count > 0))
-  ]));
   const saved = saveCollectionState(getStorage(), {
     rotationId: state.rotation.id,
     selectedItemIds: state.selectedItemIds,
-    owned,
+    owned: ownedPlainObject(),
     ayaBudget: Number($("budget").value) || 0
   });
   if (!quiet && saved && state.dataLoadErrors.length) setStatus(message("status.dataError"), true);
@@ -506,6 +555,9 @@ function bindEvents() {
   $("targetOptions").addEventListener("change", (event) => {
     const itemId = event.target.dataset.itemId;
     if (!itemId) return;
+    // Selected targets come from the session baseline while a session is
+    // active; planning edits cannot become authoritative session state.
+    if (state.activeSession) return;
     state.selectedItemIds = event.target.checked
       ? [...new Set([...state.selectedItemIds, itemId])]
       : state.selectedItemIds.filter((id) => id !== itemId);
@@ -518,6 +570,8 @@ function bindEvents() {
   $("collectionList").addEventListener("change", (event) => {
     const { itemId, partId } = event.target.dataset;
     if (!itemId || !partId) return;
+    // Owned counts are session-owned while a live session is active.
+    if (state.activeSession) return;
     const item = itemById(itemId);
     const part = item?.parts.find((candidate) => candidate.id === partId);
     if (!part) return;
@@ -533,6 +587,8 @@ function bindEvents() {
     const delta = Number(event.target.dataset.partDelta || 0);
     const itemId = completeItemId || event.target.dataset.itemId;
     if (!itemId) return;
+    // Owned counts are session-owned while a live session is active.
+    if (state.activeSession) return;
     const item = itemById(itemId);
     if (!item) return;
 
@@ -553,36 +609,31 @@ function bindEvents() {
     scheduleRun();
   });
 
-  $("selectAllTargets").addEventListener("click", () => {
-    state.selectedItemIds = state.primeItems.map((item) => item.id);
+  const changeSelection = (nextIds) => {
+    // Selected targets come from the session baseline while a session is
+    // active; planning edits cannot become authoritative session state.
+    if (state.activeSession) return;
+    state.selectedItemIds = nextIds;
     persistCollection();
     renderItemOptions();
     renderCollections();
     scheduleRun();
+  };
+
+  $("selectAllTargets").addEventListener("click", () => {
+    changeSelection(state.primeItems.map((item) => item.id));
   });
 
   $("clearTargets").addEventListener("click", () => {
-    state.selectedItemIds = [];
-    persistCollection();
-    renderItemOptions();
-    renderCollections();
-    scheduleRun();
+    changeSelection([]);
   });
 
   $("selectWarframes").addEventListener("click", () => {
-    state.selectedItemIds = state.primeItems.filter((item) => item.type === "warframe").map((item) => item.id);
-    persistCollection();
-    renderItemOptions();
-    renderCollections();
-    scheduleRun();
+    changeSelection(state.primeItems.filter((item) => item.type === "warframe").map((item) => item.id));
   });
 
   $("selectWeapons").addEventListener("click", () => {
-    state.selectedItemIds = state.primeItems.filter((item) => ["primary", "secondary", "melee"].includes(item.type)).map((item) => item.id);
-    persistCollection();
-    renderItemOptions();
-    renderCollections();
-    scheduleRun();
+    changeSelection(state.primeItems.filter((item) => ["primary", "secondary", "melee"].includes(item.type)).map((item) => item.id));
   });
 
   $("modePicker").addEventListener("click", (event) => {
@@ -613,6 +664,20 @@ function bindEvents() {
   $("shareDownloadLink")?.addEventListener("click", (event) => {
     if (!state.shareCardBlob) event.preventDefault();
   });
+  $("liveSessionPanel")?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    logLiveFissure();
+  });
+  $("sessionRelic")?.addEventListener("change", () => {
+    // The eligible claim list always follows the selected relic.
+    updateSessionClaimOptions();
+  });
+  $("sessionStartButton")?.addEventListener("click", startLiveSession);
+  $("sessionUndoButton")?.addEventListener("click", undoLastLiveFissure);
+  $("sessionFinishButton")?.addEventListener("click", finishLiveSession);
+  $("sessionCancelButton")?.addEventListener("click", cancelLiveSession);
+  $("sessionSuspendFinishButton")?.addEventListener("click", finishSuspendedSession);
+  $("sessionSuspendCancelButton")?.addEventListener("click", cancelSuspendedSession);
 }
 
 function scheduleRun() {
@@ -1400,6 +1465,565 @@ function cancelActiveSimulation() {
   setResultsUpdating(false);
 }
 
+function allSessionContext() {
+  return createSessionContext(state.allPrimeItems, state.allRelics);
+}
+
+/**
+ * Freeze only the historical contract this rotation needs: its claimable
+ * parts/relics plus requirement caps for any collection state in the
+ * baseline. The latter keeps unrelated already-owned parts intact on replay
+ * without granting the session authority over other-rotation relics.
+ */
+function sessionContextForRotation(rotation, baselineOwned = {}) {
+  if (!rotation) return null;
+  const itemIds = [...new Set([
+    ...(Array.isArray(rotation.items) ? rotation.items : []),
+    ...Object.keys(baselineOwned || {})
+  ])];
+  return createSessionContext(state.allPrimeItems, state.allRelics, {
+    itemIds,
+    relicIds: Array.isArray(rotation.relics) ? rotation.relics : []
+  });
+}
+
+function sessionContextForStoredLedger(raw) {
+  const rotationId = typeof raw?.rotationId === "string" ? raw.rotationId : "";
+  const historicalRotation = state.rotations.find((candidate) => candidate.id === rotationId);
+  return sessionContextForRotation(historicalRotation, raw?.baseline?.ownedParts);
+}
+
+function stopSessionTicker() {
+  if (state.sessionTicker) {
+    window.clearInterval(state.sessionTicker);
+    state.sessionTicker = null;
+  }
+}
+
+function startSessionTicker() {
+  stopSessionTicker();
+  state.sessionTicker = window.setInterval(() => {
+    if (!state.activeSession) {
+      stopSessionTicker();
+      return;
+    }
+    updateSessionElapsed();
+  }, 30_000);
+}
+
+function formatSessionElapsed(elapsedMs) {
+  const totalMinutes = Math.floor(Math.max(0, elapsedMs) / 60_000);
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return hours ? message("session.elapsed.hm", { h: hours, m: minutes }) : message("session.elapsed.m", { m: minutes });
+}
+
+function updateSessionElapsed() {
+  const element = $("sessionElapsed");
+  if (!element || !state.activeSession) return;
+  const summary = deriveSessionSummary(state.activeSession, { now: Date.now(), context: allSessionContext() });
+  element.textContent = formatSessionElapsed(summary.elapsedMs);
+}
+
+function announceSession(text) {
+  const announcement = $("sessionAnnouncement");
+  if (!announcement) return;
+  announcement.textContent = "";
+  window.requestAnimationFrame(() => {
+    announcement.textContent = text;
+  });
+}
+
+function setBudgetInputEnabled(enabled) {
+  const input = $("budget");
+  if (input) input.disabled = !enabled;
+}
+
+/**
+ * Commit session gains exactly once. The final collection is derived from
+ * baseline + replay, merged (max per part) with the currently persisted
+ * global collection, then written as absolute replacement values. Repeated
+ * or interrupted commits therefore can never double-apply rewards.
+ *
+ * Finish is only complete when the collection write AND the session clear
+ * both succeed; each step reports its outcome separately so recovery stays
+ * actionable and idempotent.
+ */
+export function commitSessionGains(session, { storage = getStorage(), context = allSessionContext() } = {}) {
+  const final = replaySession(session, context);
+  const persistedOwned = readStoredOwnedParts(storage);
+  if (persistedOwned) {
+    const merged = normalizeMergedOwned(final.ownedParts, persistedOwned, session);
+    final.ownedParts = merged;
+  }
+  const committed = saveCollectionState(storage, {
+    rotationId: session.rotationId,
+    selectedItemIds: final.selectedItemIds,
+    owned: final.ownedParts,
+    ayaBudget: final.ayaBudget
+  });
+  if (!committed) return { committed: false, cleared: false, final };
+  // Clear only after the collection write succeeds; an interrupted finish
+  // leaves the session resumable and replaying it again lands on identical
+  // absolute values.
+  const cleared = saveActiveSession(storage, null);
+  return { committed: true, cleared, final };
+}
+
+/**
+ * Resolve an old suspended ledger without taking authority over the current
+ * planner. Only ownership is reconciled; rotation, selected targets, Aya,
+ * and all other current-root fields are deliberately left untouched.
+ */
+export function commitSuspendedSessionGains(session, { storage = getStorage(), context = allSessionContext() } = {}) {
+  const final = replaySession(session, context);
+  const persistedOwned = readStoredOwnedParts(storage) || {};
+  final.ownedParts = normalizeMergedOwned(final.ownedParts, persistedOwned, session);
+  const committed = saveOwnedParts(storage, final.ownedParts);
+  if (!committed) return { committed: false, cleared: false, final };
+  const cleared = saveActiveSession(storage, null);
+  return { committed: true, cleared, final };
+}
+
+/**
+ * Merge progress maps by keeping the higher count per part. Frozen ledger
+ * keys are capped by their historical requirements; unrelated global keys
+ * are merely preserved, so suspended reconciliation cannot double-count.
+ */
+function normalizeMergedOwned(primary, secondary, session) {
+  const frozenContext = session?.version ? replayContextForMerge(session) : null;
+  const merged = {};
+  const keys = new Set([...Object.keys(primary || {}), ...Object.keys(secondary || {})]);
+  for (const itemId of keys) {
+    const partKeys = new Set([
+      ...Object.keys(primary?.[itemId] || {}),
+      ...Object.keys(secondary?.[itemId] || {})
+    ]);
+    const counts = {};
+    for (const partId of partKeys) {
+      const uncapped = Math.max(
+        Number(primary?.[itemId]?.[partId]) || 0,
+        Number(secondary?.[itemId]?.[partId]) || 0
+      );
+      const required = frozenContext?.requiredOf(itemId, partId);
+      const count = Number.isFinite(required) ? Math.min(uncapped, required) : uncapped;
+      if (count > 0) counts[partId] = count;
+    }
+    if (Object.keys(counts).length) merged[itemId] = counts;
+  }
+  return merged;
+}
+
+function replayContextForMerge(session) {
+  // replaySession has already derived the historical state from this v2
+  // snapshot. Reconstructing the same context here caps only keys the ledger
+  // owns, while leaving unrelated global collection keys untouched.
+  const snapshot = session?.validationSnapshot;
+  if (!snapshot) return null;
+  const requiredCounts = snapshot.requiredCounts || {};
+  return {
+    requiredOf(itemId, partId) {
+      const count = requiredCounts[`${itemId}:${partId}`];
+      return typeof count === "number" && Number.isInteger(count) && count > 0 ? count : null;
+    }
+  };
+}
+
+/** Persist first; only a durable candidate may become live app state. */
+export function persistSessionCandidate(previousSession, candidateSession, { storage = getStorage() } = {}) {
+  if (!candidateSession || !saveActiveSession(storage, candidateSession)) {
+    return { ok: false, session: previousSession };
+  }
+  return { ok: true, session: candidateSession };
+}
+
+function startLiveSession() {
+  if (!state.rotation || state.previewMode || state.activeSession || state.suspendedSession || state.unresolvedSession) return;
+  const baselineOwned = ownedPlainObject();
+  const frozenContext = sessionContextForRotation(state.rotation, baselineOwned);
+  const session = createSession({
+    rotationId: state.rotation.id,
+    startedAt: new Date().toISOString(),
+    selectedItemIds: state.selectedItemIds,
+    ownedParts: baselineOwned,
+    ayaBudget: Number($("budget").value) || 0,
+    validationSnapshot: frozenContext?.validationSnapshot
+  });
+  if (!session) return;
+  if (!saveActiveSession(getStorage(), session)) {
+    setStatus(message("session.error.storage"), true);
+    return;
+  }
+  state.activeSession = session;
+  setBudgetInputEnabled(false);
+  startSessionTicker();
+  applyEffectiveSessionState({ reschedule: false });
+  announceSession(message("session.startedAnnounce"));
+}
+
+/** Hydrate app state from baseline + replay; the only session→app bridge. */
+function applyEffectiveSessionState({ reschedule = true } = {}) {
+  if (!state.activeSession) return;
+  const effective = replaySession(state.activeSession, allSessionContext());
+  state.selectedItemIds = effective.selectedItemIds.filter((id) => itemById(id));
+  state.owned = ownedMapsFromPlain(effective.ownedParts);
+  $("budget").value = String(effective.ayaBudget);
+  renderItemOptions();
+  renderCollections();
+  renderSessionPanel();
+  if (reschedule) scheduleRun();
+}
+
+function logLiveFissure() {
+  if (!state.activeSession) return;
+  const [claimedItemId, claimedPartId] = ($("sessionClaimed").value || "").split("|");
+  const event = {
+    type: "fissure",
+    at: new Date().toISOString(),
+    relicId: $("sessionRelic").value || "",
+    refinement: $("sessionRefinement").value || "",
+    ayaCost: $("sessionOwnedRelic").checked ? 0 : 1,
+    claimed: claimedItemId && claimedPartId ? { itemId: claimedItemId, partId: claimedPartId } : null
+  };
+  const result = appendSessionEvent(state.activeSession, event, allSessionContext());
+  if (!result.ok) {
+    announceSession(message(`session.error.${result.error}`));
+    return;
+  }
+  const persisted = persistSessionCandidate(state.activeSession, result.session);
+  if (!persisted.ok) {
+    setStatus(message("session.error.storage"), true);
+    announceSession(message("session.error.storage"));
+    return;
+  }
+  state.activeSession = persisted.session;
+  $("sessionOwnedRelic").checked = false;
+  applyEffectiveSessionState();
+  announceSession(message("session.loggedAnnounce"));
+  $("sessionLogButton")?.focus();
+}
+
+function undoLastLiveFissure() {
+  if (!state.activeSession) return;
+  const next = undoLastSessionEvent(state.activeSession);
+  if (!next) return;
+  const persisted = persistSessionCandidate(state.activeSession, next);
+  if (!persisted.ok) {
+    setStatus(message("session.error.storage"), true);
+    announceSession(message("session.error.storage"));
+    return;
+  }
+  state.activeSession = persisted.session;
+  applyEffectiveSessionState();
+  announceSession(message("session.undoAnnounce"));
+  $("sessionLogButton")?.focus();
+}
+
+function finishLiveSession() {
+  if (!state.activeSession) return;
+  const summary = deriveSessionSummary(state.activeSession, { now: Date.now(), context: allSessionContext() });
+  const result = commitSessionGains(state.activeSession);
+  if (!result.committed) {
+    setStatus(message("session.error.storage"), true);
+    announceSession(message("session.error.storage"));
+    return;
+  }
+  if (!result.cleared) {
+    // Collection gains are saved exactly once, but the local session record
+    // could not be cleared. Stay in the session with actionable guidance;
+    // retrying Finish is idempotent.
+    setStatus(message("session.error.clearFailed"), true);
+    announceSession(message("session.error.clearFailed"));
+    return;
+  }
+  stopSessionTicker();
+  state.activeSession = null;
+  setBudgetInputEnabled(true);
+  $("budget").value = String(result.final.ayaBudget);
+  renderItemOptions();
+  renderCollections();
+  renderSessionPanel();
+  announceSession(message("session.finishedAnnounce", { count: summary.fissures, aya: format(summary.ayaSpent) }));
+  $("sessionStartButton")?.focus();
+}
+
+function cancelLiveSession() {
+  if (!state.activeSession) return;
+  const baseline = state.activeSession.baseline;
+  if (!saveActiveSession(getStorage(), null)) {
+    setStatus(message("session.error.storage"), true);
+    announceSession(message("session.error.storage"));
+    return;
+  }
+  stopSessionTicker();
+  state.activeSession = null;
+  setBudgetInputEnabled(true);
+  state.selectedItemIds = baseline.selectedItemIds.filter((id) => itemById(id));
+  state.owned = ownedMapsFromPlain(baseline.ownedParts);
+  $("budget").value = String(baseline.ayaBudget);
+  renderItemOptions();
+  renderCollections();
+  renderSessionPanel();
+  announceSession(message("session.canceledAnnounce"));
+  scheduleRun();
+  $("sessionStartButton")?.focus();
+}
+
+/**
+ * Rotation rule for stored sessions. Preview mode and missing rotation data
+ * never touch the stored session. A session bound to another rotation is
+ * SUSPENDED: it is never replayed into the displayed rotation and never
+ * finalized implicitly — the user must explicitly Finish (commit once) or
+ * Cancel (discard) it from the Live Session panel before a new session can
+ * start on the current rotation.
+ */
+function adoptStoredSessionForRotation(rotation, { preview = false } = {}) {
+  stopSessionTicker();
+  state.activeSession = null;
+  state.suspendedSession = null;
+  state.unresolvedSession = null;
+  const storage = getStorage();
+  const raw = readActiveSession(storage);
+  if (preview || !rotation) return;
+  const session = validateSession(raw, sessionContextForStoredLedger(raw));
+  if (!session) {
+    if (raw !== null) {
+      // A ledger we cannot safely validate is preserved byte-for-byte. This
+      // includes v1 sessions whose historical rotation context is no longer
+      // available, so no event is silently discarded or auto-finished.
+      state.unresolvedSession = raw;
+      announceSession(message("session.recoveryPreserved"));
+    }
+    return;
+  }
+  if (isLegacySessionDocument(raw)) {
+    // v1 can be upgraded only after its rotation-scoped contract was rebuilt;
+    // persistence succeeds before the v2 session becomes app authority.
+    if (!saveActiveSession(storage, session)) {
+      state.unresolvedSession = raw;
+      announceSession(message("session.error.storage"));
+      return;
+    }
+  }
+  if (session.rotationId !== rotation.id) {
+    state.suspendedSession = session;
+    return;
+  }
+  state.activeSession = session;
+}
+
+function finishSuspendedSession() {
+  const session = state.suspendedSession;
+  if (!session) return;
+  const summary = deriveSessionSummary(session, { now: Date.now(), context: allSessionContext() });
+  const result = commitSuspendedSessionGains(session);
+  if (!result.committed) {
+    setStatus(message("session.error.storage"), true);
+    announceSession(message("session.error.storage"));
+    return;
+  }
+  if (!result.cleared) {
+    setStatus(message("session.error.clearFailed"), true);
+    announceSession(message("session.error.clearFailed"));
+    return;
+  }
+  state.suspendedSession = null;
+  state.owned = ownedMapsFromPlain(result.final.ownedParts);
+  renderCollections();
+  renderSessionPanel();
+  announceSession(message("session.suspendedFinishedAnnounce", { count: summary.fissures }));
+  $("sessionStartButton")?.focus();
+}
+
+function cancelSuspendedSession() {
+  if (!state.suspendedSession && !state.unresolvedSession) return;
+  if (!saveActiveSession(getStorage(), null)) {
+    setStatus(message("session.error.storage"), true);
+    announceSession(message("session.error.storage"));
+    return;
+  }
+  state.suspendedSession = null;
+  state.unresolvedSession = null;
+  renderSessionPanel();
+  announceSession(message("session.suspendedCanceledAnnounce"));
+  $("sessionStartButton")?.focus();
+}
+
+function sessionMissingTargets() {
+  return currentPrimeItems().flatMap((item) => item.parts
+    .filter((part) => part.ownedCount < requiredCount(part))
+    .map((part) => ({
+      itemId: item.id,
+      itemName: item.name,
+      partId: part.id,
+      partName: part.name,
+      missingCount: requiredCount(part) - part.ownedCount
+    })));
+}
+
+/** Graduation/luck language is meaningful only once the session targets are done. */
+export function shouldShowSessionGraduationRecap({ selectedItemIds, missingTargets, ayaSpent, curve }) {
+  return Array.isArray(selectedItemIds)
+    && selectedItemIds.length > 0
+    && Array.isArray(missingTargets)
+    && missingTargets.length === 0
+    && Number(ayaSpent) > 0
+    && Boolean(curve);
+}
+
+function fillSelectPreserving(select, options, preferredValue = "") {
+  const previous = select.value;
+  select.innerHTML = options.map((option) => (
+    `<option value="${escapeHtml(option.value)}">${escapeHtml(option.label)}</option>`
+  )).join("");
+  const next = options.some((option) => option.value === previous)
+    ? previous
+    : (options.some((option) => option.value === preferredValue) ? preferredValue : options[0]?.value ?? "");
+  if (next) select.value = next;
+}
+
+function renderSessionPanel() {
+  if (!$("liveSessionPanel")) return;
+  const active = Boolean(state.activeSession);
+  const suspended = Boolean(state.suspendedSession);
+  const unresolved = Boolean(state.unresolvedSession);
+  const blocked = suspended || unresolved;
+  $("sessionIdleView").hidden = active || blocked;
+  $("sessionActiveView").hidden = !active;
+  $("sessionSuspendedView").hidden = !blocked;
+  $("sessionStartButton").disabled = !state.rotation || state.previewMode || active || blocked;
+  $("sessionIdleHint").textContent = message(
+    state.previewMode
+      ? "session.previewHint"
+      : state.rotation
+        ? "session.startHint"
+        : "session.waitingRotationHint"
+  );
+  $("sessionElapsed").hidden = !active;
+  $("targetLockHint").hidden = !active;
+
+  const targetButtons = ["selectAllTargets", "selectWarframes", "selectWeapons", "clearTargets"];
+  for (const id of targetButtons) {
+    const button = $(id);
+    if (button) button.disabled = active;
+  }
+
+  if (unresolved) {
+    $("sessionSuspendedTitle").textContent = message("session.recoveryTitle");
+    $("sessionSuspendedHint").textContent = message("session.recoveryHint");
+    $("sessionSuspendedStats").textContent = "";
+    $("sessionSuspendFinishButton").hidden = true;
+    $("sessionSuspendCancelButton").textContent = message("session.recoveryDiscard");
+    return;
+  }
+
+  $("sessionSuspendedTitle").textContent = message("session.suspendedTitle");
+  $("sessionSuspendedHint").textContent = message("session.suspendedHint");
+  $("sessionSuspendFinishButton").hidden = false;
+  $("sessionSuspendCancelButton").textContent = message("session.suspendedCancel");
+  if (suspended) {
+    const summary = deriveSessionSummary(state.suspendedSession, { now: Date.now(), context: allSessionContext() });
+    $("sessionSuspendedStats").textContent = message("session.suspendedStats", {
+      count: format(summary.fissures),
+      aya: format(summary.ayaSpent)
+    });
+    return;
+  }
+
+  if (!active) {
+    $("sessionElapsed").textContent = "—";
+    return;
+  }
+
+  updateSessionElapsed();
+  const effective = replaySession(state.activeSession, allSessionContext());
+  const summary = deriveSessionSummary(state.activeSession, { now: Date.now(), context: allSessionContext() });
+  const missing = sessionMissingTargets();
+
+  $("sessionStatFissures").textContent = format(summary.fissures);
+  $("sessionStatAya").textContent = format(summary.ayaSpent);
+  $("sessionStatClaims").textContent = format(summary.claims);
+  $("sessionStatRemaining").textContent = format(missing.reduce((sum, entry) => sum + entry.missingCount, 0));
+  $("sessionStatChance").textContent = state.lastResult && !state.lastResult.empty
+    ? formatProbabilityPrecise(state.lastResult.finishProbability)
+    : "—";
+
+  const percentileLine = $("sessionPercentileLine");
+  const curve = state.lastResult?.budgetCurve;
+  const showGraduationRecap = shouldShowSessionGraduationRecap({
+    selectedItemIds: state.selectedItemIds,
+    missingTargets: missing,
+    ayaSpent: summary.ayaSpent,
+    curve
+  });
+  percentileLine.textContent = showGraduationRecap
+    ? (() => {
+      const recap = calculateGraduationRecap({ curve, observedAya: summary.ayaSpent });
+      return recap.status === "ok"
+        ? message("session.percentileLine", { band: message(`recap.band.${recap.band}`), value: formatRecapPercent(recap.faceBlackIndex) })
+        : message("recap.outside");
+    })()
+    : "";
+
+  // Recommendation ranking stays budget-aware, but the LOGGING selector lists
+  // every current-rotation relic so an already-owned relic stays recordable
+  // at 0 Aya even when no purchase is affordable.
+  const ranked = rankRelicsForMissing({
+    primeItems: currentPrimeItems(),
+    relics: state.relics,
+    squad: state.squad,
+    strategy: $("strategy").value,
+    availableAya: effective.ayaBudget
+  });
+  $("sessionNextHint").textContent = ranked[0]
+    ? message("session.nextRecommended", { relic: ranked[0].name })
+    : message("session.noRecommendation");
+
+  const rankedIds = new Set(ranked.map((entry) => entry.id));
+  const rankedNames = new Map(state.relics.map((relic) => [relic.id, relic.name]));
+  const relicOptions = [
+    ...ranked.map((entry, index) => ({
+      value: entry.id,
+      label: index === 0 ? `${entry.name} · ${message("session.recommendedMark")}` : entry.name
+    })),
+    ...state.relics
+      .filter((relic) => !rankedIds.has(relic.id))
+      .map((relic) => ({ value: relic.id, label: relic.name }))
+  ];
+  const relicSelect = $("sessionRelic");
+  if (relicOptions.length) fillSelectPreserving(relicSelect, relicOptions);
+  else relicSelect.innerHTML = `<option value="">${escapeHtml(message("session.noRelics"))}</option>`;
+  relicSelect.disabled = !relicOptions.length;
+
+  updateSessionClaimOptions();
+
+  $("sessionUndoButton").disabled = !state.activeSession.events.length;
+}
+
+/**
+ * Claim choices are filtered by the currently selected relic through the
+ * catalog-derived relic→reward relation; an impossible pairing is never
+ * offered. Called on every panel render and whenever the relic selection
+ * changes.
+ */
+function updateSessionClaimOptions() {
+  const relicSelect = $("sessionRelic");
+  const claimSelect = $("sessionClaimed");
+  if (!relicSelect || !claimSelect) return;
+  const selectedRelicId = relicSelect.value || "";
+  const context = allSessionContext();
+  const eligible = sessionMissingTargets()
+    .filter((entry) => context.hasReward(selectedRelicId, entry.itemId, entry.partId));
+  fillSelectPreserving(claimSelect, [
+    { value: "", label: message("session.claimNone") },
+    ...eligible.map((entry) => ({
+      value: `${entry.itemId}|${entry.partId}`,
+      label: `${entry.itemName} · ${entry.partName}${entry.missingCount > 1 ? ` ×${entry.missingCount}` : ""}`
+    }))
+  ], "");
+  $("sessionLogButton").disabled = !selectedRelicId;
+}
+
 function announceRotationChange(rotation) {
   const announcement = $("rotationAnnouncement");
   announcement.textContent = "";
@@ -1422,6 +2046,8 @@ function applyRotation(rotation, { preview = false, announce = false, scheduleSi
   state.primeItems = rotation ? state.allPrimeItems.filter((item) => itemIds.has(item.id)) : [];
   state.relics = rotation ? state.allRelics.filter((relic) => relicIds.has(relic.id)) : [];
 
+  adoptStoredSessionForRotation(rotation, { preview: state.previewMode });
+
   const defaultAyaBudget = Math.max(0, Math.floor(Number(rotation?.defaults?.ayaBudget) || 0));
   const saved = loadCollectionState(getStorage(), state.allPrimeItems, {
     rotationId: rotation?.id || "",
@@ -1435,6 +2061,17 @@ function applyRotation(rotation, { preview = false, announce = false, scheduleSi
     new Map(Object.entries(partCounts).map(([partId, count]) => [partId, Number(count) || 0]))
   ]));
   $("budget").value = String(saved.ayaBudget);
+
+  if (state.activeSession) {
+    // Resume: effective collection is baseline + replay and overrides whatever
+    // the normal document held; the persisted collection stays untouched.
+    setBudgetInputEnabled(false);
+    startSessionTicker();
+    applyEffectiveSessionState({ reschedule: false });
+  } else {
+    setBudgetInputEnabled(true);
+  }
+
   $("budgetHint").textContent = rotation
     ? message("budget.savedHint", { budget: format(defaultAyaBudget) })
     : message("status.waitingFirstRotation");
@@ -1443,6 +2080,7 @@ function applyRotation(rotation, { preview = false, announce = false, scheduleSi
   renderItemOptions();
   renderCollections();
   renderRotationSchedule();
+  renderSessionPanel();
   resetSimulationResults();
 
   if (!state.previewMode && rotation) persistCollection({ quiet: true });
@@ -1502,6 +2140,7 @@ function checkForRotationChange(now = Date.now()) {
 function clearRotationWatcher() {
   window.clearTimeout(state.rotationTimer);
   state.rotationTimer = null;
+  stopSessionTicker();
 }
 
 function bindRotationLifecycle() {
@@ -1529,6 +2168,10 @@ async function loadData() {
   }
   applyStaticTranslations();
   state.dataLoadErrors = [];
+  // A newer schema wrote local data; persistence is locked this session so
+  // the document can never be downgraded or destroyed. Catalog data itself
+  // is unaffected, so this stays out of dataLoadErrors.
+  state.storageLocked = hasFutureSchemaDocument(getStorage());
   const [scheduleData, primes, relicData] = await Promise.all([
     readJson("/data/rotation.json", fallbackSchedule),
     readJson("/data/primes.json", { primeItems: [] }),
@@ -1574,6 +2217,8 @@ async function loadData() {
   ].filter(Boolean).sort().at(-1));
   if (state.dataLoadErrors.length) {
     setStatus(message("status.dataError"), true);
+  } else if (state.storageLocked) {
+    setStatus(message("storage.futureVersion"), true);
   } else if (!state.previewMode) {
     setStatus(message("status.dataChecked", { date: formatDate(state.scheduleData.lastVerified) }));
   }

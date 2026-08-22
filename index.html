@@ -113,6 +113,7 @@
 
           <div class="target-toolbar">
             <span class="field-label" data-i18n="target.label">Current targets</span>
+            <span class="field-hint target-lock-hint" id="targetLockHint" hidden data-i18n="session.targetsLocked">Targets are locked while a live session is active.</span>
             <div class="toolbar-actions">
               <button type="button" class="text-button" id="selectAllTargets" data-i18n="target.selectAll">Select all</button>
               <button type="button" class="text-button" id="selectWarframes" data-i18n="target.selectWarframes">Warframes only</button>
@@ -211,6 +212,84 @@
             </button>
             <span class="run-caption" id="runCaption" data-i18n="run.caption">Simulation results will update here</span>
           </div>
+        </div>
+      </section>
+
+      <section class="panel live-session" id="liveSessionPanel" aria-labelledby="live-session-title">
+        <div class="panel-heading">
+          <div>
+            <span class="panel-kicker" data-i18n="session.kicker">03 / LIVE SESSION</span>
+            <h2 id="live-session-title" data-i18n="session.title">Live fissure session</h2>
+          </div>
+          <span class="panel-count" id="sessionElapsed" hidden>—</span>
+        </div>
+        <p class="visually-hidden" id="sessionAnnouncement" role="status" aria-live="polite"></p>
+        <p class="panel-intro" data-i18n="session.intro">Record each real Void Fissure as you run it; Varzia replans from your actual collection with the same Monte Carlo engine.</p>
+
+        <div class="session-idle" id="sessionIdleView">
+          <button class="button button-primary" id="sessionStartButton" type="button" data-i18n="session.start">Start live session</button>
+          <span class="field-hint" id="sessionIdleHint" data-i18n="session.startHint">Snapshot your current collection and budget, then log fissures as you run them.</span>
+        </div>
+
+        <div class="session-suspended" id="sessionSuspendedView" hidden>
+          <p class="session-suspended-title"><strong id="sessionSuspendedTitle" data-i18n="session.suspendedTitle">Suspended session from a previous rotation</strong> <span id="sessionSuspendedStats"></span></p>
+          <p class="field-hint" id="sessionSuspendedHint" data-i18n="session.suspendedHint">This session belongs to another rotation. Finish it to save its rewards once, or discard it to start fresh.</p>
+          <div class="session-actions">
+            <button class="button button-secondary" id="sessionSuspendFinishButton" type="button" data-i18n="session.suspendedFinish">Finish old session</button>
+            <button class="text-button" id="sessionSuspendCancelButton" type="button" data-i18n="session.suspendedCancel">Discard old session</button>
+          </div>
+        </div>
+
+        <div class="session-active" id="sessionActiveView" hidden>
+          <div class="rotation-summary session-summary" aria-label="Live session progress" data-i18n-aria-label="session.summaryAria">
+            <article><span data-i18n="session.stat.fissures">Fissures</span><strong id="sessionStatFissures">0</strong><em data-i18n="session.stat.fissuresUnit">logged runs</em></article>
+            <article><span data-i18n="session.stat.aya">Aya spent</span><strong id="sessionStatAya">0</strong><em data-i18n="unit.aya">Aya</em></article>
+            <article><span data-i18n="session.stat.claims">Rewards claimed</span><strong id="sessionStatClaims">0</strong><em data-i18n="session.stat.claimsUnit">target parts</em></article>
+            <article><span data-i18n="session.stat.remaining">Parts remaining</span><strong id="sessionStatRemaining">—</strong><em data-i18n="summary.remainingUnit">including duplicates</em></article>
+            <article><span data-i18n="session.stat.chance">Completion chance</span><strong id="sessionStatChance">—</strong><em data-i18n="session.stat.chanceUnit">live simulation</em></article>
+          </div>
+
+          <form class="session-form" id="sessionForm">
+            <label class="field-group" for="sessionRelic">
+              <span class="field-label" data-i18n="session.relicLabel">Void Relic used</span>
+              <div class="select-wrap">
+                <select id="sessionRelic"></select>
+              </div>
+            </label>
+            <label class="field-group" for="sessionRefinement">
+              <span class="field-label" data-i18n="session.refinementLabel">Refinement</span>
+              <div class="select-wrap">
+                <select id="sessionRefinement">
+                  <option value="intact" selected data-i18n="refinement.intact">Intact</option>
+                  <option value="exceptional" data-i18n="refinement.exceptional">Exceptional</option>
+                  <option value="flawless" data-i18n="refinement.flawless">Flawless</option>
+                  <option value="radiant" data-i18n="refinement.radiant">Radiant</option>
+                </select>
+              </div>
+            </label>
+            <label class="field-group session-claim-field" for="sessionClaimed">
+              <span class="field-label" data-i18n="session.claimLabel">Target reward claimed</span>
+              <div class="select-wrap">
+                <select id="sessionClaimed"></select>
+              </div>
+            </label>
+            <label class="field-group session-owned-check" for="sessionOwnedRelic">
+              <input id="sessionOwnedRelic" type="checkbox" />
+              <span data-i18n="session.ownedRelic">Used an already-owned relic (0 Aya)</span>
+            </label>
+            <div class="session-actions">
+              <button class="run-button session-log-button" id="sessionLogButton" type="submit">
+                <span class="run-icon" aria-hidden="true">↗</span>
+                <span data-i18n="session.log">Log fissure</span>
+                <span class="run-arrow" aria-hidden="true">→</span>
+              </button>
+              <button class="text-button" id="sessionUndoButton" type="button" data-i18n="session.undo">Undo last</button>
+              <button class="button button-secondary" id="sessionFinishButton" type="button" data-i18n="session.finish">Finish &amp; save</button>
+              <button class="text-button" id="sessionCancelButton" type="button" data-i18n="session.cancel">Cancel session</button>
+            </div>
+            <p class="field-hint" id="sessionNextHint"></p>
+          </form>
+          <p class="field-hint session-percentile-line" id="sessionPercentileLine"></p>
         </div>
       </section>
 

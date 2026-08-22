@@ -320,14 +320,15 @@ function bestRelicForState(model, remainingParts, itemRemaining, squad, strategy
   return best;
 }
 
-export function rankRelicsForMissing({ primeItems, relics, squad = 4, strategy = "finish" }) {
+export function rankRelicsForMissing({ primeItems, relics, squad = 4, strategy = "finish", availableAya = Infinity }) {
   const model = createSimulationModel(primeItems, relics);
   return rankRelicsForState(
     model,
     Uint16Array.from(model.initialRemaining),
     Uint16Array.from(model.initialItemRemaining),
     safeSquad(squad),
-    strategy
+    strategy,
+    safeBudget(availableAya)
   ).map(({ relic, score, coverage, itemCoverage, refinement }) => ({
     id: relic.id,
     name: relic.name,
