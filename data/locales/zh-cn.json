@@ -78,6 +78,7 @@
   "budget.unit": "个",
   "budget.hint": "本期建议从 P50 毕业线的 {{budget}} 个开始规划",
   "budget.savedHint": "本轮默认 {{budget}} 个；你在本轮的手工输入会单独保存",
+  "budget.outOfRange": "请输入不超过 {{max}} 个的阿耶精华预算，才能运行本次模拟。",
   "goal.label": "想达到的毕业线",
   "goal.p50": "P50 · 五成毕业",
   "goal.p90": "P90 · 九成毕业",

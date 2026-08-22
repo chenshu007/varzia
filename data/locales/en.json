@@ -78,6 +78,7 @@
   "budget.unit": "Aya",
   "budget.hint": "Start planning from the P50 line: {{budget}} Aya",
   "budget.savedHint": "This rotation defaults to {{budget}} Aya; your manual input is saved separately",
+  "budget.outOfRange": "Enter {{max}} Aya or less to run this simulation.",
   "goal.label": "Target probability",
   "goal.p50": "P50 · 50% chance",
   "goal.p90": "P90 · 90% chance",

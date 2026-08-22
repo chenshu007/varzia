@@ -1,7 +1,9 @@
 import {
+  MAX_SIMULATION_BUDGET,
   RARITIES,
   refinementFor,
-  squadChance
+  squadChance,
+  validateSimulationBudget
 } from "./simulator.js";
 import { validateRotationData } from "./data-validation.js";
 import {
@@ -627,9 +629,32 @@ function setResultsUpdating(updating) {
   if (updating) $("trialBadge").textContent = message("results.updating");
 }
 
-function simulationOptions() {
+function clearBudgetValidationError() {
+  $("budget")?.removeAttribute("aria-invalid");
+  const error = $("budgetError");
+  if (error) {
+    error.hidden = true;
+    error.textContent = "";
+  }
+}
+
+function showBudgetValidationError() {
+  const text = message("budget.outOfRange", { max: format(MAX_SIMULATION_BUDGET) });
+  $("budget")?.setAttribute("aria-invalid", "true");
+  const error = $("budgetError");
+  if (error) {
+    error.textContent = text;
+    error.hidden = false;
+  }
+  setResultsUpdating(false);
+  $("runButton").disabled = false;
+  $("runButtonLabel").textContent = message("run.button");
+  $("trialBadge").textContent = text;
+  $("runCaption").textContent = text;
+}
+
+function simulationOptions(budget = Number($("budget").value) || 0) {
   const trials = Number($("trials").value) || 100000;
-  const budget = Number($("budget").value) || 0;
   return {
     trials,
     options: {
@@ -711,7 +736,13 @@ function run() {
     return;
   }
   setResultsUpdating(true);
-  const request = simulationOptions();
+  const budgetValidation = validateSimulationBudget($("budget").value);
+  if (!budgetValidation.valid) {
+    showBudgetValidationError();
+    return;
+  }
+  clearBudgetValidationError();
+  const request = simulationOptions(budgetValidation.budget);
   if (!request.options.primeItems.length) {
     state.pendingRun = false;
     $("runButton").disabled = false;

@@ -11,6 +11,16 @@ export const REFINEMENTS = {
   radiant: { label: "光辉", traces: 100 }
 };
 
+export const MAX_SIMULATION_BUDGET = 160;
+
+export function validateSimulationBudget(value) {
+  const budget = Number(value);
+  return {
+    valid: Number.isFinite(budget) && budget >= 0 && budget <= MAX_SIMULATION_BUDGET,
+    budget
+  };
+}
+
 const STRATEGY_NOTES = {
   finish: "毕业优先（启发式）：每次根据整期剩余缺件重新选择遗物；有稀有或罕见目标时使用光辉，只有常见目标时保持完整。",
   efficient: "节省虚空光体：稀有用光辉、罕见用无暇、常见用完整；遗物仍按整期剩余缺件动态选择。",
@@ -621,7 +631,7 @@ export function simulateCurrentRotation({
     remainingParts: model.initialRemainingTotal,
     budget: safeBudgetValue
   };
-  const cap = Math.max(24, Math.min(160, Math.max(safeBudgetValue, Number(analysisCap) || 80)));
+  const cap = Math.max(24, Math.min(MAX_SIMULATION_BUDGET, Math.max(safeBudgetValue, Number(analysisCap) || 80)));
 
   if (!model.initialRemainingTotal) {
     const budgetCurve = Array.from({ length: cap + 1 }, (_, curveBudget) => ({

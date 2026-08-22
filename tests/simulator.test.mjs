@@ -1,6 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import {
+  MAX_SIMULATION_BUDGET,
   RARITIES,
   REFINEMENTS,
   buildBudgetCurve,
@@ -8,8 +10,10 @@ import {
   rankRelicsForMissing,
   simulateCurrentRotation,
   simulateRotationTrial,
-  squadChance
+  squadChance,
+  validateSimulationBudget
 } from "../js/simulator.js";
+import { createTranslator } from "../js/i18n.js";
 import {
   assertValidBudgetCurve,
   formatBudgetMarker,
@@ -17,6 +21,9 @@ import {
   formatProbabilityPrecise,
   zeroProbabilityGuidance
 } from "../js/presentation.js";
+
+const enMessages = JSON.parse(readFileSync(new URL("../data/locales/en.json", import.meta.url), "utf8"));
+const zhMessages = JSON.parse(readFileSync(new URL("../data/locales/zh-cn.json", import.meta.url), "utf8"));
 
 function primeItem(id, type = "warframe", parts = [{ id: "piece", name: "部件", required: 1 }]) {
   return { id, name: id, type, parts };
@@ -153,6 +160,35 @@ test("预算不足时整期联合毕业概率为 0，不会给每件装备重复
 test("预算线超出分析范围时明确显示上限", () => {
   assert.equal(formatBudgetMarker(42, 80), "42 个");
   assert.equal(formatBudgetMarker(null, 80), ">80 个");
+});
+
+test("160 Aya 仍可运行，161 Aya 在进入 Worker 前被拒绝且保留原值", () => {
+  const primeItems = [primeItem("weapon", "primary")];
+  const relics = [relic("weapon-relic", [{ itemId: "weapon", partId: "piece", rarity: "common" }])];
+  const supported = validateSimulationBudget(160);
+  const rejected = validateSimulationBudget(161);
+  assert.equal(MAX_SIMULATION_BUDGET, 160);
+  assert.deepEqual(supported, { valid: true, budget: 160 });
+  assert.deepEqual(rejected, { valid: false, budget: 161 });
+
+  const result = simulateCurrentRotation({
+    primeItems,
+    relics,
+    budget: supported.budget,
+    squad: 1,
+    strategy: "intact",
+    trials: 1000,
+    analysisCap: 120
+  });
+  assert.equal(result.summary.budget, 160);
+  assert.equal(result.analysisCap, 160);
+  assert.equal(result.budgetCurve.at(-1).budget, 160);
+  assert.equal(result.finishProbability, result.budgetCurve[160].finishProbability);
+
+  const en = createTranslator(enMessages, enMessages);
+  const zh = createTranslator(zhMessages, zhMessages);
+  assert.equal(en("budget.outOfRange", { max: MAX_SIMULATION_BUDGET }), "Enter 160 Aya or less to run this simulation.");
+  assert.equal(zh("budget.outOfRange", { max: MAX_SIMULATION_BUDGET }), "请输入不超过 160 个的阿耶精华预算，才能运行本次模拟。");
 });
 
 test("同一部件支持多个有效遗物，优化器会比较所有路线", () => {

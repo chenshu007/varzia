@@ -148,10 +148,11 @@
             <label class="field-group field-budget" for="budget">
               <span class="field-label" id="budgetLabel" data-i18n="budget.label">How much Aya do I have?</span>
               <span class="number-input-wrap">
-                <input id="budget" type="number" min="0" max="999" value="33" inputmode="numeric" aria-describedby="budgetHint" />
+                <input id="budget" type="number" min="0" max="160" value="33" inputmode="numeric" aria-describedby="budgetHint budgetError" />
                 <span data-i18n="budget.unit">Aya</span>
               </span>
               <span class="field-hint" id="budgetHint">Start planning from the P50 line: 33 Aya</span>
+              <span class="field-hint" id="budgetError" role="alert" hidden></span>
             </label>
 
             <label class="field-group goal-line-field" for="goalLine" hidden>
