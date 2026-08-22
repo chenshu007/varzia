@@ -139,10 +139,10 @@ assets/
 
 ## Prime Resurgence 候选数据自动化
 
-`.github/workflows/prime-resurgence-sync.yml` 每天在非整点 UTC 时间运行，也支持手动触发。它使用确定性 Node 代码读取以下官方来源：
+`.github/workflows/prime-resurgence-sync.yml` 每天 `17 9 * * *` UTC 运行 announcement discovery，也支持手动触发。它使用确定性 Node 代码读取以下官方来源：
 
 - Prime Resurgence 中英文页面：完整 Prime 商品阵容及官方页面是否已经切换。
-- `warframe.com` 官方账号公告：两名 Prime 战甲和精确生效时间；账号 DID 固定校验，变化时停止。
+- `warframe.com` 官方账号公告：两名 Prime 战甲和精确生效时间；账号 DID 固定校验，变化时停止。公告只给日期时保留 `effectiveAt: null`，绝不推测具体时刻。
 - Official Drop Tables：Intact 遗物奖励、文本 rarity label 与数值概率。规划器以数值概率作为 canonical simulation input；label 不一致会进入 Actions/PR audit warning，不能被静默隐藏。
 - Digital Extremes Public Export：由当期 `ExportRecipes_en.json` recipe ingredient 计算部件数量及总数。
 
@@ -154,13 +154,25 @@ Public Export 确认缺失某件装备 recipe 时，只有 `data/prime-resurgenc
 npm run prime-resurgence:dry-run
 ```
 
-本地生成候选数据（只写三个 data JSON，不执行 Git 操作）：
+本地生成候选数据（只写 allowlisted data JSON，不执行 Git 操作）：
 
 ```bash
 npm run prime-resurgence:sync
 ```
 
-解析器要求官方公告、Prime Resurgence 页面、六遗物唯一最高覆盖组合、双向奖励映射和 recipe evidence 全部一致。缺字段、歧义、未知概率、未知 Prime ingredient、未列明的缺 recipe 或页面结构变化都会直接失败。三文件写入会保留 mode，并对 cleanup/rollback 结果进行检查；GitHub Actions 还会在测试通过后把三份 JSON 作为一个 allowlisted artifact 交给独立 publish job，失败的本地状态不会进入 bot branch。
+默认是 `--mode announcement`；本地检查已存在 candidate 的窗口资格可运行：
+
+```bash
+node scripts/prime-resurgence-sync.mjs --mode near-rotation --dry-run
+```
+
+公告会先独立写入 `data/prime-resurgence-candidates.json`，状态为 `announced`：只保存官方明确写出的两名 Prime、明确的 UTC 开始时间（如有）、原始解析文本、发布/发现时间和官方 URL；遗物数据始终为 `pending`、`verified: false`。该文件驱动首页“下一期”预览，不会修改 `rotation.json`、`primes.json` 或 `relics.json`。
+
+这一发现阶段每天只读取官方公告 feed 和 Prime Resurgence 中英文页面；在官网尚未切换时，不请求 droptable 或 Public Export。官网阵容匹配后才进入原有完整数据校验路径。
+
+同一 workflow 另在每小时 `43 * * * *` UTC 唤醒 `--mode near-rotation` watcher。它只先读本地 `prime-resurgence-candidates.json`：仅当已有 `announced` candidate 的 `effectiveAt` 位于 `[effectiveAt - 2h, effectiveAt + 12h]` 时，才请求 Prime Resurgence 中英文官网页面。窗口外、缺少精确时间、`conflict` 或 `ready-for-review` 均为零外部请求的成功 no-op；官网仍显示旧阵容时也不请求 droptable / Public Export。near watcher 从不读取 Bluesky、不重新发现或重建 candidate，并保留原始 stable ID、provenance 和状态历史。
+
+当官网阵容与同一稳定 identity（排序后的两名 Prime 加官方开始时间/日期）匹配后，既有记录依次记录 `official-data-available`、`validated`、`ready-for-review`，再由原有掉落表、双向奖励映射和 Public Export 校验生成完整 provisional rotation。若官网阵容与公告不一致，记录双方 provenance 和 `conflict` review reason，停止自动升级且不修改正式 rotation。缺字段、歧义、未知概率、未知 Prime ingredient、未列明的缺 recipe 或页面结构变化都会直接失败。四文件写入会保留 mode，并对 cleanup/rollback 结果进行检查；GitHub Actions 还会在测试通过后把四份 JSON 作为一个 allowlisted artifact 交给独立 publish job，失败的本地状态不会进入 bot branch。
 
 workflow 的 prepare job 只有 `contents: read`，checkout 不持久化 credential。`contents: write` / `pull-requests: write` 只存在于 publish job，token 也只注入固定的 branch/PR step；仓库 parser 与测试代码不会接触写 token。
 

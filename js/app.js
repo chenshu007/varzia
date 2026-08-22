@@ -17,6 +17,7 @@ import {
   validateSession
 } from "./session.js";
 import { validateRotationData } from "./data-validation.js";
+import { loadAnnouncementCandidates } from "./announcement-candidate-preview.js";
 import {
   assertValidBudgetCurve,
   formatProbability,
@@ -81,8 +82,11 @@ const fallbackSchedule = {
   rotations: []
 };
 
+
 const state = {
   scheduleData: fallbackSchedule,
+  announcementCandidates: [],
+  announcementPreview: null,
   rotations: [],
   publishedRotations: [],
   realRotationState: { activeRotation: null, nextRotation: null, previousRotation: null },
@@ -391,10 +395,27 @@ function itemNamesForRotation(rotation) {
   return (rotation?.items || []).map((id) => itemMap.get(id)).filter(Boolean);
 }
 
+function formatUtcTimestamp(timestamp) {
+  return typeof timestamp === "string" && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/.test(timestamp)
+    ? `${timestamp.slice(0, 16).replace("T", " ")} UTC`
+    : message("schedule.timePending");
+}
+
+function selectAnnouncementPreview(candidates) {
+  return (Array.isArray(candidates) ? candidates : [])
+    .filter((candidate) => candidate?.status === "announced" && candidate.relicDataStatus === "pending" && candidate.verified === false)
+    .sort((left, right) => (
+      String(left.effectiveAt || left.effectiveDate || "9999-12-31").localeCompare(String(right.effectiveAt || right.effectiveDate || "9999-12-31"))
+        || left.id.localeCompare(right.id)
+    ))[0] || null;
+}
+
 function renderRotationSchedule(now = Date.now()) {
   const schedule = $("rotationSchedule");
   const preview = $("nextRotationPreview");
   const upcoming = state.realRotationState.nextRotation;
+  const announcement = upcoming ? null : state.announcementPreview;
+  const displayedUpcoming = upcoming || announcement;
   const hasActive = Boolean(state.realRotationState.activeRotation);
 
   $("previewModeBanner").hidden = !state.previewMode;
@@ -405,7 +426,7 @@ function renderRotationSchedule(now = Date.now()) {
     $("previewModeText").textContent = message(key, { id: state.rotation?.id || state.previewId });
   }
 
-  if (!upcoming) {
+  if (!displayedUpcoming) {
     schedule.classList.remove("is-imminent");
     schedule.classList.add("is-empty");
     $("rotationScheduleStatus").textContent = message("schedule.table");
@@ -413,7 +434,31 @@ function renderRotationSchedule(now = Date.now()) {
     $("rotationCountdown").textContent = "—";
     $("nextRotationTime").textContent = message("schedule.ongoing");
     $("nextRotationTime").removeAttribute("datetime");
+    $("nextRotationPreviewNotice").hidden = true;
     preview.hidden = true;
+    return;
+  }
+
+  if (announcement) {
+    const hasEffectiveAt = Boolean(announcement.effectiveAt);
+    const remaining = hasEffectiveAt ? getTimeUntilRotation({ startsAt: announcement.effectiveAt }, now) : 0;
+    schedule.classList.remove("is-empty");
+    schedule.classList.toggle("is-imminent", hasEffectiveAt && remaining <= 24 * 60 * 60 * 1_000);
+    $("rotationScheduleStatus").textContent = message("schedule.nextAnnounced");
+    $("rotationCountdownLabel").textContent = hasEffectiveAt ? message("schedule.starts") : message("schedule.timePending");
+    $("rotationCountdown").textContent = hasEffectiveAt ? formatRotationCountdown(remaining, state.locale) : "—";
+    $("nextRotationTime").textContent = formatUtcTimestamp(announcement.effectiveAt);
+    if (hasEffectiveAt) $("nextRotationTime").setAttribute("datetime", announcement.effectiveAt);
+    else $("nextRotationTime").removeAttribute("datetime");
+    $("nextRotationPreviewName").textContent = announcement.primeWarframes.join(" & ");
+    $("nextRotationPreviewTime").textContent = formatUtcTimestamp(announcement.effectiveAt);
+    $("nextRotationPreviewCountdown").textContent = hasEffectiveAt ? formatRotationCountdown(remaining, state.locale) : "—";
+    $("nextRotationPreviewItems").innerHTML = announcement.primeWarframes
+      .map((name) => `<li><span>${escapeHtml(name)}</span><em>${escapeHtml(message("schedule.primeWarframe"))}</em></li>`)
+      .join("");
+    $("nextRotationPreviewNotice").textContent = `${message("schedule.officiallyAnnounced")} ${message("schedule.relicDataPending")}`;
+    $("nextRotationPreviewNotice").hidden = false;
+    preview.hidden = false;
     return;
   }
 
@@ -431,6 +476,7 @@ function renderRotationSchedule(now = Date.now()) {
   $("nextRotationPreviewItems").innerHTML = itemNamesForRotation(upcoming)
     .map((item) => `<li><span>${escapeHtml(item.name)}</span><em>${escapeHtml(localizedTypeLabel(item.type))}</em></li>`)
     .join("");
+  $("nextRotationPreviewNotice").hidden = true;
   preview.hidden = false;
 }
 
@@ -2211,6 +2257,10 @@ async function loadData() {
   }, state.locale);
   state.rotations = displayData.rotations;
   state.publishedRotations = publishedRotations(state.rotations);
+  state.announcementCandidates = state.dataLoadErrors.length
+    ? []
+    : await loadAnnouncementCandidates({ rotationData: scheduleData });
+  state.announcementPreview = selectAnnouncementPreview(state.announcementCandidates);
   state.allPrimeItems = displayData.primeItems;
   state.allRelics = displayData.relics;
   state.previewId = new URLSearchParams(window.location.search).get("rotation")?.trim() || "";

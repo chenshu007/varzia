@@ -1,7 +1,13 @@
+import { candidateIdFor, normalizeOfficialTimestamp } from "./prime-resurgence-candidate.js";
+
 const VALID_RARITIES = new Set(["common", "uncommon", "rare"]);
 const VALID_PUBLICATION_STATUSES = new Set(["published", "provisional"]);
+const VALID_CANDIDATE_STATUSES = new Set(["announced", "official-data-available", "validated", "ready-for-review", "conflict"]);
+const VALID_CANDIDATE_RELIC_STATUSES = new Set(["pending", "available", "validated", "conflict"]);
 const SUPPORTED_ROTATION_SCHEMA = 2;
+const SUPPORTED_ANNOUNCEMENT_CANDIDATE_SCHEMA = 1;
 const ISO_UTC_SECONDS = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;
+const ISO_CALENDAR_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const MAX_REQUIRED_QUANTITY = 65_535;
 
 function requireValue(condition, message) {
@@ -43,6 +49,132 @@ function isExactUtcTimestamp(value) {
   const timestamp = Date.parse(value);
   if (!Number.isFinite(timestamp)) return false;
   return new Date(timestamp).toISOString() === value.replace(/Z$/, ".000Z");
+}
+
+function isIsoTimestamp(value) {
+  if (typeof value !== "string") return false;
+  const timestamp = Date.parse(value);
+  return Number.isFinite(timestamp) && new Date(timestamp).toISOString() === value;
+}
+
+function requireAnnouncementEvidence(evidence, label) {
+  requireValue(typeof evidence?.url === "string" && /^https:\/\/bsky\.app\/profile\/warframe\.com\/post\/[a-z0-9]+$/.test(evidence.url), `Invalid announcement source URL: ${label}`);
+  requireValue(isIsoTimestamp(evidence.publishedAt), `Invalid announcement publishedAt: ${label}`);
+  requireValue(isIsoTimestamp(evidence.discoveredAt), `Invalid announcement discoveredAt: ${label}`);
+  if (evidence.rawPublishedAt !== undefined) {
+    requireValue(typeof evidence.rawPublishedAt === "string" && normalizeOfficialTimestamp(evidence.rawPublishedAt) === evidence.publishedAt, `Invalid raw announcement publishedAt: ${label}`);
+  }
+  requireValue(Array.isArray(evidence.rawPrimeWarframes) && evidence.rawPrimeWarframes.length === 2, `Invalid raw announcement Prime names: ${label}`);
+  requireUnique(evidence.rawPrimeWarframes, `Duplicate raw announcement Prime name: ${label}`);
+  requireValue(evidence.rawPrimeWarframes.every((name) => typeof name === "string" && name.endsWith(" Prime")), `Invalid raw announcement Prime name: ${label}`);
+  requireValue(typeof evidence.rawEffectiveText === "string" && evidence.rawEffectiveText.length > 0, `Missing raw announcement effective time: ${label}`);
+}
+
+function requireAnnouncementCandidateSource(source, label) {
+  requireValue(source?.type === "digital-extremes-official-announcement", `Invalid announcement source type: ${label}`);
+  requireAnnouncementEvidence(source, label);
+  if (source.relatedAnnouncements !== undefined) {
+    requireValue(Array.isArray(source.relatedAnnouncements), `Invalid related announcement evidence: ${label}`);
+    requireUnique(source.relatedAnnouncements.map((entry) => `${entry?.url || ""}::${entry?.publishedAt || ""}::${entry?.rawEffectiveText || ""}`), `Duplicate related announcement evidence: ${label}`);
+    for (const evidence of source.relatedAnnouncements) requireAnnouncementEvidence(evidence, `${label} / related`);
+  }
+
+  if (source.officialData !== undefined) {
+    const officialData = source.officialData;
+    requireValue(officialData && typeof officialData === "object", `Invalid official data evidence: ${label}`);
+    for (const [field, expectedUrl] of [
+      ["rotationPage", "https://www.warframe.com/en/prime-resurgence"],
+      ["dropTable", "https://www.warframe.com/droptables"],
+      ["recipeExport", "https://content.warframe.com/PublicExport/Manifest/"]
+    ]) {
+      const record = officialData[field];
+      requireValue(record && typeof record === "object", `Missing official data evidence: ${label} / ${field}`);
+      requireValue(typeof record.url === "string" && record.url.startsWith(expectedUrl), `Invalid official data URL: ${label} / ${field}`);
+      requireValue(isIsoTimestamp(record.discoveredAt), `Invalid official data discoveredAt: ${label} / ${field}`);
+    }
+    requireValue(Array.isArray(officialData.rawPrimeWarframes) && officialData.rawPrimeWarframes.length === 2, `Invalid official data Prime names: ${label}`);
+    requireUnique(officialData.rawPrimeWarframes, `Duplicate official data Prime name: ${label}`);
+  }
+
+  if (source.conflict !== undefined) {
+    const conflict = source.conflict;
+    requireValue(conflict && typeof conflict === "object", `Invalid announcement conflict evidence: ${label}`);
+    requireValue(conflict.officialRotationPage?.type === "digital-extremes-official-rotation-page", `Invalid conflict source type: ${label}`);
+    requireValue(conflict.officialRotationPage?.url === "https://www.warframe.com/en/prime-resurgence", `Invalid conflict source URL: ${label}`);
+    requireValue(isIsoTimestamp(conflict.officialRotationPage?.discoveredAt), `Invalid conflict discoveredAt: ${label}`);
+    requireValue(Array.isArray(conflict.officialRotationPage?.rawPrimeWarframes) && conflict.officialRotationPage.rawPrimeWarframes.length === 2, `Invalid conflict Prime names: ${label}`);
+  }
+}
+
+export function validateAnnouncementCandidates(candidateData, rotationData = null) {
+  requireValue(candidateData?.schemaVersion === SUPPORTED_ANNOUNCEMENT_CANDIDATE_SCHEMA, `Unsupported announcement candidate schemaVersion: ${candidateData?.schemaVersion ?? "missing"}`);
+  requireValue(Array.isArray(candidateData.candidates), "Missing announcement candidates array");
+  requireUnique(candidateData.candidates.map((candidate) => candidate?.id), "Duplicate announcement candidate id");
+
+  const rotationMap = new Map((rotationData?.rotations || []).map((rotation) => [rotation.id, rotation]));
+  for (const candidate of candidateData.candidates) {
+    const label = candidate?.id || "missing";
+    requireValue(typeof candidate?.id === "string" && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(candidate.id), `Invalid announcement candidate id: ${label}`);
+    requireValue(VALID_CANDIDATE_STATUSES.has(candidate.status), `Invalid announcement candidate status: ${label}`);
+    requireValue(Array.isArray(candidate.primeWarframes) && candidate.primeWarframes.length === 2, `Announcement candidate must contain exactly two Prime Warframes: ${label}`);
+    requireUnique(candidate.primeWarframes, `Duplicate announcement candidate Prime Warframe: ${label}`);
+    requireValue(candidate.primeWarframes.every((name) => typeof name === "string" && name.endsWith(" Prime")), `Invalid announcement candidate Prime Warframe: ${label}`);
+    requireValue(candidate.effectiveAt === null || isExactUtcTimestamp(candidate.effectiveAt), `Invalid announcement candidate effectiveAt: ${label}`);
+    requireValue(candidate.effectiveDate === null || ISO_CALENDAR_DATE.test(candidate.effectiveDate), `Invalid announcement candidate effectiveDate: ${label}`);
+    if (candidate.effectiveAt !== null) requireValue(candidate.effectiveDate === candidate.effectiveAt.slice(0, 10), `Announcement candidate effectiveDate disagrees with effectiveAt: ${label}`);
+    requireValue(candidate.id === candidateIdFor(candidate.primeWarframes, candidate.effectiveAt, candidate.effectiveDate), `Non-canonical announcement candidate id: ${label}`);
+    requireValue(VALID_CANDIDATE_RELIC_STATUSES.has(candidate.relicDataStatus), `Invalid announcement relic data status: ${label}`);
+    requireValue(typeof candidate.verified === "boolean", `Invalid announcement verified flag: ${label}`);
+    requireValue(typeof candidate.reviewReason === "string" && candidate.reviewReason.length > 0, `Missing announcement review reason: ${label}`);
+    requireValue(Array.isArray(candidate.statusHistory) && candidate.statusHistory.length > 0, `Missing announcement candidate status history: ${label}`);
+    requireUnique(candidate.statusHistory.map((entry) => entry?.status), `Duplicate announcement candidate status history: ${label}`);
+    requireValue(candidate.statusHistory[0]?.status === "announced", `Announcement candidate history must start announced: ${label}`);
+    requireValue(candidate.statusHistory.every((entry) => VALID_CANDIDATE_STATUSES.has(entry?.status) && isIsoTimestamp(entry.at)), `Invalid announcement candidate status history: ${label}`);
+    requireValue(candidate.statusHistory.at(-1)?.status === candidate.status, `Announcement candidate status history does not match status: ${label}`);
+    const historyOrder = candidate.statusHistory.map((entry) => entry.status);
+    const expectedHistory = candidate.status === "announced"
+      ? ["announced"]
+      : candidate.status === "official-data-available"
+        ? ["announced", "official-data-available"]
+        : candidate.status === "validated"
+          ? ["announced", "official-data-available", "validated"]
+          : candidate.status === "ready-for-review"
+            ? ["announced", "official-data-available", "validated", "ready-for-review"]
+            : ["announced", "conflict"];
+    requireValue(JSON.stringify(historyOrder) === JSON.stringify(expectedHistory), `Invalid announcement candidate status transition: ${label}`);
+    requireAnnouncementCandidateSource(candidate.source, label);
+    requireValue(candidate.statusHistory[0].at === candidate.source.discoveredAt, `Announcement candidate history must begin at discovery: ${label}`);
+    for (let index = 1; index < candidate.statusHistory.length; index += 1) {
+      requireValue(Date.parse(candidate.statusHistory[index].at) >= Date.parse(candidate.statusHistory[index - 1].at), `Announcement candidate status history is not chronological: ${label}`);
+    }
+
+    if (candidate.status === "announced") {
+      requireValue(candidate.relicDataStatus === "pending" && candidate.verified === false, `Announced candidate cannot verify relic data: ${label}`);
+      requireValue(candidate.rotationId === undefined, `Announced candidate cannot reference a rotation: ${label}`);
+      requireValue(candidate.source.officialData === undefined, `Announced candidate cannot contain official relic data: ${label}`);
+    }
+    if (candidate.status === "official-data-available") {
+      requireValue(candidate.relicDataStatus === "available" && candidate.verified === false, `Official-data candidate verification state is invalid: ${label}`);
+      requireValue(candidate.source.officialData !== undefined, `Official-data candidate is missing official evidence: ${label}`);
+    }
+    if (candidate.status === "validated" || candidate.status === "ready-for-review") {
+      requireValue(candidate.relicDataStatus === "validated" && candidate.verified === true, `Validated candidate verification state is invalid: ${label}`);
+      requireValue(candidate.source.officialData !== undefined, `Validated candidate is missing official evidence: ${label}`);
+    }
+    if (candidate.status === "ready-for-review") {
+      requireValue(typeof candidate.rotationId === "string" && candidate.rotationId.length > 0, `Ready candidate is missing rotationId: ${label}`);
+      if (rotationData) {
+        const rotation = rotationMap.get(candidate.rotationId);
+        requireValue(rotation?.publicationStatus === "provisional", `Ready candidate does not reference a provisional rotation: ${label}`);
+      }
+    }
+    if (candidate.status === "conflict") {
+      requireValue(candidate.relicDataStatus === "conflict" && candidate.verified === false, `Conflict candidate verification state is invalid: ${label}`);
+      requireValue(candidate.source.conflict !== undefined, `Conflict candidate is missing both sources: ${label}`);
+      requireValue(candidate.rotationId === undefined, `Conflict candidate cannot reference a rotation: ${label}`);
+    }
+  }
+  return true;
 }
 
 export function validateRotationData(rotationData, primeData, relicData) {

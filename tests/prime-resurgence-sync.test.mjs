@@ -4,8 +4,10 @@ import { chmod, mkdtemp, mkdir, readFile, stat, writeFile } from "node:fs/promis
 import os from "node:os";
 import path from "node:path";
 import {
+  OFFICIAL_SOURCES,
   candidateIdFor,
   fetchResource,
+  nearRotationWatchWindow,
   parseAnnouncementText,
   parseDropTables,
   parseOfficialAnnouncements,
@@ -13,11 +15,14 @@ import {
   parseRecipeExceptions,
   parseRecipes,
   resolveRecipeRequirements,
+  runNearRotationWatcher,
   runPrimeResurgenceSync,
+  selectNearRotationCandidate,
   selectRelicSet,
   writeAtomically
 } from "../scripts/lib/prime-resurgence-sync.mjs";
-import { validateRotationData } from "../js/data-validation.js";
+import { validateAnnouncementCandidates, validateRotationData } from "../js/data-validation.js";
+import { normalizeOfficialTimestamp } from "../js/prime-resurgence-candidate.js";
 import { publishedRotations, resolveRotationState } from "../js/rotation-schedule.js";
 
 const fixtureDirectory = new URL("./fixtures/", import.meta.url);
@@ -41,10 +46,69 @@ async function fixtureInputs() {
 async function temporaryRepository() {
   const directory = await mkdtemp(path.join(os.tmpdir(), "varzia-prime-sync-"));
   await mkdir(path.join(directory, "data"));
-  for (const name of ["rotation.json", "primes.json", "relics.json", "prime-resurgence-recipe-exceptions.json"]) {
+  for (const name of ["rotation.json", "primes.json", "relics.json", "prime-resurgence-candidates.json", "prime-resurgence-recipe-exceptions.json"]) {
     await writeFile(path.join(directory, "data", name), await readFile(path.join(repositoryRoot, "data", name), "utf8"), "utf8");
   }
   return directory;
+}
+
+async function temporaryRepositoryWithoutPreparedCandidate() {
+  const directory = await temporaryRepository();
+  const rotationPath = path.join(directory, "data/rotation.json");
+  const primesPath = path.join(directory, "data/primes.json");
+  const relicsPath = path.join(directory, "data/relics.json");
+  const rotation = JSON.parse(await readFile(rotationPath, "utf8"));
+  const candidate = rotation.rotations.find((entry) => entry.publicationStatus === "provisional");
+  assert.ok(candidate, "fixture repository must contain an existing full provisional candidate");
+  rotation.rotations = rotation.rotations.filter((entry) => entry.id !== candidate.id);
+
+  const primes = JSON.parse(await readFile(primesPath, "utf8"));
+  primes.primeItems = primes.primeItems.filter((item) => item.rotation !== candidate.id);
+  delete primes.provisionalSources?.[candidate.id];
+
+  const relics = JSON.parse(await readFile(relicsPath, "utf8"));
+  relics.relics = relics.relics.filter((relic) => relic.rotation !== candidate.id);
+  delete relics.provisionalSources?.[candidate.id];
+
+  await Promise.all([
+    writeFile(rotationPath, `${JSON.stringify(rotation, null, 2)}\n`, "utf8"),
+    writeFile(primesPath, `${JSON.stringify(primes, null, 2)}\n`, "utf8"),
+    writeFile(relicsPath, `${JSON.stringify(relics, null, 2)}\n`, "utf8")
+  ]);
+  return directory;
+}
+
+async function announcementOnlyInputs() {
+  const inputs = await fixtureInputs();
+  return {
+    ...inputs,
+    englishHtml: inputs.englishHtml
+      .replaceAll("Banshee", "Revenant")
+      .replaceAll("Mirage", "Baruuk"),
+    chineseHtml: inputs.chineseHtml
+      .replaceAll("Banshee", "Revenant")
+      .replaceAll("Mirage", "Baruuk")
+  };
+}
+
+function officialFetchFixture(inputs, requested) {
+  const payloads = new Map([
+    [OFFICIAL_SOURCES.rotationEn, inputs.englishHtml],
+    [OFFICIAL_SOURCES.rotationZh, inputs.chineseHtml],
+    [OFFICIAL_SOURCES.dropTables, inputs.dropTablesHtml],
+    [OFFICIAL_SOURCES.publicExportIndex, Buffer.from("fixture-index")],
+    [inputs.recipeUrl, inputs.recipesText]
+  ]);
+  return async (url) => {
+    requested.push(url);
+    const payload = payloads.get(url);
+    if (payload === undefined) throw new Error(`Unexpected official request: ${url}`);
+    return new Response(payload, { status: 200 });
+  };
+}
+
+function fixtureIndexDecompress() {
+  return "ExportRecipes_en.json!00_fixture\n";
 }
 
 async function fixtureRecipeExceptions() {
@@ -61,7 +125,21 @@ async function fixtureRequirements(inputs, lineup, selection, recipesOverride = 
 }
 
 async function dataSnapshot(directory) {
-  return await Promise.all(["rotation.json", "primes.json", "relics.json"].map((name) => readFile(path.join(directory, "data", name), "utf8")));
+  return await Promise.all(["rotation.json", "primes.json", "relics.json", "prime-resurgence-candidates.json"].map((name) => readFile(path.join(directory, "data", name), "utf8")));
+}
+
+async function candidateSnapshot(directory) {
+  return JSON.parse(await readFile(path.join(directory, "data/prime-resurgence-candidates.json"), "utf8"));
+}
+
+async function repositoryWithAnnouncedCandidate() {
+  const directory = await temporaryRepositoryWithoutPreparedCandidate();
+  await runPrimeResurgenceSync({
+    rootDir: directory,
+    inputs: await announcementOnlyInputs(),
+    now: "2026-08-20T18:01:00.000Z"
+  });
+  return directory;
 }
 
 test("正常官方页面与官方公告可确定性解析", async () => {
@@ -74,6 +152,37 @@ test("正常官方页面与官方公告可确定性解析", async () => {
   const announcements = parseOfficialAnnouncements(JSON.parse(inputs.announcementText));
   assert.equal(announcements.length, 1);
   assert.equal(announcements[0].startsAt, "2026-09-03T18:00:00Z");
+  assert.equal(announcements[0].url, "https://bsky.app/profile/warframe.com/post/3mtjt7pmvpr2o");
+  assert.equal(announcements[0].createdAt, "2026-08-20T18:00:25.166Z");
+  assert.equal(announcements[0].rawCreatedAt, "2026-08-20T18:00:25.166437193Z");
+});
+
+test("官方 Bluesky 时间戳在摄取边界规范化为 canonical UTC，拒绝非 RFC3339 输入", () => {
+  assert.equal(normalizeOfficialTimestamp("2026-08-20T19:00:24Z"), "2026-08-20T19:00:24.000Z");
+  assert.equal(normalizeOfficialTimestamp("2026-08-20T19:00:24.166Z"), "2026-08-20T19:00:24.166Z");
+  assert.equal(normalizeOfficialTimestamp("2026-08-20T19:00:24.166437Z"), "2026-08-20T19:00:24.166Z");
+  assert.equal(normalizeOfficialTimestamp("2026-08-20T19:00:24.166437193Z"), "2026-08-20T19:00:24.166Z");
+  assert.equal(normalizeOfficialTimestamp("not-a-timestamp"), null);
+  assert.equal(normalizeOfficialTimestamp("99999999-08-20T19:00:24Z"), null);
+});
+
+test("真实格式的纳秒 Bluesky createdAt 可以写入 announced candidate，同时保留 raw provenance", async () => {
+  const directory = await temporaryRepositoryWithoutPreparedCandidate();
+  const result = await runPrimeResurgenceSync({
+    rootDir: directory,
+    inputs: await announcementOnlyInputs(),
+    now: "2026-08-20T18:01:00.000Z"
+  });
+  const candidate = (await candidateSnapshot(directory)).candidates[0];
+  assert.equal(result.candidateStage, "announced");
+  assert.equal(candidate.source.publishedAt, "2026-08-20T18:00:25.166Z");
+  assert.equal(candidate.source.rawPublishedAt, "2026-08-20T18:00:25.166437193Z");
+  assert.equal(validateAnnouncementCandidates(await candidateSnapshot(directory)), true);
+});
+
+test("Bluesky self-repost wrapper 不会复制公告或触发 duplicate URL failure", async () => {
+  const announcements = parseOfficialAnnouncements(JSON.parse(await fixture("prime-resurgence-announcements-repost.json")));
+  assert.equal(announcements.length, 1);
   assert.equal(announcements[0].url, "https://bsky.app/profile/warframe.com/post/3mtjt7pmvpr2o");
 });
 
@@ -190,12 +299,453 @@ test("公告拒绝重复 Warframe、非法时间、DST 歧义和多段匹配", (
   );
 });
 
+test("Banshee Prime 与 Mirage Prime 公告 fixture 解析为 announced candidate 所需事实", async () => {
+  const inputs = await fixtureInputs();
+  const announcement = parseOfficialAnnouncements(JSON.parse(inputs.announcementText))[0];
+  assert.deepEqual(announcement.warframes, ["Banshee Prime", "Mirage Prime"]);
+  assert.equal(announcement.startsAt, "2026-09-03T18:00:00Z");
+  assert.equal(announcement.effectiveDate, "2026-09-03");
+  assert.equal(announcement.rawEffectiveText, "September 3 at 2 p.m. ET");
+});
+
+test("ET 时间使用 America/New_York 正确处理 EDT 和 EST", () => {
+  const edt = parseAnnouncementText(
+    "Banshee Prime and Mirage Prime return with the next Prime Resurgence rotation on September 3 at 2 p.m. ET.",
+    "2026-08-20T18:00:25.031Z"
+  );
+  const est = parseAnnouncementText(
+    "Banshee Prime and Mirage Prime return with the next Prime Resurgence rotation on December 3 at 2 p.m. ET.",
+    "2026-11-20T18:00:25.031Z"
+  );
+  assert.equal(edt.startsAt, "2026-09-03T18:00:00Z");
+  assert.equal(est.startsAt, "2026-12-03T19:00:00Z");
+});
+
+test("公告只给日期时保留 pending effectiveAt，单个 Prime 不会形成完整 candidate", () => {
+  const dated = parseAnnouncementText(
+    "Banshee Prime and Mirage Prime return with the next Prime Resurgence rotation on September 3.",
+    "2026-08-20T18:00:25.031Z"
+  );
+  assert.equal(dated.startsAt, null);
+  assert.equal(dated.effectiveDate, "2026-09-03");
+  assert.equal(dated.rawEffectiveText, "September 3");
+  assert.equal(
+    parseAnnouncementText("Banshee Prime returns with the next Prime Resurgence rotation on September 3 at 2 p.m. ET.", "2026-08-20T18:00:25.031Z"),
+    null
+  );
+});
+
+test("日期-only 公告只写 announced candidate，单个 Prime 公告不会写 candidate", async () => {
+  const directory = await temporaryRepositoryWithoutPreparedCandidate();
+  const dateOnly = await announcementOnlyInputs();
+  dateOnly.announcementText = dateOnly.announcementText.replace(" at 2 p.m. ET", "");
+  await runPrimeResurgenceSync({ rootDir: directory, inputs: dateOnly, now: "2026-08-20T18:01:00.000Z" });
+  const candidate = (await candidateSnapshot(directory)).candidates[0];
+  assert.equal(candidate.status, "announced");
+  assert.equal(candidate.effectiveAt, null);
+  assert.equal(candidate.effectiveDate, "2026-09-03");
+
+  const noCandidateDirectory = await temporaryRepositoryWithoutPreparedCandidate();
+  const singlePrime = await announcementOnlyInputs();
+  singlePrime.announcementText = singlePrime.announcementText.replace("Banshee Prime and Mirage Prime return", "Banshee Prime returns");
+  const before = await candidateSnapshot(noCandidateDirectory);
+  await assert.rejects(
+    runPrimeResurgenceSync({ rootDir: noCandidateDirectory, inputs: singlePrime, now: "2026-08-20T18:01:00.000Z" }),
+    /No deterministic Prime Resurgence announcement was found/
+  );
+  assert.deepEqual(await candidateSnapshot(noCandidateDirectory), before);
+});
+
+test("同一 Prime pair 的 date-only 公告会被同日精确时间原地精化且保持幂等", async () => {
+  const directory = await temporaryRepositoryWithoutPreparedCandidate();
+  const dateOnly = await announcementOnlyInputs();
+  dateOnly.announcementText = dateOnly.announcementText.replace(" at 2 p.m. ET", "");
+  await runPrimeResurgenceSync({ rootDir: directory, inputs: dateOnly, now: "2026-08-20T18:01:00.000Z" });
+  const initial = (await candidateSnapshot(directory)).candidates[0];
+  assert.equal(initial.effectiveAt, null);
+  assert.equal(initial.id, "banshee-mirage-2026-09");
+
+  const timed = await announcementOnlyInputs();
+  const refined = await runPrimeResurgenceSync({ rootDir: directory, inputs: timed, now: "2026-08-21T18:01:00.000Z" });
+  const afterRefinement = await candidateSnapshot(directory);
+  assert.equal(afterRefinement.candidates.length, 1);
+  assert.equal(afterRefinement.candidates[0].id, initial.id);
+  assert.equal(afterRefinement.candidates[0].effectiveAt, "2026-09-03T18:00:00Z");
+  assert.deepEqual(afterRefinement.candidates[0].statusHistory, initial.statusHistory);
+  assert.equal(afterRefinement.candidates[0].source.url, initial.source.url);
+  assert.equal(afterRefinement.candidates[0].source.relatedAnnouncements.length, 1);
+  assert.deepEqual(refined.changedFiles, ["data/prime-resurgence-candidates.json"]);
+
+  const repeated = await runPrimeResurgenceSync({ rootDir: directory, inputs: timed, now: "2026-08-22T18:01:00.000Z" });
+  assert.deepEqual(repeated.changedFiles, []);
+  assert.deepEqual(await candidateSnapshot(directory), afterRefinement);
+
+  const dateOnlyLater = await announcementOnlyInputs();
+  dateOnlyLater.announcementText = dateOnlyLater.announcementText.replace(" at 2 p.m. ET", "");
+  await runPrimeResurgenceSync({ rootDir: directory, inputs: dateOnlyLater, now: "2026-08-23T18:01:00.000Z" });
+  const afterLessPreciseEvidence = await candidateSnapshot(directory);
+  assert.equal(afterLessPreciseEvidence.candidates.length, 1);
+  assert.equal(afterLessPreciseEvidence.candidates[0].id, initial.id);
+  assert.equal(afterLessPreciseEvidence.candidates[0].effectiveAt, "2026-09-03T18:00:00Z");
+});
+
+test("不同官方日期或 Prime pair 不会被静默合并为同一 candidate", async () => {
+  const directory = await repositoryWithAnnouncedCandidate();
+  const differentDate = await announcementOnlyInputs();
+  differentDate.announcementText = differentDate.announcementText.replace("September 3", "October 3");
+  await runPrimeResurgenceSync({ rootDir: directory, inputs: differentDate, now: "2026-08-21T18:01:00.000Z" });
+  const afterDate = await candidateSnapshot(directory);
+  assert.equal(afterDate.candidates.length, 2);
+  assert.deepEqual(afterDate.candidates.map((candidate) => candidate.id), ["banshee-mirage-2026-09", "banshee-mirage-2026-10"]);
+
+  const differentPair = await announcementOnlyInputs();
+  differentPair.announcementText = differentPair.announcementText.replace("Banshee Prime and Mirage Prime", "Ember Prime and Frost Prime");
+  await runPrimeResurgenceSync({ rootDir: directory, inputs: differentPair, now: "2026-08-22T18:01:00.000Z" });
+  const afterPair = await candidateSnapshot(directory);
+  assert.equal(afterPair.candidates.length, 3);
+  assert.ok(afterPair.candidates.some((candidate) => candidate.id === "ember-frost-2026-09"));
+  assert.equal(validateAnnouncementCandidates(afterPair), true);
+});
+
+test("非 Digital Extremes 官方身份不能进入 trusted announcement pipeline", async () => {
+  const payload = JSON.parse(await fixture("prime-resurgence-announcements.json"));
+  payload.feed[0].post.author.did = "did:plc:untrusted";
+  assert.throws(() => parseOfficialAnnouncements(payload), /DID changed; human review is required/);
+});
+
+test("announcement-only candidate 幂等、保留 provenance，且不修改正式 rotation", async () => {
+  const directory = await temporaryRepositoryWithoutPreparedCandidate();
+  const inputs = await announcementOnlyInputs();
+  const beforeProduction = (await dataSnapshot(directory)).slice(0, 3);
+  const now = "2026-08-20T18:01:00.000Z";
+  const first = await runPrimeResurgenceSync({ rootDir: directory, inputs, now });
+  const firstCandidateData = await candidateSnapshot(directory);
+  const candidate = firstCandidateData.candidates[0];
+  assert.equal(first.candidateStage, "announced");
+  assert.deepEqual(first.changedFiles, ["data/prime-resurgence-candidates.json"]);
+  assert.equal(candidate.id, "banshee-mirage-2026-09");
+  assert.equal(candidate.status, "announced");
+  assert.deepEqual(candidate.primeWarframes, ["Banshee Prime", "Mirage Prime"]);
+  assert.equal(candidate.effectiveAt, "2026-09-03T18:00:00Z");
+  assert.equal(candidate.relicDataStatus, "pending");
+  assert.equal(candidate.verified, false);
+  assert.equal(candidate.source.discoveredAt, now);
+  assert.deepEqual(candidate.statusHistory, [{ status: "announced", at: now }]);
+  assert.match(first.summary, /Officially announced Prime Warframes: Banshee Prime & Mirage Prime/);
+  assert.match(first.summary, /Relic data: pending official rotation data/);
+  assert.deepEqual((await dataSnapshot(directory)).slice(0, 3), beforeProduction);
+  assert.equal(validateAnnouncementCandidates(firstCandidateData, JSON.parse(beforeProduction[0])), true);
+
+  const second = await runPrimeResurgenceSync({ rootDir: directory, inputs, now: "2026-08-21T18:01:00.000Z" });
+  assert.deepEqual(second.changedFiles, []);
+  assert.deepEqual(await candidateSnapshot(directory), firstCandidateData);
+});
+
+test("announcement preview 发现阶段不会请求 droptable 或 Public Export", async () => {
+  const directory = await temporaryRepositoryWithoutPreparedCandidate();
+  const inputs = await announcementOnlyInputs();
+  const requested = [];
+  const payloadByUrl = new Map([
+    ["https://www.warframe.com/en/prime-resurgence", inputs.englishHtml],
+    ["https://www.warframe.com/zh-hans/prime-resurgence", inputs.chineseHtml],
+    ["https://public.api.bsky.app/xrpc/app.bsky.feed.getAuthorFeed?actor=warframe.com&limit=100&filter=posts_no_replies", inputs.announcementText]
+  ]);
+  const fetchImpl = async (url) => {
+    requested.push(url);
+    const body = payloadByUrl.get(url);
+    if (body === undefined) throw new Error(`unexpected full-data request: ${url}`);
+    return new Response(body, { status: 200 });
+  };
+  const result = await runPrimeResurgenceSync({
+    rootDir: directory,
+    fetchImpl,
+    now: "2026-08-20T18:01:00.000Z"
+  });
+  assert.equal(result.candidateStage, "announced");
+  assert.deepEqual(requested.sort(), [...payloadByUrl.keys()].sort());
+});
+
+test("announced candidate 在正式页面与 official data 到位后升级同一 identity 并 ready-for-review", async () => {
+  const directory = await temporaryRepositoryWithoutPreparedCandidate();
+  const now = "2026-08-20T18:01:00.000Z";
+  await runPrimeResurgenceSync({ rootDir: directory, inputs: await announcementOnlyInputs(), now });
+  const beforeUpgrade = await candidateSnapshot(directory);
+  const firstId = beforeUpgrade.candidates[0].id;
+
+  const upgraded = await runPrimeResurgenceSync({ rootDir: directory, inputs: await fixtureInputs(), now: "2026-08-21T18:01:00.000Z" });
+  const candidateData = await candidateSnapshot(directory);
+  const candidate = candidateData.candidates[0];
+  assert.equal(upgraded.candidateId, firstId);
+  assert.equal(candidate.id, firstId);
+  assert.equal(candidate.status, "ready-for-review");
+  assert.equal(candidate.relicDataStatus, "validated");
+  assert.equal(candidate.verified, true);
+  assert.equal(candidate.rotationId, firstId);
+  assert.equal(candidate.source.discoveredAt, now);
+  assert.deepEqual(candidate.statusHistory.map((entry) => entry.status), ["announced", "official-data-available", "validated", "ready-for-review"]);
+  assert.equal(candidate.source.officialData.rotationPage.url, "https://www.warframe.com/en/prime-resurgence");
+  assert.equal(validateAnnouncementCandidates(candidateData, JSON.parse(await readFile(path.join(directory, "data/rotation.json"), "utf8"))), true);
+});
+
+test("公告与后续正式页面不一致时记录 conflict、保留双方来源且不升级正式 rotation", async () => {
+  const directory = await temporaryRepositoryWithoutPreparedCandidate();
+  const now = "2026-08-20T18:01:00.000Z";
+  await runPrimeResurgenceSync({ rootDir: directory, inputs: await announcementOnlyInputs(), now });
+  const beforeProduction = (await dataSnapshot(directory)).slice(0, 3);
+  const conflictInputs = await fixtureInputs();
+  conflictInputs.englishHtml = conflictInputs.englishHtml.replaceAll("Mirage", "X");
+  conflictInputs.chineseHtml = conflictInputs.chineseHtml.replaceAll("Mirage", "X");
+  const conflict = await runPrimeResurgenceSync({ rootDir: directory, inputs: conflictInputs, now: "2026-08-22T18:01:00.000Z" });
+  const candidate = (await candidateSnapshot(directory)).candidates[0];
+  assert.equal(conflict.candidateStage, "conflict");
+  assert.deepEqual(conflict.changedFiles, ["data/prime-resurgence-candidates.json"]);
+  assert.equal(candidate.status, "conflict");
+  assert.equal(candidate.relicDataStatus, "conflict");
+  assert.equal(candidate.verified, false);
+  assert.equal(candidate.source.url, "https://bsky.app/profile/warframe.com/post/3mtjt7pmvpr2o");
+  assert.deepEqual(candidate.source.conflict.officialRotationPage.rawPrimeWarframes, ["Banshee Prime", "X Prime"]);
+  assert.match(candidate.reviewReason, /Automatic upgrade stopped/);
+  assert.deepEqual((await dataSnapshot(directory)).slice(0, 3), beforeProduction);
+});
+
+test("near-rotation watcher 的 UTC 窗口包含精确边界且不受 DST 偏移影响", () => {
+  const candidateData = {
+    schemaVersion: 1,
+    candidates: [{ id: "banshee-mirage-2026-09", status: "announced", effectiveAt: "2026-09-03T18:00:00Z" }]
+  };
+  const window = nearRotationWatchWindow("2026-09-03T18:00:00Z");
+  assert.deepEqual(window, {
+    effectiveAt: "2026-09-03T18:00:00Z",
+    startsAt: "2026-09-03T16:00:00.000Z",
+    endsAt: "2026-09-04T06:00:00.000Z"
+  });
+  assert.equal(selectNearRotationCandidate(candidateData, "2026-09-03T15:59:59.999Z").eligible, false);
+  assert.equal(selectNearRotationCandidate(candidateData, "2026-09-03T16:00:00.000Z").eligible, true);
+  assert.equal(selectNearRotationCandidate(candidateData, "2026-09-03T18:00:00.000Z").eligible, true);
+  assert.equal(selectNearRotationCandidate(candidateData, "2026-09-04T06:00:00.000Z").eligible, true);
+  assert.equal(selectNearRotationCandidate(candidateData, "2026-09-04T06:00:00.001Z").eligible, false);
+  assert.equal(nearRotationWatchWindow("2026-12-03T19:00:00Z").startsAt, "2026-12-03T17:00:00.000Z");
+
+  const multiple = {
+    schemaVersion: 1,
+    candidates: [
+      { id: "future-candidate", status: "announced", effectiveAt: "2026-09-20T18:00:00Z" },
+      { id: "active-candidate", status: "announced", effectiveAt: "2026-09-03T18:00:00Z" }
+    ]
+  };
+  assert.equal(selectNearRotationCandidate(multiple, "2026-09-03T18:00:00.000Z").candidate.id, "active-candidate");
+});
+
+test("near-rotation watcher 在窗口外、缺失 effectiveAt 与终态时均零网络请求", async () => {
+  const outsideDirectory = await repositoryWithAnnouncedCandidate();
+  const outsideRequests = [];
+  const outside = await runNearRotationWatcher({
+    rootDir: outsideDirectory,
+    now: "2026-09-03T15:59:59.000Z",
+    fetchImpl: async (url) => { outsideRequests.push(url); throw new Error("network must not run"); }
+  });
+  assert.equal(outside.status, "NO_OP");
+  assert.equal(outside.watcher.reason, "outside-watch-window");
+  assert.equal(outside.watcher.externalRequests, 0);
+  assert.deepEqual(outsideRequests, []);
+
+  const pendingDirectory = await repositoryWithAnnouncedCandidate();
+  const pendingData = await candidateSnapshot(pendingDirectory);
+  pendingData.candidates[0].effectiveAt = null;
+  pendingData.candidates[0].effectiveDate = "2026-09-03";
+  await writeFile(path.join(pendingDirectory, "data/prime-resurgence-candidates.json"), `${JSON.stringify(pendingData, null, 2)}\n`, "utf8");
+  const pendingRequests = [];
+  const pending = await runNearRotationWatcher({
+    rootDir: pendingDirectory,
+    now: "2026-09-03T18:00:00.000Z",
+    fetchImpl: async (url) => { pendingRequests.push(url); throw new Error("network must not run"); }
+  });
+  assert.equal(pending.watcher.reason, "missing-effective-at");
+  assert.equal(pending.watcher.externalRequests, 0);
+  assert.deepEqual(pendingRequests, []);
+
+  const terminalDirectory = await repositoryWithAnnouncedCandidate();
+  const terminalData = await candidateSnapshot(terminalDirectory);
+  const terminal = terminalData.candidates[0];
+  terminal.status = "conflict";
+  terminal.relicDataStatus = "conflict";
+  terminal.statusHistory.push({ status: "conflict", at: "2026-09-03T18:00:00.000Z" });
+  terminal.source.conflict = {
+    officialRotationPage: {
+      type: "digital-extremes-official-rotation-page",
+      url: OFFICIAL_SOURCES.rotationEn,
+      discoveredAt: "2026-09-03T18:00:00.000Z",
+      rawPrimeWarframes: ["Banshee Prime", "X Prime"]
+    }
+  };
+  await writeFile(path.join(terminalDirectory, "data/prime-resurgence-candidates.json"), `${JSON.stringify(terminalData, null, 2)}\n`, "utf8");
+  const terminalRequests = [];
+  const terminalResult = await runNearRotationWatcher({
+    rootDir: terminalDirectory,
+    now: "2026-09-03T18:00:00.000Z",
+    fetchImpl: async (url) => { terminalRequests.push(url); throw new Error("network must not run"); }
+  });
+  assert.equal(terminalResult.watcher.reason, "no-announced-candidate");
+  assert.equal(terminalResult.watcher.externalRequests, 0);
+  assert.deepEqual(terminalRequests, []);
+});
+
+test("near-rotation watcher 仅在窗口内请求官网，旧官网阵容不会请求 drop table 或 Public Export", async () => {
+  const directory = await repositoryWithAnnouncedCandidate();
+  const inputs = await announcementOnlyInputs();
+  const requests = [];
+  const fetchImpl = officialFetchFixture(inputs, requests);
+  const before = await dataSnapshot(directory);
+  const result = await runNearRotationWatcher({
+    rootDir: directory,
+    now: "2026-09-03T18:00:00.000Z",
+    fetchImpl,
+    decompress: fixtureIndexDecompress
+  });
+  assert.equal(result.status, "NO_OP");
+  assert.equal(result.watcher.eligible, true);
+  assert.equal(result.watcher.officialRotationChanged, false);
+  assert.equal(result.watcher.externalRequests, 2);
+  assert.deepEqual(requests.sort(), [OFFICIAL_SOURCES.rotationEn, OFFICIAL_SOURCES.rotationZh].sort());
+  assert.deepEqual(await dataSnapshot(directory), before);
+});
+
+test("near-rotation watcher 匹配官网后复用 announced record 完整验证并进入 ready-for-review", async () => {
+  const directory = await repositoryWithAnnouncedCandidate();
+  const beforeCandidate = (await candidateSnapshot(directory)).candidates[0];
+  const inputs = await fixtureInputs();
+  const requests = [];
+  const result = await runNearRotationWatcher({
+    rootDir: directory,
+    now: "2026-09-03T19:00:00.000Z",
+    fetchImpl: officialFetchFixture(inputs, requests),
+    decompress: fixtureIndexDecompress,
+    minimumRelics: 1,
+    minimumRecipes: 1
+  });
+  const afterCandidate = (await candidateSnapshot(directory)).candidates[0];
+  assert.equal(result.candidateId, beforeCandidate.id);
+  assert.equal(afterCandidate.id, beforeCandidate.id);
+  assert.deepEqual(afterCandidate.source.type, beforeCandidate.source.type);
+  assert.equal(afterCandidate.source.url, beforeCandidate.source.url);
+  assert.deepEqual(afterCandidate.statusHistory.map((entry) => entry.status), ["announced", "official-data-available", "validated", "ready-for-review"]);
+  assert.equal(afterCandidate.status, "ready-for-review");
+  assert.equal(result.watcher.externalRequests, 5);
+  assert.deepEqual(new Set(requests), new Set([
+    OFFICIAL_SOURCES.rotationEn,
+    OFFICIAL_SOURCES.rotationZh,
+    OFFICIAL_SOURCES.dropTables,
+    OFFICIAL_SOURCES.publicExportIndex,
+    inputs.recipeUrl
+  ]));
+
+  const terminalRequests = [];
+  const terminal = await runNearRotationWatcher({
+    rootDir: directory,
+    now: "2026-09-03T20:00:00.000Z",
+    fetchImpl: async (url) => { terminalRequests.push(url); throw new Error("ready candidate must not watch"); }
+  });
+  assert.equal(terminal.watcher.externalRequests, 0);
+  assert.deepEqual(terminalRequests, []);
+});
+
+test("near-rotation watcher 冲突后保留 evidence，后续 watcher 与 announcement mode 都不会覆盖或请求正式数据", async () => {
+  const directory = await repositoryWithAnnouncedCandidate();
+  const inputs = await fixtureInputs();
+  inputs.englishHtml = inputs.englishHtml.replaceAll("Mirage", "X");
+  inputs.chineseHtml = inputs.chineseHtml.replaceAll("Mirage", "X");
+  const conflictRequests = [];
+  const conflict = await runNearRotationWatcher({
+    rootDir: directory,
+    now: "2026-09-03T19:00:00.000Z",
+    fetchImpl: officialFetchFixture(inputs, conflictRequests),
+    decompress: fixtureIndexDecompress
+  });
+  assert.equal(conflict.status, "CONFLICT");
+  assert.deepEqual(conflictRequests.sort(), [OFFICIAL_SOURCES.rotationEn, OFFICIAL_SOURCES.rotationZh].sort());
+  const evidence = await candidateSnapshot(directory);
+
+  const rerunRequests = [];
+  const rerun = await runNearRotationWatcher({
+    rootDir: directory,
+    now: "2026-09-03T20:00:00.000Z",
+    fetchImpl: async (url) => { rerunRequests.push(url); throw new Error("conflict must not watch"); }
+  });
+  assert.equal(rerun.watcher.externalRequests, 0);
+  assert.deepEqual(rerunRequests, []);
+  assert.deepEqual(await candidateSnapshot(directory), evidence);
+
+  const daily = await runPrimeResurgenceSync({
+    rootDir: directory,
+    inputs: await announcementOnlyInputs(),
+    now: "2026-09-04T18:00:00.000Z"
+  });
+  assert.equal(daily.candidateStage, "terminal");
+  assert.deepEqual(await candidateSnapshot(directory), evidence);
+});
+
+test("多个同时 eligible 的 announced candidates fail closed，不按数组顺序选择", async () => {
+  const directory = await repositoryWithAnnouncedCandidate();
+  const candidateData = await candidateSnapshot(directory);
+  const duplicate = structuredClone(candidateData.candidates[0]);
+  duplicate.id = "ember-frost-2026-09";
+  duplicate.primeWarframes = ["Ember Prime", "Frost Prime"];
+  duplicate.source.url = "https://bsky.app/profile/warframe.com/post/3anotherfixture";
+  duplicate.source.rawPrimeWarframes = ["Ember Prime", "Frost Prime"];
+  candidateData.candidates.push(duplicate);
+  await writeFile(path.join(directory, "data/prime-resurgence-candidates.json"), `${JSON.stringify(candidateData, null, 2)}\n`, "utf8");
+  const requests = [];
+  const result = await runNearRotationWatcher({
+    rootDir: directory,
+    now: "2026-09-03T18:00:00.000Z",
+    fetchImpl: async (url) => { requests.push(url); throw new Error("ambiguous candidates must not fetch"); }
+  });
+  assert.equal(result.watcher.reason, "overlapping-eligible-candidates");
+  assert.equal(result.watcher.externalRequests, 0);
+  assert.deepEqual(requests, []);
+});
+
 test("页面卡片顺序不影响 canonical candidate ID", () => {
   const startsAt = "2026-09-03T18:00:00Z";
   const first = { warframes: [{ name: "Banshee Prime" }, { name: "Mirage Prime" }] };
   const reversed = { warframes: [...first.warframes].reverse() };
   assert.equal(candidateIdFor(first, startsAt), "banshee-mirage-2026-09");
   assert.equal(candidateIdFor(reversed, startsAt), "banshee-mirage-2026-09");
+});
+
+test("candidate schema 强制 canonical ID，Prime 顺序不影响有效 identity", async () => {
+  const directory = await repositoryWithAnnouncedCandidate();
+  const canonical = await candidateSnapshot(directory);
+  assert.equal(validateAnnouncementCandidates(canonical), true);
+
+  const wrongId = structuredClone(canonical);
+  wrongId.candidates[0].id = "zzz-wrong-1999-01";
+  assert.throws(() => validateAnnouncementCandidates(wrongId), /Non-canonical announcement candidate id/);
+
+  const reversed = structuredClone(canonical);
+  reversed.candidates[0].primeWarframes.reverse();
+  assert.equal(validateAnnouncementCandidates(reversed), true);
+});
+
+test("candidate statusHistory 必须从 discoveredAt 开始且时间不倒退；相等时间允许批量状态转换", async () => {
+  const directory = await repositoryWithAnnouncedCandidate();
+  await runPrimeResurgenceSync({ rootDir: directory, inputs: await fixtureInputs(), now: "2026-08-21T18:01:00.000Z" });
+  const rotationData = JSON.parse(await readFile(path.join(directory, "data/rotation.json"), "utf8"));
+  const ready = await candidateSnapshot(directory);
+  assert.equal(validateAnnouncementCandidates(ready, rotationData), true);
+  assert.equal(ready.candidates[0].statusHistory[1].at, ready.candidates[0].statusHistory[2].at);
+
+  const backward = structuredClone(ready);
+  backward.candidates[0].statusHistory[1].at = "2026-08-20T18:00:59.000Z";
+  assert.throws(() => validateAnnouncementCandidates(backward, rotationData), /not chronological/);
+
+  const invalid = structuredClone(ready);
+  invalid.candidates[0].statusHistory[0].at = "invalid-timestamp";
+  assert.throws(() => validateAnnouncementCandidates(invalid, rotationData), /Invalid announcement candidate status history/);
+
+  const inconsistent = structuredClone(ready);
+  inconsistent.candidates[0].statusHistory[0].at = "2030-01-01T00:00:00.000Z";
+  assert.throws(() => validateAnnouncementCandidates(inconsistent, rotationData), /history must begin at discovery/);
 });
 
 test("中文商品名称必须唯一", async () => {
@@ -349,7 +899,7 @@ test("dry-run 生成候选摘要但不修改任何数据文件", async () => {
     inputs: await fixtureInputs()
   });
   assert.equal(result.candidateId, "banshee-mirage-2026-09");
-  assert.deepEqual(result.changedFiles, ["data/rotation.json", "data/primes.json", "data/relics.json"]);
+  assert.deepEqual(result.changedFiles, ["data/rotation.json", "data/primes.json", "data/relics.json", "data/prime-resurgence-candidates.json"]);
   assert.match(result.summary, /Public Export recipe coverage: 5\/6 items/);
   assert.match(result.summary, /euphona-prime \(sourceUrl: null; Public Export status: missing\)/);
   assert.match(result.summary, /Rarity audit warnings:/);
@@ -406,7 +956,7 @@ test("连续写入两次时第二次无变化，provisional 永不进入 publish
     rootDir: directory,
     inputs
   });
-  assert.deepEqual(first.changedFiles, ["data/rotation.json", "data/primes.json", "data/relics.json"]);
+  assert.deepEqual(first.changedFiles, ["data/rotation.json", "data/primes.json", "data/relics.json", "data/prime-resurgence-candidates.json"]);
   assert.deepEqual(second.changedFiles, []);
   assert.deepEqual(await dataSnapshot(directory), afterFirst);
   for (const name of ["rotation.json", "primes.json", "relics.json"]) assert.equal((await stat(path.join(directory, "data", name))).mode & 0o777, 0o600);
@@ -434,6 +984,12 @@ test("连续写入两次时第二次无变化，provisional 永不进入 publish
 test("GitHub Actions 隔离 read/write 权限并保护 bot branch 与 Draft PR", async () => {
   const workflow = await readFile(path.join(repositoryRoot, ".github/workflows/prime-resurgence-sync.yml"), "utf8");
   assert.match(workflow, /cron: "17 9 \* \* \*"/);
+  assert.match(workflow, /cron: "43 \* \* \* \*"/);
+  assert.match(workflow, /group: prime-resurgence-data-sync/);
+  assert.match(workflow, /cancel-in-progress: false/);
+  assert.match(workflow, /SYNC_MODE: \$\{\{ github\.event\.schedule == '43 \* \* \* \*' && 'near-rotation' \|\| 'announcement' \}\}/);
+  assert.match(workflow, /--mode "\$SYNC_MODE"/);
+  assert.match(workflow, /data\/prime-resurgence-candidates\.json/);
   assert.match(workflow, /workflow_dispatch:/);
   assert.match(workflow, /permissions:\n  contents: read/);
   assert.match(workflow, /publish:[\s\S]*?permissions:\n      contents: write\n      pull-requests: write/);
@@ -441,6 +997,7 @@ test("GitHub Actions 隔离 read/write 权限并保护 bot branch 与 Draft PR",
   assert.match(workflow, /automation\/prime-resurgence-sync/);
   assert.match(workflow, /Default branch advanced after validation/);
   assert.match(workflow, /Automation branch contains a non-data change/);
+  assert.match(workflow, /git add -- data\/rotation\.json data\/primes\.json data\/relics\.json data\/prime-resurgence-candidates\.json/);
   assert.match(workflow, /git rev-list --count/);
   assert.match(workflow, /--force-with-lease="refs\/heads\/\$AUTOMATION_BRANCH:\$remote_branch_sha"/);
   assert.match(workflow, /Multiple open automation PRs found/);
