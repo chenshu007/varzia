@@ -42,6 +42,8 @@ Varzia 是非官方社区工具，与 Digital Extremes 没有隶属、赞助或�
 
 遗物选择与奖励选择采用可解释的动态贪心启发式。它用于寻找高毕业率方案，但不保证数学意义上的全局最优。页面中的联合毕业概率是当前实现策略下的蒙地卡罗估计结果，不是理论保证。
 
+同一份输入会使用固定的伪随机样本，因而结果、CDF 和百分位可重复；同一分析上限内切换 Aya 预算也只读取这批样本的不同节点，不会重新抽样。浏览器只通过 Worker 分块运行模拟（每批 500 条时间线）并显示进度，不会在主线程同步回退。60 秒看门狗监测的是“没有收到进度或结果”的停滞时间，收到进度即重置，并非整次模拟的硬性时限。
+
 ## 验证
 
 以光辉遗物的单个稀有奖励概率 10% 为例，4 人同遗物时至少出现一次目标奖励的理论概率为：
@@ -88,6 +90,7 @@ js/
   rotation-schedule.js   # 当前/下一期解析、倒计时与轮换边界逻辑
   simulator.js           # 联合蒙地卡罗核心与启发式选择
   simulation-worker.js   # 浏览器 Worker
+  relic-probabilities.js # 遗物稀有度、概率和槽位的共享定义
   data-validation.js     # 轮换、部件、遗物数据校验
   presentation.js        # 概率与结果展示格式化
   storage.js             # 本地收藏保存
@@ -117,6 +120,8 @@ assets/
 - 掉落概率：[Warframe 官方掉落表](https://www.warframe.com/droptables)
 - 中文名称：Warframe 官方简体中文页面与官方游戏数据
 
+`relics.json` 只保存本期目标奖励；Forma 和其他非目标奖励以剩余概率隐式表示。数据校验仍会限制目标奖励不超过标准遗物的 3 个常见、2 个罕见、1 个稀有槽位，并在每种精炼等级下检查累计目标概率不超过 100%。现有及自动生成的数据同时提供中文规范字段和 `nameEn`、`eraEn`、`displayNameEn`，英文展示直接使用这些数据字段。
+
 轮换和掉落数据会随游戏官方内容变化。提交数据更新时，请在 JSON 中同步更新核验日期、来源和映射，并运行完整测试。
 
 ## 每月 Prime 重生更新流程
@@ -143,7 +148,7 @@ assets/
 
 - Prime Resurgence 中英文页面：完整 Prime 商品阵容及官方页面是否已经切换。
 - `warframe.com` 官方账号公告：两名 Prime 战甲和精确生效时间；账号 DID 固定校验，变化时停止。公告只给日期时保留 `effectiveAt: null`，绝不推测具体时刻。
-- Official Drop Tables：Intact 遗物奖励、文本 rarity label 与数值概率。规划器以数值概率作为 canonical simulation input；label 不一致会进入 Actions/PR audit warning，不能被静默隐藏。
+- Official Drop Tables：Intact 遗物奖励、文本 rarity label 与数值概率。流水线以数值概率映射到标准模拟稀有度；label 不一致会进入 Actions/PR audit warning，不能被静默隐藏。
 - Digital Extremes Public Export：由当期 `ExportRecipes_en.json` recipe ingredient 计算部件数量及总数。
 
 Public Export 确认缺失某件装备 recipe 时，只有 `data/prime-resurgence-recipe-exceptions.json` 中逐 item 审核的 `curated-manual` exception 可以补足数量。exception 必须使用 `sourceUrl: null`，并记录检查过的官方 manifest；它不会被描述成 Public Export 验证。当前 Euphona Prime 是唯一 exception。任何未列明的缺失 recipe 仍然 fail closed。

@@ -13,6 +13,21 @@ export const OFFICIAL_SOURCES = Object.freeze({
   publicExportIndex: "https://content.warframe.com/PublicExport/index_en.txt.lzma"
 });
 
+export const SYNC_DATA_PATHS = Object.freeze({
+  rotation: "data/rotation.json",
+  primes: "data/primes.json",
+  relics: "data/relics.json",
+  candidates: "data/prime-resurgence-candidates.json",
+  recipeExceptions: "data/prime-resurgence-recipe-exceptions.json"
+});
+
+export const SYNC_MUTABLE_DATA_PATHS = Object.freeze([
+  SYNC_DATA_PATHS.rotation,
+  SYNC_DATA_PATHS.primes,
+  SYNC_DATA_PATHS.relics,
+  SYNC_DATA_PATHS.candidates
+]);
+
 const OFFICIAL_WARFRAME_DID = "did:plc:24m2xjetjmjfdbgo752skciu";
 const VALID_RARITIES = new Set(["common", "uncommon", "rare"]);
 const VOID_TAGS = new Set(["area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source", "track", "wbr"]);
@@ -1436,39 +1451,48 @@ function upcomingAnnouncement(announcements, currentAnnouncement) {
   return announcements.find((announcement) => announcement.startsAt && Date.parse(announcement.startsAt) > Date.parse(currentAnnouncement.startsAt)) || null;
 }
 
+export function escapeMarkdownInline(value) {
+  return String(value ?? "")
+    .replace(/[\r\n\t]+/g, " ")
+    .replace(/\s{2,}/g, " ")
+    .trim()
+    .replace(/([\\`*_\[\]{}<>#+!|])/g, "\\$1");
+}
+
 function markdownSummary(result) {
+  const inline = escapeMarkdownInline;
   const lines = ["## Prime Resurgence sync", ""];
   if (result.watcher) {
     const watcher = result.watcher;
     lines.push("### Prime Resurgence near-rotation watcher", "");
-    lines.push(`- Candidate: ${watcher.candidateId || "none"}`);
-    lines.push(`- Effective: ${watcher.effectiveAt || "pending"}`);
+    lines.push(`- Candidate: ${inline(watcher.candidateId || "none")}`);
+    lines.push(`- Effective: ${inline(watcher.effectiveAt || "pending")}`);
     if (watcher.window) {
-      lines.push(`- Watch window: ${watcher.window.startsAt} through ${watcher.window.endsAt}`);
+      lines.push(`- Watch window: ${inline(watcher.window.startsAt)} through ${inline(watcher.window.endsAt)}`);
     }
-    lines.push(`- Current: ${watcher.current}`);
+    lines.push(`- Current: ${inline(watcher.current)}`);
     lines.push(`- Eligible: ${watcher.eligible ? "yes" : "no"}`);
-    if (!watcher.eligible) lines.push(`- Reason: ${watcher.reason}`);
+    if (!watcher.eligible) lines.push(`- Reason: ${inline(watcher.reason)}`);
     lines.push(`- Official rotation changed: ${watcher.officialRotationChanged === null ? "not checked" : watcher.officialRotationChanged ? "yes" : "no"}`);
     lines.push(`- External requests: ${watcher.externalRequests}`);
-    lines.push(`- Result: ${result.status}`);
+    lines.push(`- Result: ${inline(result.status)}`);
     return `${lines.join("\n")}\n`;
   }
   if (result.candidateStage === "terminal") {
-    lines.push(`- Result: NO_OP (${result.candidate.status} is terminal)`);
-    lines.push(`- Candidate ID: ${result.candidate.id}`);
+    lines.push(`- Result: NO_OP (${inline(result.candidate.status)} is terminal)`);
+    lines.push(`- Candidate ID: ${inline(result.candidate.id)}`);
     lines.push("- Official relic data request: skipped");
     lines.push("- Candidate diff: empty");
     return `${lines.join("\n")}\n`;
   }
   if (result.candidateStage === "announced") {
-    lines.push(`- Result: ${result.status}`);
-    lines.push(`- Candidate ID: ${result.candidate.id}`);
-    lines.push(`- Officially announced Prime Warframes: ${result.candidate.primeWarframes.join(" & ")}`);
-    lines.push(`- Effective at: ${result.candidate.effectiveAt || "pending (official announcement supplied no time)"}`);
-    lines.push(`- Official announcement: ${result.candidate.source.url}`);
-    lines.push(`- Announcement published: ${result.candidate.source.publishedAt}`);
-    lines.push(`- Discovered: ${result.candidate.source.discoveredAt}`);
+    lines.push(`- Result: ${inline(result.status)}`);
+    lines.push(`- Candidate ID: ${inline(result.candidate.id)}`);
+    lines.push(`- Officially announced Prime Warframes: ${inline(result.candidate.primeWarframes.join(" & "))}`);
+    lines.push(`- Effective at: ${inline(result.candidate.effectiveAt || "pending (official announcement supplied no time)")}`);
+    lines.push(`- Official announcement: ${inline(result.candidate.source.url)}`);
+    lines.push(`- Announcement published: ${inline(result.candidate.source.publishedAt)}`);
+    lines.push(`- Discovered: ${inline(result.candidate.source.discoveredAt)}`);
     lines.push("- Relic data: pending official rotation data");
     lines.push("- Verified: false");
     if (result.changedFiles.length) lines.push(`- Candidate diff: ${result.changedFiles.join(", ")}`);
@@ -1479,38 +1503,38 @@ function markdownSummary(result) {
   }
   if (result.candidateStage === "conflict") {
     lines.push("- Result: CONFLICT / review required");
-    lines.push(`- Candidate ID: ${result.candidate.id}`);
-    lines.push(`- Announced Prime Warframes: ${result.candidate.primeWarframes.join(" & ")}`);
-    lines.push(`- Official page Prime Warframes: ${result.officialPageWarframes.join(" & ")}`);
-    lines.push(`- Review reason: ${result.candidate.reviewReason}`);
-    lines.push(`- Announcement source: ${result.candidate.source.url}`);
-    lines.push(`- Official page source: ${result.candidate.source.conflict.officialRotationPage.url}`);
+    lines.push(`- Candidate ID: ${inline(result.candidate.id)}`);
+    lines.push(`- Announced Prime Warframes: ${inline(result.candidate.primeWarframes.join(" & "))}`);
+    lines.push(`- Official page Prime Warframes: ${inline(result.officialPageWarframes.join(" & "))}`);
+    lines.push(`- Review reason: ${inline(result.candidate.reviewReason)}`);
+    lines.push(`- Announcement source: ${inline(result.candidate.source.url)}`);
+    lines.push(`- Official page source: ${inline(result.candidate.source.conflict.officialRotationPage.url)}`);
     if (result.changedFiles.length) lines.push(`- Candidate diff: ${result.changedFiles.join(", ")}`);
     else lines.push("- Candidate diff: empty");
     lines.push("", "Automatic candidate upgrade stopped. Production rotation data modification: none.");
     return `${lines.join("\n")}\n`;
   }
-  lines.push(`- Result: ${result.status}`);
-  lines.push(`- Official page rotation: ${result.rotationName}`);
-  lines.push(`- Effective at: ${result.startsAt}`);
-  lines.push(`- Prime/item count: ${result.itemCount}`);
-  lines.push(`- Relic count: ${result.relicCount}`);
-  lines.push(`- Computed required parts: ${result.totalRequiredParts}`);
-  lines.push(`- Publication status: ${result.publicationStatus}`);
-  lines.push(`- Public Export recipe coverage: ${result.publicExportRecipeItems}/${result.itemCount} items`);
+  lines.push(`- Result: ${inline(result.status)}`);
+  lines.push(`- Official page rotation: ${inline(result.rotationName)}`);
+  lines.push(`- Effective at: ${inline(result.startsAt)}`);
+  lines.push(`- Prime/item count: ${inline(result.itemCount)}`);
+  lines.push(`- Relic count: ${inline(result.relicCount)}`);
+  lines.push(`- Computed required parts: ${inline(result.totalRequiredParts)}`);
+  lines.push(`- Publication status: ${inline(result.publicationStatus)}`);
+  lines.push(`- Public Export recipe coverage: ${inline(result.publicExportRecipeItems)}/${inline(result.itemCount)} items`);
   if (result.recipeExceptions.length) {
-    lines.push(`- Curated/manual recipe exceptions: ${result.recipeExceptions.map((entry) => `${entry.itemId} (sourceUrl: null; Public Export status: missing)`).join(", ")}`);
+    lines.push(`- Curated/manual recipe exceptions: ${inline(result.recipeExceptions.map((entry) => `${entry.itemId} (sourceUrl: null; Public Export status: missing)`).join(", "))}`);
   } else {
     lines.push("- Curated/manual recipe exceptions: none");
   }
   if (result.rarityWarnings.length) {
     lines.push("- Rarity audit warnings:");
-    for (const warning of result.rarityWarnings) lines.push(`  - ${warning}`);
+    for (const warning of result.rarityWarnings) lines.push(`  - ${inline(warning)}`);
   } else {
     lines.push("- Rarity audit warnings: none");
   }
-  if (result.candidate) lines.push(`- Candidate state: ${result.candidate.status} (${result.candidate.relicDataStatus}; verified: ${result.candidate.verified})`);
-  if (result.upcoming) lines.push(`- Next official announcement observed: ${result.upcoming.warframes.join(" & ")} at ${result.upcoming.startsAt || "pending official time"}; Prime Resurgence page confirmation is still pending.`);
+  if (result.candidate) lines.push(`- Candidate state: ${inline(result.candidate.status)} (${inline(result.candidate.relicDataStatus)}; verified: ${inline(result.candidate.verified)})`);
+  if (result.upcoming) lines.push(`- Next official announcement observed: ${inline(result.upcoming.warframes.join(" & "))} at ${inline(result.upcoming.startsAt || "pending official time")}; Prime Resurgence page confirmation is still pending.`);
   if (result.changedFiles.length) lines.push(`- Candidate diff: ${result.changedFiles.join(", ")}`);
   else lines.push("- Candidate diff: empty");
   lines.push("", "Official source mapping:");
@@ -1531,13 +1555,21 @@ export function failureSummary(error) {
     "## Prime Resurgence sync",
     "",
     "- Result: FAILED",
-    `- Reason: ${error instanceof Error ? error.message : String(error)}`,
+    `- Reason: ${escapeMarkdownInline(safeErrorMessage(error))}`,
     "- Production data modification: none",
     "- Pull request: not created or updated",
     "",
     "FAIL / NO PRODUCTION DATA MODIFICATION / NO PR WITH PARTIAL DATA",
     ""
   ].join("\n");
+}
+
+function safeErrorMessage(error) {
+  try {
+    return error instanceof Error ? error.message : String(error);
+  } catch {
+    return "The original failure could not be converted to text safely.";
+  }
 }
 
 function announcementFromCandidate(candidate) {
@@ -1626,10 +1658,10 @@ async function completeOfficialCandidate({
   });
   validateAnnouncementCandidates(upgradedCandidates, merged.rotationData);
   const outputFiles = [
-    { path: paths.rotation, label: "data/rotation.json", original: rotationText, text: jsonText(merged.rotationData) },
-    { path: paths.primes, label: "data/primes.json", original: primesText, text: jsonText(merged.primeData) },
-    { path: paths.relics, label: "data/relics.json", original: relicsText, text: jsonText(merged.relicData) },
-    { path: paths.candidates, label: "data/prime-resurgence-candidates.json", original: candidatesText, text: jsonText(upgradedCandidates) }
+    { path: paths.rotation, label: SYNC_DATA_PATHS.rotation, original: rotationText, text: jsonText(merged.rotationData) },
+    { path: paths.primes, label: SYNC_DATA_PATHS.primes, original: primesText, text: jsonText(merged.primeData) },
+    { path: paths.relics, label: SYNC_DATA_PATHS.relics, original: relicsText, text: jsonText(merged.relicData) },
+    { path: paths.candidates, label: SYNC_DATA_PATHS.candidates, original: candidatesText, text: jsonText(upgradedCandidates) }
   ];
   const changed = outputFiles.filter((file) => file.original !== file.text);
   if (!dryRun && changed.length) await writeAtomically(changed);
@@ -1646,13 +1678,7 @@ async function completeOfficialCandidate({
 }
 
 function syncDataPaths(rootDir) {
-  return {
-    rotation: path.join(rootDir, "data/rotation.json"),
-    primes: path.join(rootDir, "data/primes.json"),
-    relics: path.join(rootDir, "data/relics.json"),
-    candidates: path.join(rootDir, "data/prime-resurgence-candidates.json"),
-    recipeExceptions: path.join(rootDir, "data/prime-resurgence-recipe-exceptions.json")
-  };
+  return Object.fromEntries(Object.entries(SYNC_DATA_PATHS).map(([key, relativePath]) => [key, path.join(rootDir, relativePath)]));
 }
 
 function nearWatcherResult(selection, {
@@ -1729,7 +1755,7 @@ export async function runNearRotationWatcher({
     const candidateText = jsonText(conflictedCandidates);
     const changed = candidateText === candidatesText
       ? []
-      : [{ path: paths.candidates, label: "data/prime-resurgence-candidates.json", original: candidatesText, text: candidateText }];
+      : [{ path: paths.candidates, label: SYNC_DATA_PATHS.candidates, original: candidatesText, text: candidateText }];
     if (!dryRun && changed.length) await writeAtomically(changed);
     const conflicted = conflictedCandidates.candidates.find((entry) => entry.id === candidate.id);
     const result = nearWatcherResult(selection, {
@@ -1791,13 +1817,7 @@ export async function runPrimeResurgenceSync({
   now = new Date()
 }) {
   invariant(rootDir, "Repository root is required.");
-  const paths = {
-    rotation: path.join(rootDir, "data/rotation.json"),
-    primes: path.join(rootDir, "data/primes.json"),
-    relics: path.join(rootDir, "data/relics.json"),
-    candidates: path.join(rootDir, "data/prime-resurgence-candidates.json"),
-    recipeExceptions: path.join(rootDir, "data/prime-resurgence-recipe-exceptions.json")
-  };
+  const paths = syncDataPaths(rootDir);
   const [rotationText, primesText, relicsText, candidatesText, recipeExceptionsText] = await Promise.all([
     readFile(paths.rotation, "utf8"), readFile(paths.primes, "utf8"), readFile(paths.relics, "utf8"), readFile(paths.candidates, "utf8"), readFile(paths.recipeExceptions, "utf8")
   ]);
@@ -1817,7 +1837,7 @@ export async function runPrimeResurgenceSync({
     const candidateText = jsonText(nextCandidateData);
     const changed = candidateText === candidatesText
       ? []
-      : [{ path: paths.candidates, label: "data/prime-resurgence-candidates.json", original: candidatesText, text: candidateText }];
+      : [{ path: paths.candidates, label: SYNC_DATA_PATHS.candidates, original: candidatesText, text: candidateText }];
     if (!dryRun && changed.length) await writeAtomically(changed);
     result.changedFiles = changed.map((file) => file.label);
     result.summary = markdownSummary(result);

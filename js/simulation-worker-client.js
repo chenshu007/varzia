@@ -1,5 +1,5 @@
 export const SIMULATION_WORKER_TIMEOUT_MS = 60_000;
-export const SIMULATION_WORKER_VERSION = "2026-08-21.1";
+export const SIMULATION_WORKER_VERSION = "2026-08-27.1";
 
 export function simulationWorkerUrl(baseUrl = import.meta.url) {
   const url = new URL("./simulation-worker.js", baseUrl);
@@ -24,6 +24,7 @@ export function createSimulationWorkerClient({
   workerUrl,
   onResult,
   onFailure,
+  onProgress = () => {},
   scheduleFrame = (callback) => requestAnimationFrame(callback),
   setTimer = (callback, delay) => setTimeout(callback, delay),
   clearTimer = (timer) => clearTimeout(timer),
@@ -36,6 +37,13 @@ export function createSimulationWorkerClient({
   function clearWatchdog() {
     if (watchdog !== null) clearTimer(watchdog);
     watchdog = null;
+  }
+
+  function armWatchdog(request, target) {
+    clearWatchdog();
+    watchdog = setTimer(() => {
+      if (sameRequest(activeRequest, request)) fail("timeout", request, target);
+    }, timeoutMs);
   }
 
   function terminateWorker(target = worker) {
@@ -61,6 +69,11 @@ export function createSimulationWorkerClient({
         const response = event.data || {};
         if (!sameRequest(activeRequest, response)) return;
         const completedRequest = activeRequest;
+        if (response.progress) {
+          armWatchdog(completedRequest, candidate);
+          onProgress(response.progress, completedRequest);
+          return;
+        }
         if (response.error || !response.result) {
           fail("simulation", completedRequest, candidate);
           return;
@@ -100,10 +113,7 @@ export function createSimulationWorkerClient({
           rotationId: request.rotationId,
           options: request.options
         });
-        clearWatchdog();
-        watchdog = setTimer(() => {
-          if (sameRequest(activeRequest, request)) fail("timeout", request, target);
-        }, timeoutMs);
+        armWatchdog(request, target);
       } catch {
         fail("runtime", request, target);
       }
@@ -115,6 +125,11 @@ export function createSimulationWorkerClient({
     if (request && activeRequest && !sameRequest(activeRequest, request)) return false;
     activeRequest = null;
     clearWatchdog();
+    try {
+      worker?.postMessage({ type: "cancel", requestId: request?.requestId, rotationId: request?.rotationId });
+    } catch {
+      // The response identity check still prevents a stale completion from rendering.
+    }
     return true;
   }
 

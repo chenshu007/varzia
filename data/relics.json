@@ -24,7 +24,9 @@
     {
       "id": "lith-a9",
       "name": "古纪 A9",
+      "nameEn": "Lith A9",
       "era": "古纪",
+      "eraEn": "Lith",
       "costAya": 1,
       "rotation": "revenant-baruuk-2026-08",
       "rewards": [
@@ -37,7 +39,9 @@
     {
       "id": "lith-t13",
       "name": "古纪 T13",
+      "nameEn": "Lith T13",
       "era": "古纪",
+      "eraEn": "Lith",
       "costAya": 1,
       "rotation": "revenant-baruuk-2026-08",
       "rewards": [
@@ -50,7 +54,9 @@
     {
       "id": "meso-r6",
       "name": "前纪 R6",
+      "nameEn": "Meso R6",
       "era": "前纪",
+      "eraEn": "Meso",
       "costAya": 1,
       "rotation": "revenant-baruuk-2026-08",
       "rewards": [
@@ -62,7 +68,9 @@
     {
       "id": "neo-p8",
       "name": "中纪 P8",
+      "nameEn": "Neo P8",
       "era": "中纪",
+      "eraEn": "Neo",
       "costAya": 1,
       "rotation": "revenant-baruuk-2026-08",
       "rewards": [
@@ -75,7 +83,9 @@
     {
       "id": "axi-b9",
       "name": "后纪 B9",
+      "nameEn": "Axi B9",
       "era": "后纪",
+      "eraEn": "Axi",
       "costAya": 1,
       "rotation": "revenant-baruuk-2026-08",
       "rewards": [
@@ -88,7 +98,9 @@
     {
       "id": "axi-c9",
       "name": "后纪 C9",
+      "nameEn": "Axi C9",
       "era": "后纪",
+      "eraEn": "Axi",
       "costAya": 1,
       "rotation": "revenant-baruuk-2026-08",
       "rewards": [
@@ -101,7 +113,9 @@
     {
       "id": "lith-k5",
       "name": "古纪 K5",
+      "nameEn": "Lith K5",
       "era": "古纪",
+      "eraEn": "Lith",
       "costAya": 1,
       "rotation": "banshee-mirage-2026-09",
       "rewards": [
@@ -115,7 +129,9 @@
     {
       "id": "lith-m7",
       "name": "古纪 M7",
+      "nameEn": "Lith M7",
       "era": "古纪",
+      "eraEn": "Lith",
       "costAya": 1,
       "rotation": "banshee-mirage-2026-09",
       "rewards": [
@@ -129,7 +145,9 @@
     {
       "id": "meso-e5",
       "name": "前纪 E5",
+      "nameEn": "Meso E5",
       "era": "前纪",
+      "eraEn": "Meso",
       "costAya": 1,
       "rotation": "banshee-mirage-2026-09",
       "rewards": [
@@ -143,7 +161,9 @@
     {
       "id": "neo-b6",
       "name": "中纪 B6",
+      "nameEn": "Neo B6",
       "era": "中纪",
+      "eraEn": "Neo",
       "costAya": 1,
       "rotation": "banshee-mirage-2026-09",
       "rewards": [
@@ -157,7 +177,9 @@
     {
       "id": "axi-a12",
       "name": "后纪 A12",
+      "nameEn": "Axi A12",
       "era": "后纪",
+      "eraEn": "Axi",
       "costAya": 1,
       "rotation": "banshee-mirage-2026-09",
       "rewards": [
@@ -171,7 +193,9 @@
     {
       "id": "axi-h5",
       "name": "后纪 H5",
+      "nameEn": "Axi H5",
       "era": "后纪",
+      "eraEn": "Axi",
       "costAya": 1,
       "rotation": "banshee-mirage-2026-09",
       "rewards": [

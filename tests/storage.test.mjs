@@ -221,6 +221,31 @@ test("V4 与旧版文档不受前向版本门影响", () => {
   assert.deepEqual(loadCollectionState(legacy, primeItems, currentOptions).selectedItemIds, ["frame"]);
 });
 
+test("当前 schema 写入保留未知 root 字段，但移除保留键", () => {
+  const storage = memoryStorage();
+  storage.setItem(STORAGE_KEY, '{"schemaVersion":4,"selectionRotationId":"rotation-current","selectedPrimeIds":["weapon"],"ownedParts":{},"inputRotationId":"rotation-current","ayaBudget":11,"futureExperiment":{"keep":true},"__proto__":{"discard":true}}');
+  assert.ok(saveCollectionState(storage, {
+    rotationId: "rotation-current",
+    selectedItemIds: ["frame"],
+    owned: { frame: { blueprint: 1 } },
+    ayaBudget: 33
+  }));
+  const document = JSON.parse(storage.getItem(STORAGE_KEY));
+  assert.deepEqual(document.futureExperiment, { keep: true });
+  assert.equal(Object.hasOwn(document, "__proto__"), false);
+  assert.deepEqual(document.selectedPrimeIds, ["frame"]);
+  assert.deepEqual(document.ownedParts, { frame: { blueprint: 1 } });
+});
+
+test("收藏归一化忽略保留对象键", () => {
+  const storage = memoryStorage();
+  storage.setItem(STORAGE_KEY, '{"schemaVersion":4,"selectionRotationId":"rotation-current","selectedPrimeIds":["frame","weapon"],"ownedParts":{"__proto__":{"blueprint":1},"frame":{"constructor":1,"blueprint":1},"weapon":{"barrel":1}},"inputRotationId":"rotation-current","ayaBudget":33}');
+  assert.deepEqual(loadCollectionState(storage, primeItems, currentOptions).owned, {
+    frame: { blueprint: 1 },
+    weapon: { barrel: 1 }
+  });
+});
+
 test("进入新轮换时默认全选并改用新一期 Aya 默认值", () => {
   const storage = memoryStorage();
   saveCollectionState(storage, {

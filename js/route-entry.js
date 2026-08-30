@@ -43,5 +43,12 @@ async function boot() {
 }
 
 boot().catch((error) => {
-  document.body.innerHTML = `<main style="padding:2rem;font-family:system-ui;color:#f1eee5;background:#07141e;min-height:100vh"><h1>Varzia</h1><p>${String(error.message || "Unable to load Varzia")}</p></main>`;
+  const fallback = document.createElement("main");
+  fallback.className = "route-fallback";
+  const heading = document.createElement("h1");
+  heading.textContent = "Varzia";
+  const message = document.createElement("p");
+  message.textContent = error instanceof Error && error.message ? error.message : "Unable to load Varzia";
+  fallback.append(heading, message);
+  document.body.replaceChildren(fallback);
 });

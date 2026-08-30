@@ -6,7 +6,9 @@ import path from "node:path";
 import {
   OFFICIAL_SOURCES,
   candidateIdFor,
+  escapeMarkdownInline,
   fetchResource,
+  failureSummary,
   nearRotationWatchWindow,
   parseAnnouncementText,
   parseDropTables,
@@ -17,6 +19,7 @@ import {
   resolveRecipeRequirements,
   runNearRotationWatcher,
   runPrimeResurgenceSync,
+  SYNC_MUTABLE_DATA_PATHS,
   selectNearRotationCandidate,
   selectRelicSet,
   writeAtomically
@@ -31,6 +34,12 @@ const repositoryRoot = path.resolve(new URL("..", import.meta.url).pathname);
 async function fixture(name) {
   return await readFile(new URL(name, fixtureDirectory), "utf8");
 }
+
+test("PR 摘要中的外部文本被限制为单行 Markdown 文本", () => {
+  assert.equal(escapeMarkdownInline("Banshee *Prime*\n## forged"), "Banshee \\*Prime\\* \\#\\# forged");
+  const unprintable = { toString() { throw new Error("do not mask the original failure"); } };
+  assert.match(failureSummary(unprintable), /could not be converted to text safely/);
+});
 
 async function fixtureInputs() {
   return {
@@ -991,7 +1000,13 @@ test("GitHub Actions 隔离 read/write 权限并保护 bot branch 与 Draft PR",
   assert.match(workflow, /cancel-in-progress: false/);
   assert.match(workflow, /SYNC_MODE: \$\{\{ github\.event\.schedule == '43 \* \* \* \*' && 'near-rotation' \|\| 'announcement' \}\}/);
   assert.match(workflow, /--mode "\$SYNC_MODE"/);
-  assert.match(workflow, /data\/prime-resurgence-candidates\.json/);
+  assert.deepEqual(SYNC_MUTABLE_DATA_PATHS, [
+    "data/rotation.json",
+    "data/primes.json",
+    "data/relics.json",
+    "data/prime-resurgence-candidates.json"
+  ]);
+  assert.match(workflow, /--print-managed-paths/);
   assert.match(workflow, /workflow_dispatch:/);
   assert.match(workflow, /permissions:\n  contents: read/);
   assert.match(workflow, /publish:[\s\S]*?permissions:\n      contents: write\n      pull-requests: write/);
@@ -999,7 +1014,7 @@ test("GitHub Actions 隔离 read/write 权限并保护 bot branch 与 Draft PR",
   assert.match(workflow, /automation\/prime-resurgence-sync/);
   assert.match(workflow, /Default branch advanced after validation/);
   assert.match(workflow, /Automation branch contains a non-data change/);
-  assert.match(workflow, /git add -- data\/rotation\.json data\/primes\.json data\/relics\.json data\/prime-resurgence-candidates\.json/);
+  assert.match(workflow, /git add -- "\$\{managed_paths\[@\]\}"/);
   assert.match(workflow, /git rev-list --count/);
   assert.match(workflow, /--force-with-lease="refs\/heads\/\$AUTOMATION_BRANCH:\$remote_branch_sha"/);
   assert.match(workflow, /Multiple open automation PRs found/);

@@ -6,7 +6,8 @@ import { fileURLToPath } from "node:url";
 import {
   failureSummary,
   runNearRotationWatcher,
-  runPrimeResurgenceSync
+  runPrimeResurgenceSync,
+  SYNC_MUTABLE_DATA_PATHS
 } from "./lib/prime-resurgence-sync.mjs";
 
 function parseArguments(argv) {
@@ -31,19 +32,49 @@ async function publishSummary(markdown, options) {
   if (process.env.GITHUB_STEP_SUMMARY) await appendFile(process.env.GITHUB_STEP_SUMMARY, markdown, "utf8");
 }
 
-export async function main(argv = process.argv.slice(2)) {
-  const options = parseArguments(argv);
-  const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+function safeFailureSummary(error) {
   try {
+    return failureSummary(error);
+  } catch {
+    return "## Prime Resurgence sync\n\n- Result: FAILED\n- Reason: The original failure could not be rendered safely.\n- Production data modification: none\n- Pull request: not created or updated\n\nFAIL / NO PRODUCTION DATA MODIFICATION / NO PR WITH PARTIAL DATA\n";
+  }
+}
+
+async function reportFailure(error, options) {
+  const summary = safeFailureSummary(error);
+  try {
+    await publishSummary(summary, options);
+  } catch (publishError) {
+    const detail = publishError instanceof Error && publishError.message ? publishError.message : "unknown summary publication failure";
+    try {
+      process.stderr.write(`Unable to publish failure summary: ${detail}\n`);
+    } catch {
+      // Keep the original failure as the process outcome even when stderr is unavailable.
+    }
+  }
+  try {
+    process.stderr.write(`${summary}\n`);
+  } catch {
+    // The process exit code below remains the authoritative outcome.
+  }
+  process.exitCode = 1;
+}
+
+export async function main(argv = process.argv.slice(2)) {
+  if (argv.length === 1 && argv[0] === "--print-managed-paths") {
+    process.stdout.write(`${SYNC_MUTABLE_DATA_PATHS.join("\n")}\n`);
+    return;
+  }
+  let options = { dryRun: false, summaryFile: "", prBodyFile: "", mode: "announcement" };
+  try {
+    options = parseArguments(argv);
+    const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
     const run = options.mode === "near-rotation" ? runNearRotationWatcher : runPrimeResurgenceSync;
     const result = await run({ rootDir, dryRun: options.dryRun });
     await publishSummary(result.summary, options);
     process.stdout.write(result.summary);
   } catch (error) {
-    const summary = failureSummary(error);
-    await publishSummary(summary, options);
-    process.stderr.write(`${summary}\n`);
-    process.exitCode = 1;
+    await reportFailure(error, options);
   }
 }
 

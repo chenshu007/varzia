@@ -58,22 +58,33 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          mapfile -t managed_paths < <(node scripts/prime-resurgence-sync.mjs --print-managed-paths)
+          is_managed_path() {
+            local candidate="$1"
+            local managed_path
+            for managed_path in "${managed_paths[@]}"; do
+              [ "$candidate" = "$managed_path" ] && return 0
+            done
+            return 1
+          }
           mapfile -t changed_paths < <(git diff --name-only)
           for changed_path in "${changed_paths[@]}"; do
-            case "$changed_path" in
-              data/rotation.json|data/primes.json|data/relics.json|data/prime-resurgence-candidates.json) ;;
-              *) echo "Unexpected generated path: $changed_path" >&2; exit 1 ;;
-            esac
+            if ! is_managed_path "$changed_path"; then
+              echo "Unexpected generated path: $changed_path" >&2
+              exit 1
+            fi
           done
 
-          if git diff --quiet -- data/rotation.json data/primes.json data/relics.json data/prime-resurgence-candidates.json; then
+          if git diff --quiet -- "${managed_paths[@]}"; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
           artifact="$RUNNER_TEMP/prime-resurgence-candidate"
           mkdir -p "$artifact/data"
-          cp data/rotation.json data/primes.json data/relics.json data/prime-resurgence-candidates.json "$artifact/data/"
+          for managed_path in "${managed_paths[@]}"; do
+            cp "$managed_path" "$artifact/$managed_path"
+          done
           cp "$RUNNER_TEMP/prime-resurgence-summary.md" "$artifact/summary.md"
           cp "$RUNNER_TEMP/prime-resurgence-pr.md" "$artifact/pr-body.md"
           git rev-parse HEAD > "$artifact/base-sha.txt"
@@ -125,6 +136,15 @@ jobs:
           git check-ref-format --branch "$AUTOMATION_BRANCH" >/dev/null
 
           artifact="$RUNNER_TEMP/prime-resurgence-candidate"
+          mapfile -t managed_paths < <(node scripts/prime-resurgence-sync.mjs --print-managed-paths)
+          is_managed_path() {
+            local candidate="$1"
+            local managed_path
+            for managed_path in "${managed_paths[@]}"; do
+              [ "$candidate" = "$managed_path" ] && return 0
+            done
+            return 1
+          }
           base_sha="$(tr -d '\n' < "$artifact/base-sha.txt")"
           test "$(git rev-parse HEAD)" = "$base_sha"
 
@@ -137,19 +157,18 @@ jobs:
             exit 1
           fi
 
-          cp "$artifact/data/rotation.json" data/rotation.json
-          cp "$artifact/data/primes.json" data/primes.json
-          cp "$artifact/data/relics.json" data/relics.json
-          cp "$artifact/data/prime-resurgence-candidates.json" data/prime-resurgence-candidates.json
+          for managed_path in "${managed_paths[@]}"; do
+            cp "$artifact/$managed_path" "$managed_path"
+          done
           git diff --check
 
           mapfile -t generated_paths < <(git diff --name-only)
           test "${#generated_paths[@]}" -gt 0
           for generated_path in "${generated_paths[@]}"; do
-            case "$generated_path" in
-              data/rotation.json|data/primes.json|data/relics.json|data/prime-resurgence-candidates.json) ;;
-              *) echo "Unexpected artifact path: $generated_path" >&2; exit 1 ;;
-            esac
+            if ! is_managed_path "$generated_path"; then
+              echo "Unexpected artifact path: $generated_path" >&2
+              exit 1
+            fi
           done
 
           remote_branch_line="$(git ls-remote --heads origin "refs/heads/$AUTOMATION_BRANCH")"
@@ -173,12 +192,12 @@ jobs:
               exit 1
             fi
             while IFS= read -r remote_path; do
-              case "$remote_path" in
-                data/rotation.json|data/primes.json|data/relics.json|data/prime-resurgence-candidates.json) ;;
-                *) echo "Automation branch contains a non-data change: $remote_path" >&2; exit 1 ;;
-              esac
+              if ! is_managed_path "$remote_path"; then
+                echo "Automation branch contains a non-data change: $remote_path" >&2
+                exit 1
+              fi
             done < <(git diff --name-only "$merge_base" "$remote_ref")
-            if git diff --quiet "$remote_ref" -- data/rotation.json data/primes.json data/relics.json data/prime-resurgence-candidates.json; then
+            if git diff --quiet "$remote_ref" -- "${managed_paths[@]}"; then
               branch_update=false
             fi
           fi
@@ -187,7 +206,7 @@ jobs:
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git switch -C "$AUTOMATION_BRANCH" "$base_sha"
-            git add -- data/rotation.json data/primes.json data/relics.json data/prime-resurgence-candidates.json
+            git add -- "${managed_paths[@]}"
             git diff --cached --check
             git commit -m "$PR_TITLE"
             if [ -n "$remote_branch_sha" ]; then

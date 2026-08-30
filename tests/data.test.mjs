@@ -79,8 +79,10 @@ test("双向映射与稀有度不一致时数据校验失败", () => {
   assert.throws(() => validateRotationData(rotation, brokenMapping, relicData), /Missing relic source/);
 
   const brokenRarity = structuredClone(relicData);
-  brokenRarity.relics[0].rewards[0].rarity = "rare";
-  assert.throws(() => validateRotationData(rotation, primes, brokenRarity), /Rarity mismatch/);
+  // Keep the target-only reward mix physically possible (3/2/1) so this
+  // exercises the route mismatch rather than the earlier slot-capacity check.
+  brokenRarity.relics[0].rewards[0].rarity = "uncommon";
+  assert.throws(() => validateRotationData(rotation, primes, brokenRarity), /Part rarity has no matching route/);
 });
 
 test("本期轮换包含两件战甲和四件武器", () => {
@@ -248,6 +250,21 @@ test("同一期 relic 不能重复且默认 Aya 必须是非负整数", () => {
   const invalidBudget = structuredClone(rotation);
   invalidBudget.rotations[0].defaults.ayaBudget = -1;
   assert.throws(() => validateRotationData(invalidBudget, primes, relicData), /Invalid default ayaBudget/);
+});
+
+test("遗物 costAya 必须是现有预算曲线模型支持的正整数成本", () => {
+  for (const costAya of [undefined, null, 0, 1.5, 2, "1"]) {
+    const invalid = structuredClone(relicData);
+    invalid.relics[0].costAya = costAya;
+    assert.throws(() => validateRotationData(rotation, primes, invalid), /Invalid relic costAya/);
+  }
+});
+
+test("目标奖励仍受标准遗物 3/2/1 槽位和概率容量约束", () => {
+  const invalid = structuredClone(relicData);
+  invalid.relics[0].rewards[2].rarity = "common";
+  invalid.relics[0].rewards[3].rarity = "common";
+  assert.throws(() => validateRotationData(rotation, primes, invalid), /Too many common target rewards/);
 });
 
 test("每一期必须至少包含一件装备和一枚遗物", () => {

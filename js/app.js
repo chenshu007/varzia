@@ -1,6 +1,7 @@
 import {
   MAX_SIMULATION_BUDGET,
   RARITIES,
+  analysisCapFor,
   refinementFor,
   rankRelicsForMissing,
   squadChance,
@@ -274,7 +275,12 @@ function requiredCount(part) {
   return Math.max(1, Math.floor(Number(part.required || part.quantity || 1)));
 }
 
+function isSafeOwnedKey(value) {
+  return typeof value === "string" && !["__proto__", "constructor", "prototype"].includes(value);
+}
+
 function ownedCountIn(owned, itemId, partId) {
+  if (!isSafeOwnedKey(itemId) || !isSafeOwnedKey(partId)) return 0;
   const parts = owned?.[itemId];
   if (!parts) return 0;
   const count = parts instanceof Map ? parts.get(partId) : parts[partId];
@@ -282,6 +288,7 @@ function ownedCountIn(owned, itemId, partId) {
 }
 
 function ownedMap(itemId) {
+  if (!isSafeOwnedKey(itemId)) return new Map();
   if (!state.owned[itemId]) state.owned[itemId] = new Map();
   return state.owned[itemId];
 }
@@ -298,10 +305,14 @@ function ownedPlainObject() {
 }
 
 function ownedMapsFromPlain(plain) {
-  return Object.fromEntries(Object.entries(plain || {}).map(([itemId, partCounts]) => [
-    itemId,
-    new Map(Object.entries(partCounts).map(([partId, count]) => [partId, Number(count) || 0]))
-  ]));
+  return Object.fromEntries(Object.entries(plain || {})
+    .filter(([itemId, partCounts]) => isSafeOwnedKey(itemId) && partCounts && typeof partCounts === "object" && !Array.isArray(partCounts))
+    .map(([itemId, partCounts]) => [
+      itemId,
+      new Map(Object.entries(partCounts)
+        .filter(([partId]) => isSafeOwnedKey(partId))
+        .map(([partId, count]) => [partId, Number(count) || 0]))
+    ]));
 }
 
 export function injectOwnedCounts(primeItems, owned) {
@@ -481,7 +492,8 @@ function renderRotationSchedule(now = Date.now()) {
 }
 
 function renderItemOptions() {
-  $("targetOptions").innerHTML = state.primeItems.length
+  const targetOptions = $("targetOptions");
+  targetOptions.innerHTML = state.primeItems.length
     ? groupedPrimeItems(state.primeItems).map((group) => `<section class="item-option-group">
       <div class="item-option-group-heading"><span>${escapeHtml(message(group.labelKey))}</span><em>${escapeHtml(message("target.group.count", { count: format(group.items.length) }))}</em></div>
       <div class="target-option-grid">
@@ -499,12 +511,16 @@ function renderItemOptions() {
             </span>
             <span class="target-option-progress">${owned} / ${required}</span>
             <span class="target-option-status">${missing ? message("target.missing", { count: missing }) : message("target.completed")}</span>
-            <span class="target-option-meter" aria-hidden="true"><span style="width: ${completion}%"></span></span>
+            <span class="target-option-meter" aria-hidden="true"><span data-completion="${completion}"></span></span>
           </label>`;
         }).join("")}
       </div>
     </section>`).join("")
     : `<p class="field-hint">${escapeHtml(message("target.noData"))}</p>`;
+  for (const meter of targetOptions.querySelectorAll("[data-completion]")) {
+    const completion = Math.max(0, Math.min(100, Number(meter.dataset.completion) || 0));
+    meter.style.width = `${completion}%`;
+  }
 }
 
 function renderCollections() {
@@ -785,7 +801,7 @@ function simulationOptions(budget = Number($("budget").value) || 0) {
       squad: state.squad,
       strategy: $("strategy").value,
       trials,
-      analysisCap: Math.min(120, Math.max(80, budget))
+      analysisCap: analysisCapFor(budget, 120)
     }
   };
 }
@@ -846,6 +862,13 @@ function initSimulationWorker() {
       finishRun(result, completedRequest.trials, completedRequest);
     },
     onFailure: (failedRequest, failureKind) => failRun(failedRequest, failureKind),
+    onProgress: (progress, request) => {
+      if (!isSimulationResponseCurrent(state.activeSimulation, request, state.rotation?.id || "")) return;
+      $("runCaption").textContent = message("run.progress", {
+        completed: format(progress.completedTrials),
+        trials: format(progress.totalTrials)
+      });
+    },
     scheduleFrame: (callback) => window.requestAnimationFrame(callback),
     setTimer: (callback, delay) => window.setTimeout(callback, delay),
     clearTimer: (timer) => window.clearTimeout(timer)
@@ -1287,7 +1310,7 @@ function renderResult(result, trials, options = {}) {
     const insurance = result.p95 !== null && budget < result.p95
       ? `<span class="verdict-tail">${escapeHtml(message("verdict.p95ShortTail", { gap: format(result.p95 - budget) }))}</span>`
       : `<span class="verdict-tail">${escapeHtml(message("verdict.p95ReachedTail"))}</span>`;
-    verdict.innerHTML = `<span class="verdict-mark" aria-hidden="true">✦</span><strong class="verdict-status">${outcome.label}</strong><span>${outcome.message}</span>${insurance}`;
+    verdict.innerHTML = `<span class="verdict-mark" aria-hidden="true">✦</span><strong class="verdict-status">${escapeHtml(outcome.label)}</strong><span>${escapeHtml(outcome.message)}</span>${insurance}`;
   }
 
   renderBudgetDistribution(result, budget, result.analysisCap || analysisCap);
@@ -1652,12 +1675,14 @@ function normalizeMergedOwned(primary, secondary, session) {
   const merged = {};
   const keys = new Set([...Object.keys(primary || {}), ...Object.keys(secondary || {})]);
   for (const itemId of keys) {
+    if (!isSafeOwnedKey(itemId)) continue;
     const partKeys = new Set([
       ...Object.keys(primary?.[itemId] || {}),
       ...Object.keys(secondary?.[itemId] || {})
     ]);
     const counts = {};
     for (const partId of partKeys) {
+      if (!isSafeOwnedKey(partId)) continue;
       const uncapped = Math.max(
         Number(primary?.[itemId]?.[partId]) || 0,
         Number(secondary?.[itemId]?.[partId]) || 0
@@ -2222,6 +2247,7 @@ function bindRotationLifecycle() {
 
 async function loadData() {
   if (!ensureLocaleRoute()) return;
+  $("budget").max = String(MAX_SIMULATION_BUDGET);
   try {
     const localeMessages = await loadLocaleMessages(state.locale);
     setLocaleMessages(state.locale, localeMessages, localeMessages);

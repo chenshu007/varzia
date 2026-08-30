@@ -8,7 +8,7 @@ function readJson(path) {
   return JSON.parse(fs.readFileSync(new URL(path, import.meta.url)));
 }
 
-test("English display overlay uses official names without mutating Chinese canonical data", () => {
+test("English display fields use official names without mutating Chinese canonical data", () => {
   const rotationData = readJson("../data/rotation.json");
   const primesData = readJson("../data/primes.json");
   const relicsData = readJson("../data/relics.json");

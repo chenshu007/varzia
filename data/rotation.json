@@ -12,6 +12,7 @@
       "id": "revenant-baruuk-2026-08",
       "publicationStatus": "published",
       "displayName": "Revenant Prime 与 Baruuk Prime",
+      "displayNameEn": "Revenant Prime & Baruuk Prime",
       "startsAt": "2026-08-06T18:00:00Z",
       "items": [
         "revenant-prime",
@@ -58,6 +59,7 @@
         "note": "官方社媒确认 Banshee Prime 与 Mirage Prime 将于 2026-09-03 18:00 UTC 进入下一期轮换；官方掉落表确认六枚遗物的奖励、数值概率与部件映射。五件装备的制造数量来自 Public Export；Euphona Prime 因官方 export 缺失而使用显式 curated-manual exception，不属于 Public Export 验证。游戏官网轮换页仍未更新，默认阿耶预算 31 仍为规划器预设值，因此本期继续只供显式预览。"
       },
       "displayName": "Banshee Prime 与 Mirage Prime",
+      "displayNameEn": "Banshee Prime & Mirage Prime",
       "startsAt": "2026-09-03T18:00:00Z",
       "items": [
         "banshee-prime",

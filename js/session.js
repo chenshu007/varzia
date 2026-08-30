@@ -22,12 +22,18 @@ export const SESSION_EVENT_ERRORS = Object.freeze({
   rewardAlreadyComplete: "rewardAlreadyComplete"
 });
 
+const RESERVED_OBJECT_KEYS = new Set(["__proto__", "constructor", "prototype"]);
+
 function isRecord(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
 function nonEmptyString(value) {
   return typeof value === "string" && value.length > 0;
+}
+
+function isSafeRecordKey(value) {
+  return nonEmptyString(value) && !RESERVED_OBJECT_KEYS.has(value);
 }
 
 function requiredCount(part) {
@@ -56,10 +62,10 @@ export function normalizeOwnedParts(rawOwned) {
   const owned = {};
   if (!isRecord(rawOwned)) return owned;
   for (const [itemId, rawParts] of Object.entries(rawOwned)) {
-    if (!nonEmptyString(itemId) || !isRecord(rawParts)) continue;
+    if (!isSafeRecordKey(itemId) || !isRecord(rawParts)) continue;
     const counts = {};
     for (const [partId, rawCount] of Object.entries(rawParts)) {
-      if (!nonEmptyString(partId)) continue;
+      if (!isSafeRecordKey(partId)) continue;
       const count = Math.floor(Number(rawCount));
       if (Number.isFinite(count) && count > 0) counts[partId] = count;
     }
@@ -97,7 +103,7 @@ export function normalizeValidationSnapshot(rawSnapshot) {
 
   const relicRewards = {};
   for (const [relicId, rawRewards] of Object.entries(rawSnapshot.relicRewards)) {
-    if (!nonEmptyString(relicId) || !Array.isArray(rawRewards)) return null;
+    if (!isSafeRecordKey(relicId) || !Array.isArray(rawRewards)) return null;
     const rewards = [];
     const seen = new Set();
     for (const key of rawRewards) {
@@ -132,19 +138,19 @@ export function createSessionContext(primeItems, relics, { itemIds, relicIds } =
   const allowedRelics = Array.isArray(relicIds) ? new Set(relicIds) : null;
   const requiredCounts = {};
   for (const item of primeItems || []) {
-    if (!isRecord(item) || !nonEmptyString(item.id) || (allowedItems && !allowedItems.has(item.id))) continue;
+    if (!isRecord(item) || !isSafeRecordKey(item.id) || (allowedItems && !allowedItems.has(item.id))) continue;
     for (const part of item.parts || []) {
-      if (!isRecord(part) || !nonEmptyString(part.id)) continue;
+      if (!isRecord(part) || !isSafeRecordKey(part.id)) continue;
       requiredCounts[partKey(item.id, part.id)] = requiredCount(part);
     }
   }
   const relicRewards = {};
   for (const relic of relics || []) {
-    if (!isRecord(relic) || !nonEmptyString(relic.id) || (allowedRelics && !allowedRelics.has(relic.id))) continue;
+    if (!isRecord(relic) || !isSafeRecordKey(relic.id) || (allowedRelics && !allowedRelics.has(relic.id))) continue;
     const offered = [];
     const seen = new Set();
     for (const reward of relic.rewards || []) {
-      if (!isRecord(reward) || !nonEmptyString(reward.itemId) || !nonEmptyString(reward.partId)) continue;
+      if (!isRecord(reward) || !isSafeRecordKey(reward.itemId) || !isSafeRecordKey(reward.partId)) continue;
       const key = partKey(reward.itemId, reward.partId);
       if (Object.hasOwn(requiredCounts, key) && !seen.has(key)) {
         seen.add(key);

@@ -43,6 +43,7 @@ function harness({ createWorker } = {}) {
   const workers = [];
   const results = [];
   const failures = [];
+  const progress = [];
   let timer = null;
   const client = createSimulationWorkerClient({
     createWorker: createWorker || (() => {
@@ -53,6 +54,7 @@ function harness({ createWorker } = {}) {
     workerUrl: simulationWorkerUrl("https://example.test/js/client.js"),
     onResult: (result, completedRequest) => results.push({ result, completedRequest }),
     onFailure: (failedRequest, kind) => failures.push({ failedRequest, kind }),
+    onProgress: (update, activeRequest) => progress.push({ update, activeRequest }),
     scheduleFrame: (callback) => callback(),
     setTimer: (callback) => {
       timer = callback;
@@ -60,14 +62,17 @@ function harness({ createWorker } = {}) {
     },
     clearTimer: () => { timer = null; }
   });
-  return { client, workers, results, failures, fireTimer: () => timer?.() };
+  return { client, workers, results, failures, progress, fireTimer: () => timer?.() };
 }
 
 test("browser app never falls back to synchronous Monte Carlo work", () => {
   const app = read("../js/app.js");
   const worker = read("../js/simulation-worker.js");
   assert.doesNotMatch(app, /simulateCurrentRotation|runOnMainThread/);
-  assert.match(worker, /simulateCurrentRotation/);
+  assert.match(worker, /createSimulationTask/);
+  assert.match(worker, /TRIALS_PER_CHUNK/);
+  assert.match(worker, /progress/);
+  assert.match(worker, /setTimeout/);
   assert.match(read("../js/simulation-worker-client.js"), /scheduleFrame[\s\S]*postMessage/);
 });
 
@@ -113,6 +118,21 @@ test("watchdog timeout terminates a hung worker and permits a healthy next run",
   assert.equal(SIMULATION_WORKER_TIMEOUT_MS, 60_000);
 });
 
+test("Worker progress updates refresh the watchdog and are delivered without completing early", () => {
+  const { client, workers, progress, results, failures } = harness();
+  client.start(request(1));
+  workers[0].emit("message", {
+    requestId: 1,
+    rotationId: "rotation-a",
+    progress: { completedTrials: 500, totalTrials: 100_000, complete: false }
+  });
+  assert.deepEqual(progress.map(({ update }) => update.completedTrials), [500]);
+  assert.equal(results.length, 0);
+  assert.equal(failures.length, 0);
+  workers[0].emit("message", { requestId: 1, rotationId: "rotation-a", result: { done: true } });
+  assert.deepEqual(results.map(({ result }) => result), [{ done: true }]);
+});
+
 test("repeated runs reuse a healthy worker", () => {
   const { client, workers, results } = harness();
   for (const requestId of [1, 2, 3]) {
@@ -128,6 +148,7 @@ test("a stale response cannot overwrite a newer run", () => {
   const first = request(1);
   client.start(first);
   client.cancel(first);
+  assert.deepEqual(workers[0].messages.at(-1), { type: "cancel", requestId: 1, rotationId: "rotation-a" });
   client.start(request(2));
   workers[0].emit("message", { requestId: 1, rotationId: "rotation-a", result: { stale: true } });
   assert.equal(results.length, 0);

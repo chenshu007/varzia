@@ -31,6 +31,15 @@
   font-synthesis: none;
 }
 
+.route-loading,
+.route-fallback {
+  min-height: 100vh;
+  padding: 2rem;
+  background: #07141e;
+  color: #f1eee5;
+  font-family: system-ui, sans-serif;
+}
+
 * { box-sizing: border-box; }
 
 html { scroll-behavior: smooth; }

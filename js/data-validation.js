@@ -1,6 +1,7 @@
 import { candidateIdFor, normalizeOfficialTimestamp } from "./prime-resurgence-candidate.js";
+import { RELIC_RARITIES, RELIC_RARITY_SLOTS } from "./relic-probabilities.js";
 
-const VALID_RARITIES = new Set(["common", "uncommon", "rare"]);
+const VALID_RARITIES = new Set(Object.keys(RELIC_RARITIES));
 const VALID_PUBLICATION_STATUSES = new Set(["published", "provisional"]);
 const VALID_CANDIDATE_STATUSES = new Set(["announced", "official-data-available", "validated", "ready-for-review", "conflict"]);
 const VALID_CANDIDATE_RELIC_STATUSES = new Set(["pending", "available", "validated", "conflict"]);
@@ -19,6 +20,21 @@ function requireUnique(values, label) {
   for (const value of values) {
     requireValue(!seen.has(value), `${label}: ${value}`);
     seen.add(value);
+  }
+}
+
+function validateTargetRewardComposition(relic) {
+  const counts = { common: 0, uncommon: 0, rare: 0 };
+  for (const reward of relic.rewards || []) {
+    requireValue(VALID_RARITIES.has(reward?.rarity), `Invalid reward rarity: ${relic.id}`);
+    counts[reward.rarity] += 1;
+  }
+  for (const [rarity, slots] of Object.entries(RELIC_RARITY_SLOTS)) {
+    requireValue(counts[rarity] <= slots, `Too many ${rarity} target rewards: ${relic.id}`);
+  }
+  for (const refinement of Object.keys(RELIC_RARITIES.common.rates)) {
+    const probabilityMass = Object.entries(counts).reduce((sum, [rarity, count]) => sum + count * RELIC_RARITIES[rarity].rates[refinement], 0);
+    requireValue(probabilityMass <= 1 + 1e-9, `Target reward probability exceeds 100% at ${refinement}: ${relic.id}`);
   }
 }
 
@@ -222,6 +238,11 @@ export function validateRotationData(rotationData, primeData, relicData) {
   const relicMap = new Map(relics.map((relic) => [relic.id, relic]));
   const rotationMap = new Map(rotations.map((rotation) => [rotation.id, rotation]));
 
+  // The runtime model intentionally stores only rotation target rewards; Forma
+  // and other non-target rewards remain implicit. Validate the standard 3/2/1
+  // relic capacity without requiring all six physical reward slots to be here.
+  for (const relic of relics) validateTargetRewardComposition(relic);
+
   for (const item of primeItems) {
     requireValue(typeof item?.id === "string" && item.id.length > 0, "Missing prime item id");
     const itemRotation = rotationMap.get(item.rotation);
@@ -248,12 +269,13 @@ export function validateRotationData(rotationData, primeData, relicData) {
         requireValue(VALID_RARITIES.has(reward.rarity), `Invalid reward rarity: ${relicId} / ${item.id} / ${part.id}`);
         routeRarities.add(reward.rarity);
       }
-      requireValue(routeRarities.has(part.rarity), `Rarity mismatch: ${item.id} / ${part.id}`);
+      requireValue(routeRarities.has(part.rarity), `Part rarity has no matching route: ${item.id} / ${part.id}`);
     }
   }
 
   for (const relic of relics) {
     requireValue(typeof relic?.id === "string" && relic.id.length > 0, "Missing relic id");
+    requireValue(Number.isSafeInteger(relic.costAya) && relic.costAya === 1, `Invalid relic costAya: ${relic.id}`);
     const relicRotation = rotationMap.get(relic.rotation);
     requireValue(relicRotation, `Unknown relic rotation: ${relic.id} / ${relic?.rotation ?? "missing"}`);
     requireValue(relicRotation.relics.includes(relic.id), `Relic is not listed by rotation: ${relic.id} / ${relic.rotation}`);

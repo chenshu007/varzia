@@ -7,6 +7,7 @@ import {
   createSession,
   createSessionContext,
   deriveSessionSummary,
+  normalizeOwnedParts,
   replaySession,
   undoLastSessionEvent,
   validateSession
@@ -74,6 +75,14 @@ test("createSession 深拷贝基线，后续修改原始对象不影响会话", 
   assert.deepEqual(session.baseline.ownedParts, { weapon: { barrel: 1 } });
   assert.equal(session.baseline.ayaBudget, 33);
   assert.deepEqual(session.events, []);
+});
+
+test("会话收藏归一化忽略保留对象键", () => {
+  const owned = JSON.parse('{"__proto__":{"blueprint":1},"frame":{"constructor":1,"blueprint":1},"weapon":{"barrel":2}}');
+  assert.deepEqual(normalizeOwnedParts(owned), {
+    frame: { blueprint: 1 },
+    weapon: { barrel: 2 }
+  });
 });
 
 test("createSession 拒绝非法轮换或时间戳", () => {

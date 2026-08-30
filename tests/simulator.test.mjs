@@ -5,8 +5,9 @@ import {
   MAX_SIMULATION_BUDGET,
   RARITIES,
   REFINEMENTS,
+  analysisCapFor,
   buildBudgetCurve,
-  buildPartRelicIndex,
+  createSimulationTask,
   rankRelicsForMissing,
   simulateCurrentRotation,
   simulateRotationTrial,
@@ -16,10 +17,8 @@ import {
 import { createTranslator } from "../js/i18n.js";
 import {
   assertValidBudgetCurve,
-  formatBudgetMarker,
   formatProbability,
-  formatProbabilityPrecise,
-  zeroProbabilityGuidance
+  formatProbabilityPrecise
 } from "../js/presentation.js";
 
 const enMessages = JSON.parse(readFileSync(new URL("../data/locales/en.json", import.meta.url), "utf8"));
@@ -151,15 +150,6 @@ test("预算不足时整期联合毕业概率为 0，不会给每件装备重复
   assert.equal(result.finishProbability, 0);
   assert.ok(result.p50 > 1);
   assert.ok(result.itemProbabilities.some((item) => item.probability > 0));
-  const guidance = zeroProbabilityGuidance({ budget: 1, trials: 1000, p50: result.p50, p90: result.p90, p95: result.p95 });
-  assert.equal(guidance.status, "尚未进入毕业区间");
-  assert.match(guidance.sentence, /没有一条完成本期全部目标/);
-  assert.match(guidance.message, /距 P50 还差.*个阿耶精华/);
-});
-
-test("预算线超出分析范围时明确显示上限", () => {
-  assert.equal(formatBudgetMarker(42, 80), "42 个");
-  assert.equal(formatBudgetMarker(null, 80), ">80 个");
 });
 
 test("160 Aya 仍可运行，161 Aya 在进入 Worker 前被拒绝且保留原值", () => {
@@ -170,6 +160,8 @@ test("160 Aya 仍可运行，161 Aya 在进入 Worker 前被拒绝且保留原�
   assert.equal(MAX_SIMULATION_BUDGET, 160);
   assert.deepEqual(supported, { valid: true, budget: 160 });
   assert.deepEqual(rejected, { valid: false, budget: 161 });
+  assert.equal(analysisCapFor(33, 120), 120);
+  assert.equal(analysisCapFor(161, 120), 160);
 
   const result = simulateCurrentRotation({
     primeItems,
@@ -197,8 +189,6 @@ test("同一部件支持多个有效遗物，优化器会比较所有路线", ()
     relic("rare-route", [{ itemId: "weapon", partId: "piece", rarity: "rare" }]),
     relic("common-route", [{ itemId: "weapon", partId: "piece", rarity: "common" }])
   ];
-  const index = buildPartRelicIndex(relics);
-  assert.deepEqual(index["weapon:piece"], ["rare-route", "common-route"]);
   const ranking = rankRelicsForMissing({ primeItems, relics, squad: 4, strategy: "finish" });
   assert.deepEqual(new Set(ranking.map((entry) => entry.id)), new Set(["rare-route", "common-route"]));
   assert.equal(ranking[0].id, "common-route");
@@ -287,6 +277,28 @@ test("同样输入的 CDF、百分位和当前概率完全确定", () => {
   assert.equal(first.finishProbability, second.finishProbability);
   assert.deepEqual(first.budgetCurve, second.budgetCurve);
   assert.deepEqual([first.p50, first.p90, first.p95, first.p99], [second.p50, second.p90, second.p95, second.p99]);
+});
+
+test("分块执行保留同一随机样本，并报告单调进度", () => {
+  const options = {
+    primeItems: [primeItem("weapon", "primary")],
+    relics: [relic("weapon-relic", [{ itemId: "weapon", partId: "piece", rarity: "uncommon" }])],
+    budget: 7,
+    squad: 3,
+    strategy: "finish",
+    trials: 3000,
+    analysisCap: 30
+  };
+  const synchronous = simulateCurrentRotation(options);
+  const task = createSimulationTask(options);
+  const progress = [];
+  while (!task.complete) progress.push(task.runChunk(137));
+  assert.equal(progress.at(-1).complete, true);
+  assert.equal(progress.at(-1).completedTrials, progress.at(-1).totalTrials);
+  for (let index = 1; index < progress.length; index += 1) {
+    assert.ok(progress[index].completedTrials > progress[index - 1].completedTrials);
+  }
+  assert.deepEqual(task.result(), synchronous);
 });
 
 test("同一分析范围内改变当前预算不会生成第二套 CDF", () => {

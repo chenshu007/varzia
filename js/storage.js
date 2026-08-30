@@ -1,8 +1,37 @@
 export const STORAGE_KEY = "varzia.collection.v1";
 export const STORAGE_SCHEMA_VERSION = 4;
 
+const RESERVED_OBJECT_KEYS = new Set(["__proto__", "constructor", "prototype"]);
+const MANAGED_COLLECTION_FIELDS = new Set([
+  "schemaVersion",
+  "selectionRotationId",
+  "selectedPrimeIds",
+  "ownedParts",
+  "inputRotationId",
+  "ayaBudget",
+  "activeSession",
+  "rotationId",
+  "selectedItemIds",
+  "selectedTargetIds",
+  "owned"
+]);
+
 function isRecord(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function isSafeRecordKey(value) {
+  return typeof value === "string" && !RESERVED_OBJECT_KEYS.has(value);
+}
+
+function sanitizedRoot(root) {
+  return Object.fromEntries(Object.entries(root || {}).filter(([key]) => isSafeRecordKey(key)));
+}
+
+function preservedRootFields(root) {
+  return Object.fromEntries(Object.entries(root || {}).filter(([key]) => (
+    isSafeRecordKey(key) && !MANAGED_COLLECTION_FIELDS.has(key)
+  )));
 }
 
 function readStoredDocument(storage) {
@@ -45,7 +74,7 @@ export function hasFutureSchemaDocument(storage) {
 
 function writeStoredRoot(storage, root) {
   try {
-    storage.setItem(STORAGE_KEY, JSON.stringify({ ...root, schemaVersion: STORAGE_SCHEMA_VERSION }));
+    storage.setItem(STORAGE_KEY, JSON.stringify({ ...sanitizedRoot(root), schemaVersion: STORAGE_SCHEMA_VERSION }));
     return true;
   } catch {
     return false;
@@ -116,6 +145,7 @@ function normalizeOwned(rawOwned, itemMap) {
   if (!isRecord(rawOwned)) return owned;
 
   for (const [itemId, rawParts] of Object.entries(rawOwned)) {
+    if (!isSafeRecordKey(itemId)) continue;
     const item = itemMap.get(itemId);
     if (!item) continue;
     const partMap = new Map(item.parts.map((part) => [part.id, part]));
@@ -125,11 +155,13 @@ function normalizeOwned(rawOwned, itemMap) {
     // the complete crafting requirement, including duplicated weapon parts.
     if (Array.isArray(rawParts)) {
       for (const partId of rawParts) {
+        if (!isSafeRecordKey(partId)) continue;
         const part = partMap.get(partId);
         if (part) counts[partId] = requiredCount(part);
       }
     } else if (isRecord(rawParts)) {
       for (const [partId, rawCount] of Object.entries(rawParts)) {
+        if (!isSafeRecordKey(partId)) continue;
         const part = partMap.get(partId);
         if (!part) continue;
         counts[partId] = Math.max(0, Math.min(requiredCount(part), Math.floor(Number(rawCount) || 0)));
@@ -230,6 +262,7 @@ export function saveCollectionState(storage, state) {
     const { root, locked } = readStoredDocument(storage);
     if (locked) return false;
     const next = {
+      ...preservedRootFields(root),
       schemaVersion: STORAGE_SCHEMA_VERSION,
       selectionRotationId: rotationId,
       selectedPrimeIds,
