@@ -39,10 +39,11 @@
       "publicationStatus": "provisional",
       "source": {
         "status": "provisional",
-        "rotationUrl": null,
-        "announcementUrl": "https://x.com/PlayWarframe/status/2090499222894231614",
+        "rotationUrl": "https://www.warframe.com/zh-hans/prime-resurgence",
+        "announcementUrl": "https://bsky.app/profile/warframe.com/post/3mtjt7pmvpr2o",
         "dropTableUrl": "https://www.warframe.com/droptables",
         "recipeExportUrl": "https://content.warframe.com/PublicExport/Manifest/ExportRecipes_en.json!00_ftaIks7bCpxZmaQMDvAN7Q",
+        "preparedAt": "2026-08-21",
         "recipeExceptions": [
           {
             "itemId": "euphona-prime",
@@ -54,9 +55,22 @@
           }
         ],
         "rarityWarnings": [
-          "Official Drop Tables currently labels 14 selected 25.33% target rewards as Uncommon; Varzia uses the numeric 25.33% probability as canonical common rarity and requires this disagreement to remain visible in review."
+          "Lith K5 / Mirage Prime Chassis: official label uncommon, intact probability 25.33% maps to common",
+          "Lith K5 / Helios Prime Carapace: official label uncommon, intact probability 25.33% maps to common",
+          "Lith M7 / Kogake Prime Boot: official label uncommon, intact probability 25.33% maps to common",
+          "Lith M7 / Akbolto Prime Blueprint: official label uncommon, intact probability 25.33% maps to common",
+          "Lith M7 / Banshee Prime Neuroptics: official label uncommon, intact probability 25.33% maps to common",
+          "Meso E5 / Mirage Prime Neuroptics: official label uncommon, intact probability 25.33% maps to common",
+          "Meso E5 / Helios Prime Carapace: official label uncommon, intact probability 25.33% maps to common",
+          "Neo B6 / Euphona Prime Blueprint: official label uncommon, intact probability 25.33% maps to common",
+          "Neo B6 / Mirage Prime Neuroptics: official label uncommon, intact probability 25.33% maps to common",
+          "Axi A12 / Mirage Prime Chassis: official label uncommon, intact probability 25.33% maps to common",
+          "Axi A12 / Kogake Prime Boot: official label uncommon, intact probability 25.33% maps to common",
+          "Axi H5 / Banshee Prime Neuroptics: official label uncommon, intact probability 25.33% maps to common",
+          "Axi H5 / Euphona Prime Blueprint: official label uncommon, intact probability 25.33% maps to common",
+          "Axi H5 / Akbolto Prime Blueprint: official label uncommon, intact probability 25.33% maps to common"
         ],
-        "note": "官方社媒确认 Banshee Prime 与 Mirage Prime 将于 2026-09-03 18:00 UTC 进入下一期轮换；官方掉落表确认六枚遗物的奖励、数值概率与部件映射。五件装备的制造数量来自 Public Export；Euphona Prime 因官方 export 缺失而使用显式 curated-manual exception，不属于 Public Export 验证。游戏官网轮换页仍未更新，默认阿耶预算 31 仍为规划器预设值，因此本期继续只供显式预览。"
+        "note": "官方 Prime 重生页面确认完整阵容；warframe.com 官方公告确认生效时间；官方掉落表的数值概率决定规划器 rarity。制造数量优先来自 Public Export；若官方 export 确认缺失，只允许使用显式 curated-manual exception。ayaBudget 仍只是 Varzia 产品预设。此候选不会自动发布。"
       },
       "displayName": "Banshee Prime 与 Mirage Prime",
       "displayNameEn": "Banshee Prime & Mirage Prime",
@@ -64,10 +78,10 @@
       "items": [
         "banshee-prime",
         "mirage-prime",
+        "euphona-prime",
         "helios-prime",
         "akbolto-prime",
-        "kogake-prime",
-        "euphona-prime"
+        "kogake-prime"
       ],
       "relics": [
         "lith-k5",

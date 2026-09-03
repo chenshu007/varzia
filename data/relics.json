@@ -9,14 +9,27 @@
   "provisionalSources": {
     "banshee-mirage-2026-09": {
       "status": "provisional",
-      "rotationUrl": null,
-      "announcementUrl": "https://x.com/PlayWarframe/status/2090499222894231614",
+      "rotationUrl": "https://www.warframe.com/zh-hans/prime-resurgence",
+      "announcementUrl": "https://bsky.app/profile/warframe.com/post/3mtjt7pmvpr2o",
       "dropTableUrl": "https://www.warframe.com/droptables",
       "preparedAt": "2026-08-21",
       "rarityWarnings": [
-        "Official Drop Tables currently labels 14 selected 25.33% target rewards as Uncommon; Varzia uses the numeric 25.33% probability as canonical common rarity and requires this disagreement to remain visible in review."
+        "Lith K5 / Mirage Prime Chassis: official label uncommon, intact probability 25.33% maps to common",
+        "Lith K5 / Helios Prime Carapace: official label uncommon, intact probability 25.33% maps to common",
+        "Lith M7 / Kogake Prime Boot: official label uncommon, intact probability 25.33% maps to common",
+        "Lith M7 / Akbolto Prime Blueprint: official label uncommon, intact probability 25.33% maps to common",
+        "Lith M7 / Banshee Prime Neuroptics: official label uncommon, intact probability 25.33% maps to common",
+        "Meso E5 / Mirage Prime Neuroptics: official label uncommon, intact probability 25.33% maps to common",
+        "Meso E5 / Helios Prime Carapace: official label uncommon, intact probability 25.33% maps to common",
+        "Neo B6 / Euphona Prime Blueprint: official label uncommon, intact probability 25.33% maps to common",
+        "Neo B6 / Mirage Prime Neuroptics: official label uncommon, intact probability 25.33% maps to common",
+        "Axi A12 / Mirage Prime Chassis: official label uncommon, intact probability 25.33% maps to common",
+        "Axi A12 / Kogake Prime Boot: official label uncommon, intact probability 25.33% maps to common",
+        "Axi H5 / Banshee Prime Neuroptics: official label uncommon, intact probability 25.33% maps to common",
+        "Axi H5 / Euphona Prime Blueprint: official label uncommon, intact probability 25.33% maps to common",
+        "Axi H5 / Akbolto Prime Blueprint: official label uncommon, intact probability 25.33% maps to common"
       ],
-      "note": "六枚遗物的奖励、稀有度与部件映射已由官方掉落表逐项核对；游戏官网轮换页仍待更新。"
+      "note": "遗物奖励和 route-specific rarity 来自官方 Drop Tables；Forma 等非目标奖励继续按现有规划器规则忽略。"
     }
   },
   "notes": "已发布轮换只包含可用 1 阿耶精华兑换的六枚遗物。rewards 收录对应轮换的目标奖励；Forma 与其他非目标奖励由剩余概率隐式表示。provisionalSources 对应的数据只供显式预览，不能进入正常轮换。",
@@ -30,10 +43,26 @@
       "costAya": 1,
       "rotation": "revenant-baruuk-2026-08",
       "rewards": [
-        { "itemId": "tatsu-prime", "partId": "blueprint", "rarity": "common" },
-        { "itemId": "cobra-crane-prime", "partId": "hilt", "rarity": "common" },
-        { "itemId": "phantasma-prime", "partId": "blueprint", "rarity": "uncommon" },
-        { "itemId": "afuris-prime", "partId": "receiver", "rarity": "rare" }
+        {
+          "itemId": "tatsu-prime",
+          "partId": "blueprint",
+          "rarity": "common"
+        },
+        {
+          "itemId": "cobra-crane-prime",
+          "partId": "hilt",
+          "rarity": "common"
+        },
+        {
+          "itemId": "phantasma-prime",
+          "partId": "blueprint",
+          "rarity": "uncommon"
+        },
+        {
+          "itemId": "afuris-prime",
+          "partId": "receiver",
+          "rarity": "rare"
+        }
       ]
     },
     {
@@ -45,10 +74,26 @@
       "costAya": 1,
       "rotation": "revenant-baruuk-2026-08",
       "rewards": [
-        { "itemId": "phantasma-prime", "partId": "receiver", "rarity": "common" },
-        { "itemId": "revenant-prime", "partId": "neuroptics", "rarity": "uncommon" },
-        { "itemId": "baruuk-prime", "partId": "chassis", "rarity": "uncommon" },
-        { "itemId": "tatsu-prime", "partId": "handle", "rarity": "rare" }
+        {
+          "itemId": "phantasma-prime",
+          "partId": "receiver",
+          "rarity": "common"
+        },
+        {
+          "itemId": "revenant-prime",
+          "partId": "neuroptics",
+          "rarity": "uncommon"
+        },
+        {
+          "itemId": "baruuk-prime",
+          "partId": "chassis",
+          "rarity": "uncommon"
+        },
+        {
+          "itemId": "tatsu-prime",
+          "partId": "handle",
+          "rarity": "rare"
+        }
       ]
     },
     {
@@ -60,9 +105,21 @@
       "costAya": 1,
       "rotation": "revenant-baruuk-2026-08",
       "rewards": [
-        { "itemId": "afuris-prime", "partId": "barrel", "rarity": "common" },
-        { "itemId": "cobra-crane-prime", "partId": "blade", "rarity": "uncommon" },
-        { "itemId": "revenant-prime", "partId": "blueprint", "rarity": "rare" }
+        {
+          "itemId": "afuris-prime",
+          "partId": "barrel",
+          "rarity": "common"
+        },
+        {
+          "itemId": "cobra-crane-prime",
+          "partId": "blade",
+          "rarity": "uncommon"
+        },
+        {
+          "itemId": "revenant-prime",
+          "partId": "blueprint",
+          "rarity": "rare"
+        }
       ]
     },
     {
@@ -74,10 +131,26 @@
       "costAya": 1,
       "rotation": "revenant-baruuk-2026-08",
       "rewards": [
-        { "itemId": "baruuk-prime", "partId": "systems", "rarity": "common" },
-        { "itemId": "revenant-prime", "partId": "systems", "rarity": "uncommon" },
-        { "itemId": "afuris-prime", "partId": "link", "rarity": "uncommon" },
-        { "itemId": "phantasma-prime", "partId": "barrel", "rarity": "rare" }
+        {
+          "itemId": "baruuk-prime",
+          "partId": "systems",
+          "rarity": "common"
+        },
+        {
+          "itemId": "revenant-prime",
+          "partId": "systems",
+          "rarity": "uncommon"
+        },
+        {
+          "itemId": "afuris-prime",
+          "partId": "link",
+          "rarity": "uncommon"
+        },
+        {
+          "itemId": "phantasma-prime",
+          "partId": "barrel",
+          "rarity": "rare"
+        }
       ]
     },
     {
@@ -89,10 +162,26 @@
       "costAya": 1,
       "rotation": "revenant-baruuk-2026-08",
       "rewards": [
-        { "itemId": "afuris-prime", "partId": "blueprint", "rarity": "common" },
-        { "itemId": "baruuk-prime", "partId": "neuroptics", "rarity": "uncommon" },
-        { "itemId": "cobra-crane-prime", "partId": "blueprint", "rarity": "uncommon" },
-        { "itemId": "baruuk-prime", "partId": "blueprint", "rarity": "rare" }
+        {
+          "itemId": "afuris-prime",
+          "partId": "blueprint",
+          "rarity": "common"
+        },
+        {
+          "itemId": "baruuk-prime",
+          "partId": "neuroptics",
+          "rarity": "uncommon"
+        },
+        {
+          "itemId": "cobra-crane-prime",
+          "partId": "blueprint",
+          "rarity": "uncommon"
+        },
+        {
+          "itemId": "baruuk-prime",
+          "partId": "blueprint",
+          "rarity": "rare"
+        }
       ]
     },
     {
@@ -104,10 +193,26 @@
       "costAya": 1,
       "rotation": "revenant-baruuk-2026-08",
       "rewards": [
-        { "itemId": "revenant-prime", "partId": "chassis", "rarity": "common" },
-        { "itemId": "phantasma-prime", "partId": "stock", "rarity": "uncommon" },
-        { "itemId": "tatsu-prime", "partId": "blade", "rarity": "uncommon" },
-        { "itemId": "cobra-crane-prime", "partId": "guard", "rarity": "rare" }
+        {
+          "itemId": "revenant-prime",
+          "partId": "chassis",
+          "rarity": "common"
+        },
+        {
+          "itemId": "phantasma-prime",
+          "partId": "stock",
+          "rarity": "uncommon"
+        },
+        {
+          "itemId": "tatsu-prime",
+          "partId": "blade",
+          "rarity": "uncommon"
+        },
+        {
+          "itemId": "cobra-crane-prime",
+          "partId": "guard",
+          "rarity": "rare"
+        }
       ]
     },
     {
@@ -119,11 +224,31 @@
       "costAya": 1,
       "rotation": "banshee-mirage-2026-09",
       "rewards": [
-        { "itemId": "helios-prime", "partId": "carapace", "rarity": "common" },
-        { "itemId": "mirage-prime", "partId": "chassis", "rarity": "common" },
-        { "itemId": "banshee-prime", "partId": "systems", "rarity": "uncommon" },
-        { "itemId": "akbolto-prime", "partId": "barrel", "rarity": "uncommon" },
-        { "itemId": "kogake-prime", "partId": "gauntlet", "rarity": "rare" }
+        {
+          "itemId": "kogake-prime",
+          "partId": "gauntlet",
+          "rarity": "rare"
+        },
+        {
+          "itemId": "akbolto-prime",
+          "partId": "barrel",
+          "rarity": "uncommon"
+        },
+        {
+          "itemId": "banshee-prime",
+          "partId": "systems",
+          "rarity": "uncommon"
+        },
+        {
+          "itemId": "mirage-prime",
+          "partId": "chassis",
+          "rarity": "common"
+        },
+        {
+          "itemId": "helios-prime",
+          "partId": "carapace",
+          "rarity": "common"
+        }
       ]
     },
     {
@@ -135,11 +260,31 @@
       "costAya": 1,
       "rotation": "banshee-mirage-2026-09",
       "rewards": [
-        { "itemId": "banshee-prime", "partId": "neuroptics", "rarity": "common" },
-        { "itemId": "kogake-prime", "partId": "boot", "rarity": "common" },
-        { "itemId": "akbolto-prime", "partId": "blueprint", "rarity": "common" },
-        { "itemId": "euphona-prime", "partId": "barrel", "rarity": "uncommon" },
-        { "itemId": "mirage-prime", "partId": "blueprint", "rarity": "rare" }
+        {
+          "itemId": "mirage-prime",
+          "partId": "blueprint",
+          "rarity": "rare"
+        },
+        {
+          "itemId": "euphona-prime",
+          "partId": "barrel",
+          "rarity": "uncommon"
+        },
+        {
+          "itemId": "kogake-prime",
+          "partId": "boot",
+          "rarity": "common"
+        },
+        {
+          "itemId": "akbolto-prime",
+          "partId": "blueprint",
+          "rarity": "common"
+        },
+        {
+          "itemId": "banshee-prime",
+          "partId": "neuroptics",
+          "rarity": "common"
+        }
       ]
     },
     {
@@ -151,11 +296,31 @@
       "costAya": 1,
       "rotation": "banshee-mirage-2026-09",
       "rewards": [
-        { "itemId": "helios-prime", "partId": "carapace", "rarity": "common" },
-        { "itemId": "mirage-prime", "partId": "neuroptics", "rarity": "common" },
-        { "itemId": "helios-prime", "partId": "blueprint", "rarity": "uncommon" },
-        { "itemId": "banshee-prime", "partId": "blueprint", "rarity": "uncommon" },
-        { "itemId": "euphona-prime", "partId": "receiver", "rarity": "rare" }
+        {
+          "itemId": "euphona-prime",
+          "partId": "receiver",
+          "rarity": "rare"
+        },
+        {
+          "itemId": "banshee-prime",
+          "partId": "blueprint",
+          "rarity": "uncommon"
+        },
+        {
+          "itemId": "helios-prime",
+          "partId": "blueprint",
+          "rarity": "uncommon"
+        },
+        {
+          "itemId": "mirage-prime",
+          "partId": "neuroptics",
+          "rarity": "common"
+        },
+        {
+          "itemId": "helios-prime",
+          "partId": "carapace",
+          "rarity": "common"
+        }
       ]
     },
     {
@@ -167,11 +332,31 @@
       "costAya": 1,
       "rotation": "banshee-mirage-2026-09",
       "rewards": [
-        { "itemId": "euphona-prime", "partId": "blueprint", "rarity": "common" },
-        { "itemId": "mirage-prime", "partId": "neuroptics", "rarity": "common" },
-        { "itemId": "akbolto-prime", "partId": "link", "rarity": "uncommon" },
-        { "itemId": "kogake-prime", "partId": "blueprint", "rarity": "uncommon" },
-        { "itemId": "banshee-prime", "partId": "chassis", "rarity": "rare" }
+        {
+          "itemId": "banshee-prime",
+          "partId": "chassis",
+          "rarity": "rare"
+        },
+        {
+          "itemId": "kogake-prime",
+          "partId": "blueprint",
+          "rarity": "uncommon"
+        },
+        {
+          "itemId": "akbolto-prime",
+          "partId": "link",
+          "rarity": "uncommon"
+        },
+        {
+          "itemId": "euphona-prime",
+          "partId": "blueprint",
+          "rarity": "common"
+        },
+        {
+          "itemId": "mirage-prime",
+          "partId": "neuroptics",
+          "rarity": "common"
+        }
       ]
     },
     {
@@ -183,11 +368,31 @@
       "costAya": 1,
       "rotation": "banshee-mirage-2026-09",
       "rewards": [
-        { "itemId": "kogake-prime", "partId": "boot", "rarity": "common" },
-        { "itemId": "mirage-prime", "partId": "chassis", "rarity": "common" },
-        { "itemId": "banshee-prime", "partId": "blueprint", "rarity": "uncommon" },
-        { "itemId": "helios-prime", "partId": "systems", "rarity": "uncommon" },
-        { "itemId": "akbolto-prime", "partId": "receiver", "rarity": "rare" }
+        {
+          "itemId": "akbolto-prime",
+          "partId": "receiver",
+          "rarity": "rare"
+        },
+        {
+          "itemId": "helios-prime",
+          "partId": "systems",
+          "rarity": "uncommon"
+        },
+        {
+          "itemId": "banshee-prime",
+          "partId": "blueprint",
+          "rarity": "uncommon"
+        },
+        {
+          "itemId": "mirage-prime",
+          "partId": "chassis",
+          "rarity": "common"
+        },
+        {
+          "itemId": "kogake-prime",
+          "partId": "boot",
+          "rarity": "common"
+        }
       ]
     },
     {
@@ -199,11 +404,31 @@
       "costAya": 1,
       "rotation": "banshee-mirage-2026-09",
       "rewards": [
-        { "itemId": "akbolto-prime", "partId": "blueprint", "rarity": "common" },
-        { "itemId": "banshee-prime", "partId": "neuroptics", "rarity": "common" },
-        { "itemId": "euphona-prime", "partId": "blueprint", "rarity": "common" },
-        { "itemId": "mirage-prime", "partId": "systems", "rarity": "uncommon" },
-        { "itemId": "helios-prime", "partId": "cerebrum", "rarity": "rare" }
+        {
+          "itemId": "helios-prime",
+          "partId": "cerebrum",
+          "rarity": "rare"
+        },
+        {
+          "itemId": "mirage-prime",
+          "partId": "systems",
+          "rarity": "uncommon"
+        },
+        {
+          "itemId": "banshee-prime",
+          "partId": "neuroptics",
+          "rarity": "common"
+        },
+        {
+          "itemId": "euphona-prime",
+          "partId": "blueprint",
+          "rarity": "common"
+        },
+        {
+          "itemId": "akbolto-prime",
+          "partId": "blueprint",
+          "rarity": "common"
+        }
       ]
     }
   ]

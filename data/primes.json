@@ -8,8 +8,8 @@
   "provisionalSources": {
     "banshee-mirage-2026-09": {
       "status": "provisional",
-      "rotationUrl": null,
-      "announcementUrl": "https://x.com/PlayWarframe/status/2090499222894231614",
+      "rotationUrl": "https://www.warframe.com/zh-hans/prime-resurgence",
+      "announcementUrl": "https://bsky.app/profile/warframe.com/post/3mtjt7pmvpr2o",
       "dropTableUrl": "https://www.warframe.com/droptables",
       "recipeExportUrl": "https://content.warframe.com/PublicExport/Manifest/ExportRecipes_en.json!00_ftaIks7bCpxZmaQMDvAN7Q",
       "preparedAt": "2026-08-21",
@@ -24,9 +24,22 @@
         }
       ],
       "rarityWarnings": [
-        "Official Drop Tables currently labels 14 selected 25.33% target rewards as Uncommon; Varzia uses the numeric 25.33% probability as canonical common rarity and requires this disagreement to remain visible in review."
+        "Lith K5 / Mirage Prime Chassis: official label uncommon, intact probability 25.33% maps to common",
+        "Lith K5 / Helios Prime Carapace: official label uncommon, intact probability 25.33% maps to common",
+        "Lith M7 / Kogake Prime Boot: official label uncommon, intact probability 25.33% maps to common",
+        "Lith M7 / Akbolto Prime Blueprint: official label uncommon, intact probability 25.33% maps to common",
+        "Lith M7 / Banshee Prime Neuroptics: official label uncommon, intact probability 25.33% maps to common",
+        "Meso E5 / Mirage Prime Neuroptics: official label uncommon, intact probability 25.33% maps to common",
+        "Meso E5 / Helios Prime Carapace: official label uncommon, intact probability 25.33% maps to common",
+        "Neo B6 / Euphona Prime Blueprint: official label uncommon, intact probability 25.33% maps to common",
+        "Neo B6 / Mirage Prime Neuroptics: official label uncommon, intact probability 25.33% maps to common",
+        "Axi A12 / Mirage Prime Chassis: official label uncommon, intact probability 25.33% maps to common",
+        "Axi A12 / Kogake Prime Boot: official label uncommon, intact probability 25.33% maps to common",
+        "Axi H5 / Banshee Prime Neuroptics: official label uncommon, intact probability 25.33% maps to common",
+        "Axi H5 / Euphona Prime Blueprint: official label uncommon, intact probability 25.33% maps to common",
+        "Axi H5 / Akbolto Prime Blueprint: official label uncommon, intact probability 25.33% maps to common"
       ],
-      "note": "官方社媒已确认两名 Prime 战甲与切换时间；官方掉落表已确认遗物部件映射。五件装备的数量来自 Public Export；Euphona Prime 的数量是显式 curated-manual exception，不能描述为 Public Export 验证。游戏官网轮换页仍待更新。"
+      "note": "装备和部件映射来自官方 Prime 重生页面与掉落表；制造数量的 Public Export 与 curated-manual evidence 分开记录，候选只供人工 Review。"
     }
   },
   "primeItems": [
@@ -37,12 +50,53 @@
       "type": "warframe",
       "description": "迷失者之崛起。",
       "rotation": "revenant-baruuk-2026-08",
-      "relics": ["lith-t13", "meso-r6", "neo-p8", "axi-c9"],
+      "relics": [
+        "lith-t13",
+        "meso-r6",
+        "neo-p8",
+        "axi-c9"
+      ],
       "parts": [
-        { "id": "blueprint", "name": "蓝图", "nameEn": "Blueprint", "required": 1, "rarity": "rare", "relics": ["meso-r6"] },
-        { "id": "chassis", "name": "机体", "nameEn": "Chassis", "required": 1, "rarity": "common", "relics": ["axi-c9"] },
-        { "id": "neuroptics", "name": "神经光元", "nameEn": "Neuroptics", "required": 1, "rarity": "uncommon", "relics": ["lith-t13"] },
-        { "id": "systems", "name": "系统", "nameEn": "Systems", "required": 1, "rarity": "uncommon", "relics": ["neo-p8"] }
+        {
+          "id": "blueprint",
+          "name": "蓝图",
+          "nameEn": "Blueprint",
+          "required": 1,
+          "rarity": "rare",
+          "relics": [
+            "meso-r6"
+          ]
+        },
+        {
+          "id": "chassis",
+          "name": "机体",
+          "nameEn": "Chassis",
+          "required": 1,
+          "rarity": "common",
+          "relics": [
+            "axi-c9"
+          ]
+        },
+        {
+          "id": "neuroptics",
+          "name": "神经光元",
+          "nameEn": "Neuroptics",
+          "required": 1,
+          "rarity": "uncommon",
+          "relics": [
+            "lith-t13"
+          ]
+        },
+        {
+          "id": "systems",
+          "name": "系统",
+          "nameEn": "Systems",
+          "required": 1,
+          "rarity": "uncommon",
+          "relics": [
+            "neo-p8"
+          ]
+        }
       ]
     },
     {
@@ -52,12 +106,52 @@
       "type": "warframe",
       "description": "耐心让位于释放的怒火。",
       "rotation": "revenant-baruuk-2026-08",
-      "relics": ["lith-t13", "neo-p8", "axi-b9"],
+      "relics": [
+        "lith-t13",
+        "neo-p8",
+        "axi-b9"
+      ],
       "parts": [
-        { "id": "blueprint", "name": "蓝图", "nameEn": "Blueprint", "required": 1, "rarity": "rare", "relics": ["axi-b9"] },
-        { "id": "chassis", "name": "机体", "nameEn": "Chassis", "required": 1, "rarity": "uncommon", "relics": ["lith-t13"] },
-        { "id": "neuroptics", "name": "神经光元", "nameEn": "Neuroptics", "required": 1, "rarity": "uncommon", "relics": ["axi-b9"] },
-        { "id": "systems", "name": "系统", "nameEn": "Systems", "required": 1, "rarity": "common", "relics": ["neo-p8"] }
+        {
+          "id": "blueprint",
+          "name": "蓝图",
+          "nameEn": "Blueprint",
+          "required": 1,
+          "rarity": "rare",
+          "relics": [
+            "axi-b9"
+          ]
+        },
+        {
+          "id": "chassis",
+          "name": "机体",
+          "nameEn": "Chassis",
+          "required": 1,
+          "rarity": "uncommon",
+          "relics": [
+            "lith-t13"
+          ]
+        },
+        {
+          "id": "neuroptics",
+          "name": "神经光元",
+          "nameEn": "Neuroptics",
+          "required": 1,
+          "rarity": "uncommon",
+          "relics": [
+            "axi-b9"
+          ]
+        },
+        {
+          "id": "systems",
+          "name": "系统",
+          "nameEn": "Systems",
+          "required": 1,
+          "rarity": "common",
+          "relics": [
+            "neo-p8"
+          ]
+        }
       ]
     },
     {
@@ -67,12 +161,53 @@
       "type": "primary",
       "description": "Revenant Prime 的标志性主要武器。",
       "rotation": "revenant-baruuk-2026-08",
-      "relics": ["lith-a9", "lith-t13", "neo-p8", "axi-c9"],
+      "relics": [
+        "lith-a9",
+        "lith-t13",
+        "neo-p8",
+        "axi-c9"
+      ],
       "parts": [
-        { "id": "blueprint", "name": "蓝图", "nameEn": "Blueprint", "required": 1, "rarity": "uncommon", "relics": ["lith-a9"] },
-        { "id": "barrel", "name": "枪管", "nameEn": "Barrel", "required": 1, "rarity": "rare", "relics": ["neo-p8"] },
-        { "id": "receiver", "name": "枪机", "nameEn": "Receiver", "required": 1, "rarity": "common", "relics": ["lith-t13"] },
-        { "id": "stock", "name": "枪托", "nameEn": "Stock", "required": 1, "rarity": "uncommon", "relics": ["axi-c9"] }
+        {
+          "id": "blueprint",
+          "name": "蓝图",
+          "nameEn": "Blueprint",
+          "required": 1,
+          "rarity": "uncommon",
+          "relics": [
+            "lith-a9"
+          ]
+        },
+        {
+          "id": "barrel",
+          "name": "枪管",
+          "nameEn": "Barrel",
+          "required": 1,
+          "rarity": "rare",
+          "relics": [
+            "neo-p8"
+          ]
+        },
+        {
+          "id": "receiver",
+          "name": "枪机",
+          "nameEn": "Receiver",
+          "required": 1,
+          "rarity": "common",
+          "relics": [
+            "lith-t13"
+          ]
+        },
+        {
+          "id": "stock",
+          "name": "枪托",
+          "nameEn": "Stock",
+          "required": 1,
+          "rarity": "uncommon",
+          "relics": [
+            "axi-c9"
+          ]
+        }
       ]
     },
     {
@@ -82,11 +217,42 @@
       "type": "melee",
       "description": "Revenant Prime 的标志性近战武器。",
       "rotation": "revenant-baruuk-2026-08",
-      "relics": ["lith-a9", "lith-t13", "axi-c9"],
+      "relics": [
+        "lith-a9",
+        "lith-t13",
+        "axi-c9"
+      ],
       "parts": [
-        { "id": "blueprint", "name": "蓝图", "nameEn": "Blueprint", "required": 1, "rarity": "common", "relics": ["lith-a9"] },
-        { "id": "blade", "name": "刀刃", "nameEn": "Blade", "required": 1, "rarity": "uncommon", "relics": ["axi-c9"] },
-        { "id": "handle", "name": "握柄", "nameEn": "Handle", "required": 1, "rarity": "rare", "relics": ["lith-t13"] }
+        {
+          "id": "blueprint",
+          "name": "蓝图",
+          "nameEn": "Blueprint",
+          "required": 1,
+          "rarity": "common",
+          "relics": [
+            "lith-a9"
+          ]
+        },
+        {
+          "id": "blade",
+          "name": "刀刃",
+          "nameEn": "Blade",
+          "required": 1,
+          "rarity": "uncommon",
+          "relics": [
+            "axi-c9"
+          ]
+        },
+        {
+          "id": "handle",
+          "name": "握柄",
+          "nameEn": "Handle",
+          "required": 1,
+          "rarity": "rare",
+          "relics": [
+            "lith-t13"
+          ]
+        }
       ]
     },
     {
@@ -96,12 +262,53 @@
       "type": "secondary",
       "description": "Baruuk Prime 的配套次要武器。",
       "rotation": "revenant-baruuk-2026-08",
-      "relics": ["lith-a9", "meso-r6", "neo-p8", "axi-b9"],
+      "relics": [
+        "lith-a9",
+        "meso-r6",
+        "neo-p8",
+        "axi-b9"
+      ],
       "parts": [
-        { "id": "blueprint", "name": "蓝图", "nameEn": "Blueprint", "required": 1, "rarity": "common", "relics": ["axi-b9"] },
-        { "id": "barrel", "name": "枪管", "nameEn": "Barrel", "required": 2, "rarity": "common", "relics": ["meso-r6"] },
-        { "id": "receiver", "name": "枪机", "nameEn": "Receiver", "required": 2, "rarity": "rare", "relics": ["lith-a9"] },
-        { "id": "link", "name": "连接器", "nameEn": "Link", "required": 1, "rarity": "uncommon", "relics": ["neo-p8"] }
+        {
+          "id": "blueprint",
+          "name": "蓝图",
+          "nameEn": "Blueprint",
+          "required": 1,
+          "rarity": "common",
+          "relics": [
+            "axi-b9"
+          ]
+        },
+        {
+          "id": "barrel",
+          "name": "枪管",
+          "nameEn": "Barrel",
+          "required": 2,
+          "rarity": "common",
+          "relics": [
+            "meso-r6"
+          ]
+        },
+        {
+          "id": "receiver",
+          "name": "枪机",
+          "nameEn": "Receiver",
+          "required": 2,
+          "rarity": "rare",
+          "relics": [
+            "lith-a9"
+          ]
+        },
+        {
+          "id": "link",
+          "name": "连接器",
+          "nameEn": "Link",
+          "required": 1,
+          "rarity": "uncommon",
+          "relics": [
+            "neo-p8"
+          ]
+        }
       ]
     },
     {
@@ -111,12 +318,53 @@
       "type": "melee",
       "description": "Baruuk Prime 的标志性近战武器。",
       "rotation": "revenant-baruuk-2026-08",
-      "relics": ["lith-a9", "meso-r6", "axi-b9", "axi-c9"],
+      "relics": [
+        "lith-a9",
+        "meso-r6",
+        "axi-b9",
+        "axi-c9"
+      ],
       "parts": [
-        { "id": "blueprint", "name": "蓝图", "nameEn": "Blueprint", "required": 1, "rarity": "uncommon", "relics": ["axi-b9"] },
-        { "id": "blade", "name": "刀刃", "nameEn": "Blade", "required": 1, "rarity": "uncommon", "relics": ["meso-r6"] },
-        { "id": "hilt", "name": "握柄", "nameEn": "Hilt", "required": 1, "rarity": "common", "relics": ["lith-a9"] },
-        { "id": "guard", "name": "护手", "nameEn": "Guard", "required": 1, "rarity": "rare", "relics": ["axi-c9"] }
+        {
+          "id": "blueprint",
+          "name": "蓝图",
+          "nameEn": "Blueprint",
+          "required": 1,
+          "rarity": "uncommon",
+          "relics": [
+            "axi-b9"
+          ]
+        },
+        {
+          "id": "blade",
+          "name": "刀刃",
+          "nameEn": "Blade",
+          "required": 1,
+          "rarity": "uncommon",
+          "relics": [
+            "meso-r6"
+          ]
+        },
+        {
+          "id": "hilt",
+          "name": "握柄",
+          "nameEn": "Hilt",
+          "required": 1,
+          "rarity": "common",
+          "relics": [
+            "lith-a9"
+          ]
+        },
+        {
+          "id": "guard",
+          "name": "护手",
+          "nameEn": "Guard",
+          "required": 1,
+          "rarity": "rare",
+          "relics": [
+            "axi-c9"
+          ]
+        }
       ]
     },
     {
@@ -126,12 +374,57 @@
       "type": "warframe",
       "description": "以致命声波撼动战场。",
       "rotation": "banshee-mirage-2026-09",
-      "relics": ["lith-k5", "lith-m7", "meso-e5", "neo-b6", "axi-a12", "axi-h5"],
+      "relics": [
+        "lith-k5",
+        "lith-m7",
+        "meso-e5",
+        "neo-b6",
+        "axi-a12",
+        "axi-h5"
+      ],
       "parts": [
-        { "id": "blueprint", "name": "蓝图", "nameEn": "Blueprint", "required": 1, "rarity": "uncommon", "relics": ["meso-e5", "axi-a12"] },
-        { "id": "chassis", "name": "机体", "nameEn": "Chassis", "required": 1, "rarity": "rare", "relics": ["neo-b6"] },
-        { "id": "neuroptics", "name": "神经光元", "nameEn": "Neuroptics", "required": 1, "rarity": "common", "relics": ["lith-m7", "axi-h5"] },
-        { "id": "systems", "name": "系统", "nameEn": "Systems", "required": 1, "rarity": "uncommon", "relics": ["lith-k5"] }
+        {
+          "id": "blueprint",
+          "name": "蓝图",
+          "nameEn": "Blueprint",
+          "required": 1,
+          "rarity": "uncommon",
+          "relics": [
+            "meso-e5",
+            "axi-a12"
+          ]
+        },
+        {
+          "id": "chassis",
+          "name": "机体",
+          "nameEn": "Chassis",
+          "required": 1,
+          "rarity": "rare",
+          "relics": [
+            "neo-b6"
+          ]
+        },
+        {
+          "id": "neuroptics",
+          "name": "神经光元",
+          "nameEn": "Neuroptics",
+          "required": 1,
+          "rarity": "common",
+          "relics": [
+            "lith-m7",
+            "axi-h5"
+          ]
+        },
+        {
+          "id": "systems",
+          "name": "系统",
+          "nameEn": "Systems",
+          "required": 1,
+          "rarity": "uncommon",
+          "relics": [
+            "lith-k5"
+          ]
+        }
       ]
     },
     {
@@ -141,12 +434,57 @@
       "type": "warframe",
       "description": "以光影戏法迷惑并摧毁敌人。",
       "rotation": "banshee-mirage-2026-09",
-      "relics": ["lith-k5", "lith-m7", "meso-e5", "neo-b6", "axi-a12", "axi-h5"],
+      "relics": [
+        "lith-k5",
+        "lith-m7",
+        "meso-e5",
+        "neo-b6",
+        "axi-a12",
+        "axi-h5"
+      ],
       "parts": [
-        { "id": "blueprint", "name": "蓝图", "nameEn": "Blueprint", "required": 1, "rarity": "rare", "relics": ["lith-m7"] },
-        { "id": "chassis", "name": "机体", "nameEn": "Chassis", "required": 1, "rarity": "common", "relics": ["lith-k5", "axi-a12"] },
-        { "id": "neuroptics", "name": "神经光元", "nameEn": "Neuroptics", "required": 1, "rarity": "common", "relics": ["meso-e5", "neo-b6"] },
-        { "id": "systems", "name": "系统", "nameEn": "Systems", "required": 1, "rarity": "uncommon", "relics": ["axi-h5"] }
+        {
+          "id": "blueprint",
+          "name": "蓝图",
+          "nameEn": "Blueprint",
+          "required": 1,
+          "rarity": "rare",
+          "relics": [
+            "lith-m7"
+          ]
+        },
+        {
+          "id": "chassis",
+          "name": "机体",
+          "nameEn": "Chassis",
+          "required": 1,
+          "rarity": "common",
+          "relics": [
+            "lith-k5",
+            "axi-a12"
+          ]
+        },
+        {
+          "id": "neuroptics",
+          "name": "神经光元",
+          "nameEn": "Neuroptics",
+          "required": 1,
+          "rarity": "common",
+          "relics": [
+            "meso-e5",
+            "neo-b6"
+          ]
+        },
+        {
+          "id": "systems",
+          "name": "系统",
+          "nameEn": "Systems",
+          "required": 1,
+          "rarity": "uncommon",
+          "relics": [
+            "axi-h5"
+          ]
+        }
       ]
     },
     {
@@ -156,12 +494,54 @@
       "type": "companion",
       "description": "Banshee Prime 的配套 Prime 守护。",
       "rotation": "banshee-mirage-2026-09",
-      "relics": ["lith-k5", "meso-e5", "axi-a12", "axi-h5"],
+      "relics": [
+        "lith-k5",
+        "meso-e5",
+        "axi-a12",
+        "axi-h5"
+      ],
       "parts": [
-        { "id": "blueprint", "name": "蓝图", "nameEn": "Blueprint", "required": 1, "rarity": "uncommon", "relics": ["meso-e5"] },
-        { "id": "cerebrum", "name": "头部", "nameEn": "Cerebrum", "required": 1, "rarity": "rare", "relics": ["axi-h5"] },
-        { "id": "carapace", "name": "外壳", "nameEn": "Carapace", "required": 1, "rarity": "common", "relics": ["lith-k5", "meso-e5"] },
-        { "id": "systems", "name": "系统", "nameEn": "Systems", "required": 1, "rarity": "uncommon", "relics": ["axi-a12"] }
+        {
+          "id": "blueprint",
+          "name": "蓝图",
+          "nameEn": "Blueprint",
+          "required": 1,
+          "rarity": "uncommon",
+          "relics": [
+            "meso-e5"
+          ]
+        },
+        {
+          "id": "cerebrum",
+          "name": "头部",
+          "nameEn": "Cerebrum",
+          "required": 1,
+          "rarity": "rare",
+          "relics": [
+            "axi-h5"
+          ]
+        },
+        {
+          "id": "carapace",
+          "name": "外壳",
+          "nameEn": "Carapace",
+          "required": 1,
+          "rarity": "common",
+          "relics": [
+            "lith-k5",
+            "meso-e5"
+          ]
+        },
+        {
+          "id": "systems",
+          "name": "系统",
+          "nameEn": "Systems",
+          "required": 1,
+          "rarity": "uncommon",
+          "relics": [
+            "axi-a12"
+          ]
+        }
       ]
     },
     {
@@ -171,12 +551,55 @@
       "type": "secondary",
       "description": "Mirage Prime 的配套次要武器。",
       "rotation": "banshee-mirage-2026-09",
-      "relics": ["lith-k5", "lith-m7", "neo-b6", "axi-a12", "axi-h5"],
+      "relics": [
+        "lith-k5",
+        "lith-m7",
+        "neo-b6",
+        "axi-a12",
+        "axi-h5"
+      ],
       "parts": [
-        { "id": "blueprint", "name": "蓝图", "nameEn": "Blueprint", "required": 1, "rarity": "common", "relics": ["lith-m7", "axi-h5"] },
-        { "id": "barrel", "name": "枪管", "nameEn": "Barrel", "required": 2, "rarity": "uncommon", "relics": ["lith-k5"] },
-        { "id": "receiver", "name": "枪机", "nameEn": "Receiver", "required": 2, "rarity": "rare", "relics": ["axi-a12"] },
-        { "id": "link", "name": "连接器", "nameEn": "Link", "required": 1, "rarity": "uncommon", "relics": ["neo-b6"] }
+        {
+          "id": "blueprint",
+          "name": "蓝图",
+          "nameEn": "Blueprint",
+          "required": 1,
+          "rarity": "common",
+          "relics": [
+            "lith-m7",
+            "axi-h5"
+          ]
+        },
+        {
+          "id": "barrel",
+          "name": "枪管",
+          "nameEn": "Barrel",
+          "required": 2,
+          "rarity": "uncommon",
+          "relics": [
+            "lith-k5"
+          ]
+        },
+        {
+          "id": "receiver",
+          "name": "枪机",
+          "nameEn": "Receiver",
+          "required": 2,
+          "rarity": "rare",
+          "relics": [
+            "axi-a12"
+          ]
+        },
+        {
+          "id": "link",
+          "name": "连接器",
+          "nameEn": "Link",
+          "required": 1,
+          "rarity": "uncommon",
+          "relics": [
+            "neo-b6"
+          ]
+        }
       ]
     },
     {
@@ -186,11 +609,44 @@
       "type": "melee",
       "description": "Mirage Prime 的配套近战武器。",
       "rotation": "banshee-mirage-2026-09",
-      "relics": ["lith-k5", "lith-m7", "neo-b6", "axi-a12"],
+      "relics": [
+        "lith-k5",
+        "lith-m7",
+        "neo-b6",
+        "axi-a12"
+      ],
       "parts": [
-        { "id": "blueprint", "name": "蓝图", "nameEn": "Blueprint", "required": 1, "rarity": "uncommon", "relics": ["neo-b6"] },
-        { "id": "boot", "name": "靴子", "nameEn": "Boot", "required": 2, "rarity": "common", "relics": ["lith-m7", "axi-a12"] },
-        { "id": "gauntlet", "name": "拳套", "nameEn": "Gauntlet", "required": 2, "rarity": "rare", "relics": ["lith-k5"] }
+        {
+          "id": "blueprint",
+          "name": "蓝图",
+          "nameEn": "Blueprint",
+          "required": 1,
+          "rarity": "uncommon",
+          "relics": [
+            "neo-b6"
+          ]
+        },
+        {
+          "id": "boot",
+          "name": "靴子",
+          "nameEn": "Boot",
+          "required": 2,
+          "rarity": "common",
+          "relics": [
+            "lith-m7",
+            "axi-a12"
+          ]
+        },
+        {
+          "id": "gauntlet",
+          "name": "拳套",
+          "nameEn": "Gauntlet",
+          "required": 2,
+          "rarity": "rare",
+          "relics": [
+            "lith-k5"
+          ]
+        }
       ]
     },
     {
@@ -200,11 +656,44 @@
       "type": "secondary",
       "description": "Banshee Prime 的标志性次要武器。",
       "rotation": "banshee-mirage-2026-09",
-      "relics": ["lith-m7", "meso-e5", "neo-b6", "axi-h5"],
+      "relics": [
+        "lith-m7",
+        "meso-e5",
+        "neo-b6",
+        "axi-h5"
+      ],
       "parts": [
-        { "id": "blueprint", "name": "蓝图", "nameEn": "Blueprint", "required": 1, "rarity": "common", "relics": ["neo-b6", "axi-h5"] },
-        { "id": "barrel", "name": "枪管", "nameEn": "Barrel", "required": 1, "rarity": "uncommon", "relics": ["lith-m7"] },
-        { "id": "receiver", "name": "枪机", "nameEn": "Receiver", "required": 1, "rarity": "rare", "relics": ["meso-e5"] }
+        {
+          "id": "blueprint",
+          "name": "蓝图",
+          "nameEn": "Blueprint",
+          "required": 1,
+          "rarity": "common",
+          "relics": [
+            "neo-b6",
+            "axi-h5"
+          ]
+        },
+        {
+          "id": "barrel",
+          "name": "枪管",
+          "nameEn": "Barrel",
+          "required": 1,
+          "rarity": "uncommon",
+          "relics": [
+            "lith-m7"
+          ]
+        },
+        {
+          "id": "receiver",
+          "name": "枪机",
+          "nameEn": "Receiver",
+          "required": 1,
+          "rarity": "rare",
+          "relics": [
+            "meso-e5"
+          ]
+        }
       ]
     }
   ]

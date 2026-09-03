@@ -149,8 +149,8 @@ test("下一期详细数据保持 provisional，并记录已确认来源及待�
   assert.deepEqual(
     [nextRotation.source.rotationUrl, nextRotation.source.announcementUrl, nextRotation.source.dropTableUrl],
     [
-      null,
-      "https://x.com/PlayWarframe/status/2090499222894231614",
+      "https://www.warframe.com/zh-hans/prime-resurgence",
+      "https://bsky.app/profile/warframe.com/post/3mtjt7pmvpr2o",
       "https://www.warframe.com/droptables"
     ]
   );

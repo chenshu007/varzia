@@ -789,7 +789,7 @@ test("未知 Prime ingredient 被拒绝，普通资源仍可忽略", async () =>
 
 test("未知中文部件名不会 fallback 为英文", async () => {
   const inputs = await fixtureInputs();
-  const directory = await temporaryRepository();
+  const directory = await temporaryRepositoryWithoutPreparedCandidate();
   const recipes = parseRecipes(inputs.recipesText);
   recipes.push({
     uniqueName: "/Lotus/Types/Recipes/Weapons/EuphonaPrimeBlueprint",
@@ -902,7 +902,7 @@ test("多文件写入失败时 checked rollback 恢复已替换文件", async ()
 });
 
 test("dry-run 生成候选摘要但不修改任何数据文件", async () => {
-  const directory = await temporaryRepository();
+  const directory = await temporaryRepositoryWithoutPreparedCandidate();
   const before = await dataSnapshot(directory);
   const result = await runPrimeResurgenceSync({
     rootDir: directory,
@@ -955,7 +955,7 @@ test("生成 candidate 的 reward mapping 与官方 source fixture 逐 relic 完
 });
 
 test("连续写入两次时第二次无变化，provisional 永不进入 published schedule", async () => {
-  const directory = await temporaryRepository();
+  const directory = await temporaryRepositoryWithoutPreparedCandidate();
   const inputs = await fixtureInputs();
   for (const name of ["rotation.json", "primes.json", "relics.json"]) await chmod(path.join(directory, "data", name), 0o600);
   const first = await runPrimeResurgenceSync({
@@ -975,7 +975,7 @@ test("连续写入两次时第二次无变化，provisional 永不进入 publish
   const schedule = JSON.parse(afterFirst[0]);
   const candidate = schedule.rotations.find((rotation) => rotation.id === "banshee-mirage-2026-09");
   assert.equal(candidate.publicationStatus, "provisional");
-  assert.equal(candidate.defaults.ayaBudget, 31);
+  assert.equal(candidate.defaults?.ayaBudget, undefined);
   assert.equal(schedule.lastVerified, "2026-08-14");
   const production = publishedRotations(schedule.rotations);
   assert.ok(!production.some((rotation) => rotation.id === candidate.id));
