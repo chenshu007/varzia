@@ -151,7 +151,7 @@ assets/
 - Official Drop Tables：Intact 遗物奖励、文本 rarity label 与数值概率。流水线以数值概率映射到标准模拟稀有度；label 不一致会进入 Actions/PR audit warning，不能被静默隐藏。
 - Digital Extremes Public Export：由当期 `ExportRecipes_en.json` recipe ingredient 计算部件数量及总数。
 
-Public Export 确认缺失某件装备 recipe 时，只有 `data/prime-resurgence-recipe-exceptions.json` 中逐 item 审核的 `curated-manual` exception 可以补足数量。exception 必须使用 `sourceUrl: null`，并记录检查过的官方 manifest；它不会被描述成 Public Export 验证。当前 Euphona Prime 是唯一 exception。任何未列明的缺失 recipe 仍然 fail closed。
+Public Export 确认缺失某件装备 recipe 时，只有 `data/prime-resurgence-recipe-exceptions.json` 中逐 item 审核的 `curated-manual` exception 可以补足数量。exception 必须使用 `sourceUrl: null`，并记录检查过的官方 manifest；它不会被描述成 Public Export 验证。当前 exception 清单为空；Euphona Prime 使用官方 `Prime1HShotgunBlueprint` 内部 recipe 别名完成匹配。任何未列明的缺失 recipe 仍然 fail closed。
 
 本地只读检查：
 

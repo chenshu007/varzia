@@ -155,9 +155,7 @@ test("下一期详细数据保持 provisional，并记录已确认来源及待�
     ]
   );
   assert.match(nextRotation.source.recipeExportUrl, /^https:\/\/content\.warframe\.com\/PublicExport\/Manifest\/ExportRecipes_en\.json/);
-  assert.deepEqual(nextRotation.source.recipeExceptions.map(({ itemId, status, sourceUrl, publicExportStatus }) => ({ itemId, status, sourceUrl, publicExportStatus })), [
-    { itemId: "euphona-prime", status: "curated-manual", sourceUrl: null, publicExportStatus: "missing" }
-  ]);
+  assert.deepEqual(nextRotation.source.recipeExceptions ?? [], []);
   assert.ok(nextRotation.source.rarityWarnings.length > 0);
 });
 
@@ -188,7 +186,14 @@ test("provisional 轮换缺少角色化来源占位时校验失败", () => {
 
 test("curated recipe exception 不能伪装成 official source", () => {
   const invalidException = structuredClone(rotation);
-  invalidException.rotations.find(({ id }) => id === nextRotation.id).source.recipeExceptions[0].sourceUrl = "https://content.warframe.com/fake";
+  const invalidSource = invalidException.rotations.find(({ id }) => id === nextRotation.id).source;
+  invalidSource.recipeExceptions = [{
+    itemId: "euphona-prime",
+    status: "curated-manual",
+    sourceUrl: "https://content.warframe.com/fake",
+    publicExportStatus: "missing",
+    publicExportCheckedUrl: primes.provisionalSources[nextRotation.id].recipeExportUrl
+  }];
   assert.throws(() => validateRotationData(invalidException, primes, relicData), /sourceUrl must be null/);
 
   const unsafeQuantity = structuredClone(primes);

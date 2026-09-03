@@ -44,16 +44,6 @@
         "dropTableUrl": "https://www.warframe.com/droptables",
         "recipeExportUrl": "https://content.warframe.com/PublicExport/Manifest/ExportRecipes_en.json!00_ftaIks7bCpxZmaQMDvAN7Q",
         "preparedAt": "2026-08-21",
-        "recipeExceptions": [
-          {
-            "itemId": "euphona-prime",
-            "status": "curated-manual",
-            "sourceUrl": null,
-            "publicExportStatus": "missing",
-            "publicExportCheckedUrl": "https://content.warframe.com/PublicExport/Manifest/ExportRecipes_en.json!00_ftaIks7bCpxZmaQMDvAN7Q",
-            "reason": "The official Public Export recipe manifest contains no Euphona entry. Blueprint, barrel, and receiver quantities are manually curated as one each and require human review; they are not Public Export verification."
-          }
-        ],
         "rarityWarnings": [
           "Lith K5 / Mirage Prime Chassis: official label uncommon, intact probability 25.33% maps to common",
           "Lith K5 / Helios Prime Carapace: official label uncommon, intact probability 25.33% maps to common",

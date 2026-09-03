@@ -238,8 +238,11 @@ test("Public Export recipe 同时计算 ×1 与 ×2 Prime 部件", async () => {
   assert.equal(requirements.get("kogake-prime").quantities.get("gauntlet"), 2);
   assert.equal(requirements.get("helios-prime").recipeUniqueName, "/Lotus/Types/Recipes/SentinelRecipes/PrimeHeliosSentinelBlueprint");
   assert.equal(requirements.get("helios-prime").provenance.status, "public-export");
-  assert.equal(requirements.get("euphona-prime").provenance.status, "curated-manual");
-  assert.equal(requirements.get("euphona-prime").provenance.sourceUrl, null);
+  assert.equal(requirements.get("euphona-prime").quantities.get("barrel"), 1);
+  assert.equal(requirements.get("euphona-prime").quantities.get("receiver"), 1);
+  assert.equal(requirements.get("euphona-prime").recipeUniqueName, "/Lotus/Types/Recipes/Weapons/Prime1HShotgunBlueprint");
+  assert.equal(requirements.get("euphona-prime").provenance.status, "public-export");
+  assert.equal(requirements.get("euphona-prime").provenance.sourceUrl, inputs.recipeUrl);
 });
 
 test("malformed upstream rarity 与 recipe JSON 均 fail closed", async () => {
@@ -791,15 +794,8 @@ test("未知中文部件名不会 fallback 为英文", async () => {
   const inputs = await fixtureInputs();
   const directory = await temporaryRepositoryWithoutPreparedCandidate();
   const recipes = parseRecipes(inputs.recipesText);
-  recipes.push({
-    uniqueName: "/Lotus/Types/Recipes/Weapons/EuphonaPrimeBlueprint",
-    consumeOnUse: true,
-    num: 1,
-    ingredients: [
-      { ItemType: "/Lotus/Types/Recipes/Weapons/WeaponParts/EuphonaPrimeGrip", ItemCount: 1 },
-      { ItemType: "/Lotus/Types/Recipes/Weapons/WeaponParts/EuphonaPrimeReceiver", ItemCount: 1 }
-    ]
-  });
+  const euphona = recipes.find((recipe) => recipe.uniqueName.endsWith("Prime1HShotgunBlueprint"));
+  euphona.ingredients[0].ItemType = "/Lotus/Types/Recipes/Weapons/WeaponParts/Prime1HShotgunGrip";
   await assert.rejects(
     runPrimeResurgenceSync({
       rootDir: directory,
@@ -911,8 +907,8 @@ test("dry-run 生成候选摘要但不修改任何数据文件", async () => {
   });
   assert.equal(result.candidateId, "banshee-mirage-2026-09");
   assert.deepEqual(result.changedFiles, ["data/rotation.json", "data/primes.json", "data/relics.json", "data/prime-resurgence-candidates.json"]);
-  assert.match(result.summary, /Public Export recipe coverage: 5\/6 items/);
-  assert.match(result.summary, /euphona-prime \(sourceUrl: null; Public Export status: missing\)/);
+  assert.match(result.summary, /Public Export recipe coverage: 6\/6 items/);
+  assert.match(result.summary, /Curated\/manual recipe exceptions: none/);
   assert.match(result.summary, /Rarity audit warnings:/);
   assert.deepEqual(await dataSnapshot(directory), before);
 });

@@ -60,6 +60,7 @@ const PART_ZH = Object.freeze({
   carapace: "外壳"
 });
 const INTERNAL_ITEM_ALIASES = Object.freeze({
+  "euphona-prime": ["prime1hshotgun"],
   "helios-prime": ["primeheliossentinel", "primehelios"]
 });
 const MAX_REQUIRED_QUANTITY = 65_535;

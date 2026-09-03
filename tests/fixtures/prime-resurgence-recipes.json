@@ -21,6 +21,16 @@
       ]
     },
     {
+      "uniqueName": "/Lotus/Types/Recipes/Weapons/Prime1HShotgunBlueprint",
+      "consumeOnUse": true,
+      "num": 1,
+      "ingredients": [
+        { "ItemType": "/Lotus/Types/Recipes/Weapons/WeaponParts/Prime1HShotgunBarrel", "ItemCount": 1 },
+        { "ItemType": "/Lotus/Types/Recipes/Weapons/WeaponParts/Prime1HShotgunReceiver", "ItemCount": 1 },
+        { "ItemType": "/Lotus/Types/Items/MiscItems/OrokinCell", "ItemCount": 5 }
+      ]
+    },
+    {
       "uniqueName": "/Lotus/Types/Recipes/SentinelRecipes/PrimeHeliosSentinelBlueprint",
       "consumeOnUse": true,
       "num": 1,
