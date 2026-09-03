@@ -1,38 +1,12 @@
 {
   "schemaVersion": 3,
-  "updatedAt": "2026-08-14",
+  "updatedAt": "2026-09-04",
   "source": {
     "name": "Prime 重生轮换记录与 Warframe 虚空遗物奖励数据",
     "officialUrl": "https://www.warframe.com/droptables",
     "rotationUrl": "https://www.warframe.com/zh-hans/prime-resurgence"
   },
-  "provisionalSources": {
-    "banshee-mirage-2026-09": {
-      "status": "provisional",
-      "rotationUrl": "https://www.warframe.com/zh-hans/prime-resurgence",
-      "announcementUrl": "https://bsky.app/profile/warframe.com/post/3mtjt7pmvpr2o",
-      "dropTableUrl": "https://www.warframe.com/droptables",
-      "preparedAt": "2026-08-21",
-      "rarityWarnings": [
-        "Lith K5 / Mirage Prime Chassis: official label uncommon, intact probability 25.33% maps to common",
-        "Lith K5 / Helios Prime Carapace: official label uncommon, intact probability 25.33% maps to common",
-        "Lith M7 / Kogake Prime Boot: official label uncommon, intact probability 25.33% maps to common",
-        "Lith M7 / Akbolto Prime Blueprint: official label uncommon, intact probability 25.33% maps to common",
-        "Lith M7 / Banshee Prime Neuroptics: official label uncommon, intact probability 25.33% maps to common",
-        "Meso E5 / Mirage Prime Neuroptics: official label uncommon, intact probability 25.33% maps to common",
-        "Meso E5 / Helios Prime Carapace: official label uncommon, intact probability 25.33% maps to common",
-        "Neo B6 / Euphona Prime Blueprint: official label uncommon, intact probability 25.33% maps to common",
-        "Neo B6 / Mirage Prime Neuroptics: official label uncommon, intact probability 25.33% maps to common",
-        "Axi A12 / Mirage Prime Chassis: official label uncommon, intact probability 25.33% maps to common",
-        "Axi A12 / Kogake Prime Boot: official label uncommon, intact probability 25.33% maps to common",
-        "Axi H5 / Banshee Prime Neuroptics: official label uncommon, intact probability 25.33% maps to common",
-        "Axi H5 / Euphona Prime Blueprint: official label uncommon, intact probability 25.33% maps to common",
-        "Axi H5 / Akbolto Prime Blueprint: official label uncommon, intact probability 25.33% maps to common"
-      ],
-      "note": "遗物奖励和 route-specific rarity 来自官方 Drop Tables；Forma 等非目标奖励继续按现有规划器规则忽略。"
-    }
-  },
-  "notes": "已发布轮换只包含可用 1 阿耶精华兑换的六枚遗物。rewards 收录对应轮换的目标奖励；Forma 与其他非目标奖励由剩余概率隐式表示。provisionalSources 对应的数据只供显式预览，不能进入正常轮换。",
+  "notes": "已发布轮换只包含可用 1 阿耶精华兑换的六枚遗物。rewards 收录对应轮换的目标奖励；Forma 与其他非目标奖励由剩余概率隐式表示。",
   "relics": [
     {
       "id": "lith-a9",

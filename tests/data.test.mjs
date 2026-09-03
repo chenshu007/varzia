@@ -2,13 +2,48 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { validateRotationData } from "../js/data-validation.js";
+import { publishedRotations, resolveRotationState } from "../js/rotation-schedule.js";
 
 const rotation = JSON.parse(await readFile(new URL("../data/rotation.json", import.meta.url), "utf8"));
 const primes = JSON.parse(await readFile(new URL("../data/primes.json", import.meta.url), "utf8"));
 const relicData = JSON.parse(await readFile(new URL("../data/relics.json", import.meta.url), "utf8"));
 const currentRotation = rotation.rotations.find(({ id }) => id === "revenant-baruuk-2026-08");
-const nextRotation = rotation.rotations.find(({ id }) => id === "banshee-mirage-2026-09");
+const latestRotation = rotation.rotations.find(({ id }) => id === "banshee-mirage-2026-09");
 const DAY_MS = 24 * 60 * 60 * 1_000;
+const PROVISIONAL_SOURCE = {
+  status: "provisional",
+  rotationUrl: "https://www.warframe.com/zh-hans/prime-resurgence",
+  announcementUrl: "https://bsky.app/profile/warframe.com/post/3mtjt7pmvpr2o",
+  dropTableUrl: "https://www.warframe.com/droptables",
+  recipeExportUrl: "https://content.warframe.com/PublicExport/Manifest/ExportRecipes_en.json!00_ftaIks7bCpxZmaQMDvAN7Q"
+};
+
+function provisionalData() {
+  const provisionalRotation = structuredClone(latestRotation);
+  provisionalRotation.publicationStatus = "provisional";
+  provisionalRotation.source = structuredClone(PROVISIONAL_SOURCE);
+
+  const provisionalPrimes = structuredClone(primes);
+  provisionalPrimes.provisionalSources = {
+    [latestRotation.id]: structuredClone(PROVISIONAL_SOURCE)
+  };
+
+  const provisionalRelics = structuredClone(relicData);
+  provisionalRelics.provisionalSources = {
+    [latestRotation.id]: {
+      status: "provisional",
+      rotationUrl: PROVISIONAL_SOURCE.rotationUrl,
+      announcementUrl: PROVISIONAL_SOURCE.announcementUrl,
+      dropTableUrl: PROVISIONAL_SOURCE.dropTableUrl
+    }
+  };
+
+  const provisionalRotationData = structuredClone(rotation);
+  provisionalRotationData.rotations = provisionalRotationData.rotations.map((entry) => (
+    entry.id === latestRotation.id ? provisionalRotation : entry
+  ));
+  return { rotation: provisionalRotationData, primes: provisionalPrimes, relicData: provisionalRelics };
+}
 
 function utcSecondsAfter(startsAt, days) {
   return new Date(Date.parse(startsAt) + days * DAY_MS).toISOString().replace(".000Z", "Z");
@@ -85,21 +120,22 @@ test("双向映射与稀有度不一致时数据校验失败", () => {
   assert.throws(() => validateRotationData(rotation, primes, brokenRarity), /Part rarity has no matching route/);
 });
 
-test("本期轮换包含两件战甲和四件武器", () => {
+test("本期轮换包含两件战甲、三件武器和一件守护", () => {
   const itemMap = new Map(primes.primeItems.map((item) => [item.id, item]));
-  const currentItems = currentRotation.items.map((itemId) => itemMap.get(itemId));
+  const currentItems = latestRotation.items.map((itemId) => itemMap.get(itemId));
   assert.equal(currentItems.length, 6);
   assert.ok(currentItems.every(Boolean));
   assert.equal(currentItems.filter((item) => item.type === "warframe").length, 2);
-  assert.equal(currentItems.filter((item) => ["primary", "secondary", "melee"].includes(item.type)).length, 4);
-  assert.equal(currentItems.filter((item) => !["warframe", "primary", "secondary", "melee"].includes(item.type)).length, 0);
+  assert.equal(currentItems.filter((item) => ["primary", "secondary", "melee"].includes(item.type)).length, 3);
+  assert.equal(currentItems.filter((item) => item.type === "companion").length, 1);
+  assert.equal(currentItems.filter((item) => !["warframe", "primary", "secondary", "melee", "companion"].includes(item.type)).length, 0);
 });
 
 test("每个本期部件都有双向遗物映射且只使用当前六枚遗物", () => {
   const itemMap = new Map(primes.primeItems.map((item) => [item.id, item]));
   const allRelicMap = new Map(relicData.relics.map((relic) => [relic.id, relic]));
-  const currentItems = currentRotation.items.map((itemId) => itemMap.get(itemId));
-  const currentRelicMap = new Map(currentRotation.relics.map((relicId) => [relicId, allRelicMap.get(relicId)]));
+  const currentItems = latestRotation.items.map((itemId) => itemMap.get(itemId));
+  const currentRelicMap = new Map(latestRotation.relics.map((relicId) => [relicId, allRelicMap.get(relicId)]));
   assert.equal(currentRelicMap.size, 6);
   assert.ok([...currentRelicMap.values()].every(Boolean));
   for (const item of currentItems) {
@@ -141,22 +177,32 @@ test("每一期都引用非空、存在且相互一致的装备与遗物", () =>
   }
 });
 
-test("下一期详细数据保持 provisional，并记录已确认来源及待更新轮换页", () => {
-  assert.equal(rotation.lastVerified, "2026-08-14");
-  assert.equal(primes.updatedAt, "2026-08-14");
-  assert.equal(relicData.updatedAt, "2026-08-14");
-  assert.equal(nextRotation.publicationStatus, "provisional");
+test("最新轮换已经发布并记录官方来源", () => {
+  assert.equal(rotation.lastVerified, "2026-09-04");
+  assert.equal(primes.updatedAt, "2026-09-04");
+  assert.equal(relicData.updatedAt, "2026-09-04");
+  assert.equal(latestRotation.publicationStatus, "published");
+  assert.equal(latestRotation.source.status, "official");
   assert.deepEqual(
-    [nextRotation.source.rotationUrl, nextRotation.source.announcementUrl, nextRotation.source.dropTableUrl],
+    [latestRotation.source.rotationUrl, latestRotation.source.announcementUrl, latestRotation.source.dropTableUrl],
     [
       "https://www.warframe.com/zh-hans/prime-resurgence",
       "https://bsky.app/profile/warframe.com/post/3mtjt7pmvpr2o",
       "https://www.warframe.com/droptables"
     ]
   );
-  assert.match(nextRotation.source.recipeExportUrl, /^https:\/\/content\.warframe\.com\/PublicExport\/Manifest\/ExportRecipes_en\.json/);
-  assert.deepEqual(nextRotation.source.recipeExceptions ?? [], []);
-  assert.ok(nextRotation.source.rarityWarnings.length > 0);
+  assert.equal(latestRotation.source.verifiedAt, "2026-09-04");
+  assert.match(latestRotation.source.recipeExportUrl, /^https:\/\/content\.warframe\.com\/PublicExport\/Manifest\/ExportRecipes_en\.json/);
+  assert.deepEqual(latestRotation.source.recipeExceptions ?? [], []);
+  assert.ok(latestRotation.source.rarityWarnings.length > 0);
+});
+
+test("最新轮换生效后进入正常排期", () => {
+  const resolved = resolveRotationState(
+    publishedRotations(rotation.rotations),
+    Date.parse("2026-09-04T00:00:00Z")
+  );
+  assert.equal(resolved.activeRotation?.id, "banshee-mirage-2026-09");
 });
 
 test("Meso E5 的 Banshee route 与官方 fixture 一致为 blueprint", () => {
@@ -169,32 +215,35 @@ test("Meso E5 的 Banshee route 与官方 fixture 一致为 blueprint", () => {
 });
 
 test("provisional 轮换缺少角色化来源占位时校验失败", () => {
-  const missingSourceField = structuredClone(rotation);
-  delete missingSourceField.rotations.find(({ id }) => id === nextRotation.id).source.dropTableUrl;
+  const missingSource = provisionalData();
+  delete missingSource.rotation.rotations.find(({ id }) => id === latestRotation.id).source.dropTableUrl;
   assert.throws(
-    () => validateRotationData(missingSourceField, primes, relicData),
+    () => validateRotationData(missingSource.rotation, missingSource.primes, missingSource.relicData),
     /Missing provisional source field/
   );
 
-  const missingRecipeSource = structuredClone(primes);
-  delete missingRecipeSource.provisionalSources[nextRotation.id].recipeExportUrl;
+  const missingRecipeSource = provisionalData();
+  delete missingRecipeSource.primes.provisionalSources[latestRotation.id].recipeExportUrl;
   assert.throws(
-    () => validateRotationData(rotation, missingRecipeSource, relicData),
+    () => validateRotationData(missingRecipeSource.rotation, missingRecipeSource.primes, missingRecipeSource.relicData),
     /Missing provisional source field: primes .* recipeExportUrl/
   );
 });
 
 test("curated recipe exception 不能伪装成 official source", () => {
-  const invalidException = structuredClone(rotation);
-  const invalidSource = invalidException.rotations.find(({ id }) => id === nextRotation.id).source;
+  const invalidException = provisionalData();
+  const invalidSource = invalidException.rotation.rotations.find(({ id }) => id === latestRotation.id).source;
   invalidSource.recipeExceptions = [{
     itemId: "euphona-prime",
     status: "curated-manual",
     sourceUrl: "https://content.warframe.com/fake",
     publicExportStatus: "missing",
-    publicExportCheckedUrl: primes.provisionalSources[nextRotation.id].recipeExportUrl
+    publicExportCheckedUrl: PROVISIONAL_SOURCE.recipeExportUrl
   }];
-  assert.throws(() => validateRotationData(invalidException, primes, relicData), /sourceUrl must be null/);
+  assert.throws(
+    () => validateRotationData(invalidException.rotation, invalidException.primes, invalidException.relicData),
+    /sourceUrl must be null/
+  );
 
   const unsafeQuantity = structuredClone(primes);
   unsafeQuantity.primeItems.find(({ id }) => id === "akbolto-prime").parts.find(({ id }) => id === "barrel").required = 65_536;

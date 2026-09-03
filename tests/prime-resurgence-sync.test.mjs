@@ -58,35 +58,35 @@ async function temporaryRepository() {
   for (const name of ["rotation.json", "primes.json", "relics.json", "prime-resurgence-candidates.json", "prime-resurgence-recipe-exceptions.json"]) {
     await writeFile(path.join(directory, "data", name), await readFile(path.join(repositoryRoot, "data", name), "utf8"), "utf8");
   }
-  return directory;
-}
 
-async function temporaryRepositoryWithoutPreparedCandidate() {
-  const directory = await temporaryRepository();
+  // Production data may already contain the currently published rotation.
+  // Candidate-pipeline tests need the prior published rotation as their
+  // baseline so the fixture lineup can exercise the promotion path.
+  const candidateId = "banshee-mirage-2026-09";
   const rotationPath = path.join(directory, "data/rotation.json");
   const primesPath = path.join(directory, "data/primes.json");
   const relicsPath = path.join(directory, "data/relics.json");
-  const candidatesPath = path.join(directory, "data/prime-resurgence-candidates.json");
   const rotation = JSON.parse(await readFile(rotationPath, "utf8"));
-  const candidate = rotation.rotations.find((entry) => entry.publicationStatus === "provisional");
-  assert.ok(candidate, "fixture repository must contain an existing full provisional candidate");
-  rotation.rotations = rotation.rotations.filter((entry) => entry.id !== candidate.id);
+  rotation.rotations = rotation.rotations.filter((entry) => entry.id !== candidateId);
 
   const primes = JSON.parse(await readFile(primesPath, "utf8"));
-  primes.primeItems = primes.primeItems.filter((item) => item.rotation !== candidate.id);
-  delete primes.provisionalSources?.[candidate.id];
+  primes.primeItems = primes.primeItems.filter((item) => item.rotation !== candidateId);
+  delete primes.provisionalSources?.[candidateId];
 
   const relics = JSON.parse(await readFile(relicsPath, "utf8"));
-  relics.relics = relics.relics.filter((relic) => relic.rotation !== candidate.id);
-  delete relics.provisionalSources?.[candidate.id];
+  relics.relics = relics.relics.filter((relic) => relic.rotation !== candidateId);
+  delete relics.provisionalSources?.[candidateId];
 
   await Promise.all([
     writeFile(rotationPath, `${JSON.stringify(rotation, null, 2)}\n`, "utf8"),
     writeFile(primesPath, `${JSON.stringify(primes, null, 2)}\n`, "utf8"),
-    writeFile(relicsPath, `${JSON.stringify(relics, null, 2)}\n`, "utf8"),
-    writeFile(candidatesPath, '{\n  "schemaVersion": 1,\n  "candidates": []\n}\n', "utf8")
+    writeFile(relicsPath, `${JSON.stringify(relics, null, 2)}\n`, "utf8")
   ]);
   return directory;
+}
+
+async function temporaryRepositoryWithoutPreparedCandidate() {
+  return await temporaryRepository();
 }
 
 async function announcementOnlyInputs() {
@@ -832,7 +832,7 @@ test("rotation item/relic 必须由引用它的 rotation 自身拥有", async ()
   const primeData = JSON.parse(await readFile(path.join(repositoryRoot, "data/primes.json"), "utf8"));
   const relicData = JSON.parse(await readFile(path.join(repositoryRoot, "data/relics.json"), "utf8"));
   const published = rotationData.rotations.find((rotation) => rotation.publicationStatus === "published");
-  const provisional = rotationData.rotations.find((rotation) => rotation.publicationStatus === "provisional");
+  const provisional = rotationData.rotations.find((rotation) => rotation.id === "banshee-mirage-2026-09");
   published.items.push(...provisional.items);
   published.relics.push(...provisional.relics);
   assert.throws(() => validateRotationData(rotationData, primeData, relicData), /Rotation item ownership mismatch/);
@@ -972,15 +972,15 @@ test("连续写入两次时第二次无变化，provisional 永不进入 publish
   const candidate = schedule.rotations.find((rotation) => rotation.id === "banshee-mirage-2026-09");
   assert.equal(candidate.publicationStatus, "provisional");
   assert.equal(candidate.defaults?.ayaBudget, undefined);
-  assert.equal(schedule.lastVerified, "2026-08-14");
+  assert.equal(schedule.lastVerified, "2026-09-04");
   const production = publishedRotations(schedule.rotations);
   assert.ok(!production.some((rotation) => rotation.id === candidate.id));
   assert.equal(resolveRotationState(production, Date.parse(candidate.startsAt) + 1).activeRotation.id, "revenant-baruuk-2026-08");
 
   const primes = JSON.parse(afterFirst[1]);
   const relics = JSON.parse(afterFirst[2]);
-  assert.equal(primes.updatedAt, "2026-08-14");
-  assert.equal(relics.updatedAt, "2026-08-14");
+  assert.equal(primes.updatedAt, "2026-09-04");
+  assert.equal(relics.updatedAt, "2026-09-04");
   const requiredTotal = candidate.items
     .map((itemId) => primes.primeItems.find((item) => item.id === itemId))
     .flatMap((item) => item.parts)

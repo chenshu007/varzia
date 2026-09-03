@@ -1,11 +1,11 @@
 {
   "schemaVersion": 2,
-  "lastVerified": "2026-08-14",
+  "lastVerified": "2026-09-04",
   "source": {
-    "name": "Warframe 官方简体中文 Prime 重生页面",
+    "name": "Digital Extremes 官方 Prime 重生公告、轮换页面与掉落数据",
     "url": "https://www.warframe.com/zh-hans/prime-resurgence",
-    "announcementUrl": "https://bsky.app/profile/warframe.com/post/3mrdg5wjcyw26",
-    "note": "官方页面当前列出 Revenant Prime、Baruuk Prime 及四件配套 Prime 武器；官方公告生效时间为 2026 年 8 月 6 日美东时间 14:00。"
+    "announcementUrl": "https://bsky.app/profile/warframe.com/post/3mtjt7pmvpr2o",
+    "note": "Digital Extremes 官方公告确认 Banshee Prime 与 Mirage Prime 于 2026 年 9 月 3 日美东时间 14:00 进入最新轮换；遗物奖励、数值概率与制造数量已由官方掉落表和 Public Export 校验。"
   },
   "rotations": [
     {
@@ -36,14 +36,14 @@
     },
     {
       "id": "banshee-mirage-2026-09",
-      "publicationStatus": "provisional",
+      "publicationStatus": "published",
       "source": {
-        "status": "provisional",
+        "status": "official",
         "rotationUrl": "https://www.warframe.com/zh-hans/prime-resurgence",
         "announcementUrl": "https://bsky.app/profile/warframe.com/post/3mtjt7pmvpr2o",
         "dropTableUrl": "https://www.warframe.com/droptables",
         "recipeExportUrl": "https://content.warframe.com/PublicExport/Manifest/ExportRecipes_en.json!00_ftaIks7bCpxZmaQMDvAN7Q",
-        "preparedAt": "2026-08-21",
+        "verifiedAt": "2026-09-04",
         "rarityWarnings": [
           "Lith K5 / Mirage Prime Chassis: official label uncommon, intact probability 25.33% maps to common",
           "Lith K5 / Helios Prime Carapace: official label uncommon, intact probability 25.33% maps to common",
@@ -60,7 +60,7 @@
           "Axi H5 / Euphona Prime Blueprint: official label uncommon, intact probability 25.33% maps to common",
           "Axi H5 / Akbolto Prime Blueprint: official label uncommon, intact probability 25.33% maps to common"
         ],
-        "note": "官方 Prime 重生页面确认完整阵容；warframe.com 官方公告确认生效时间；官方掉落表的数值概率决定规划器 rarity。制造数量优先来自 Public Export；若官方 export 确认缺失，只允许使用显式 curated-manual exception。ayaBudget 仍只是 Varzia 产品预设。此候选不会自动发布。"
+        "note": "Digital Extremes 官方公告确认完整阵容与生效时间；官方掉落表的数值概率决定规划器 rarity；制造数量来自 Public Export。此轮换已完成人工 Review 并进入正常排期，ayaBudget 仍只是 Varzia 产品预设。"
       },
       "displayName": "Banshee Prime 与 Mirage Prime",
       "displayNameEn": "Banshee Prime & Mirage Prime",
