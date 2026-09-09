@@ -25,7 +25,10 @@ function formatLine(value, analysisCap, labels, locale) {
 function wrapText(value, maxCharacters = 26) {
   const text = String(value ?? "");
   if (text.length <= maxCharacters) return [text];
-  return [text.slice(0, maxCharacters), `${text.slice(maxCharacters, maxCharacters * 2)}${text.length > maxCharacters * 2 ? "…" : ""}`];
+  const space = text.lastIndexOf(" ", maxCharacters);
+  const split = space >= maxCharacters / 2 ? space : maxCharacters;
+  const tail = text.slice(split).trimStart();
+  return [text.slice(0, split), `${tail.slice(0, maxCharacters)}${tail.length > maxCharacters ? "…" : ""}`];
 }
 
 export function buildShareCardModel({
@@ -82,17 +85,17 @@ export function buildShareCardModel({
   };
 }
 
-export function renderShareCardSvg(model) {
+export function renderShareCardSvg(model, qrMarkup = "") {
   const { labels } = model;
   const lineLabels = ["P50", "P90", "P95", "P99"];
   const lineValues = [model.percentiles.p50, model.percentiles.p90, model.percentiles.p95, model.percentiles.p99];
   const rotationLines = wrapText(model.rotationName, model.locale === "zh" ? 20 : 31);
   const lineMarkup = lineLabels.map((label, index) => {
-    const y = 730 + index * 104;
+    const y = 792 + index * 74;
     return `<g><text x="130" y="${y}" class="eyebrow">${label}</text><text x="1070" y="${y + 7}" text-anchor="end" class="line-value">${escapeSvg(lineValues[index])}</text><line x1="130" y1="${y + 27}" x2="1070" y2="${y + 27}" class="rule" /></g>`;
   }).join("");
   const recapMarkup = model.recap
-    ? `<g><rect x="100" y="1192" width="1000" height="142" rx="20" class="recap-box" /><text x="136" y="1233" class="eyebrow">${escapeSvg(labels.recap)}</text><text x="136" y="1285" class="recap-value">${escapeSvg(labels.faceBlack)} ${model.recap.faceBlackIndex.toFixed(1)}</text><text x="1064" y="1285" text-anchor="end" class="recap-value">${escapeSvg(labels.beat)} ${model.recap.beatPercentage.toFixed(1)}%</text></g>`
+    ? `<g><rect x="100" y="1200" width="640" height="156" rx="20" class="recap-box" /><text x="136" y="1235" class="eyebrow">${escapeSvg(labels.recap)}</text><text x="136" y="1281" class="recap-value">${escapeSvg(labels.faceBlack)} ${model.recap.faceBlackIndex.toFixed(1)}</text><text x="136" y="1320" class="recap-value">${escapeSvg(labels.beat)} ${model.recap.beatPercentage.toFixed(1)}%</text></g>`
     : "";
   const rotationMarkup = rotationLines.map((line, index) => `<tspan x="130" dy="${index ? 44 : 0}">${escapeSvg(line)}</tspan>`).join("");
   const squadText = `${labels.squad} ${model.squad}`;
@@ -120,8 +123,10 @@ export function renderShareCardSvg(model) {
     <text x="510" y="700" class="big-number small accent">${escapeSvg(model.probabilityText)}</text>
     <text x="130" y="728" class="unit">Aya</text>
     ${lineMarkup}
-    <text x="130" y="1165" class="label">${escapeSvg(squadText)} · ${escapeSvg(labels.simulations)} ${escapeSvg(formatNumber(model.trials, model.locale))}</text>
+    <text x="130" y="1120" class="label">${escapeSvg(squadText)}</text>
+    <text x="130" y="1160" class="label">${escapeSvg(labels.simulations)} ${escapeSvg(formatNumber(model.trials, model.locale))}</text>
     ${recapMarkup}
+    ${qrMarkup}
     <text x="130" y="1394" class="site">varzia.starport1116.com</text>
     <style>
       .brand{fill:#f3dca6;font:800 44px Inter,Arial,sans-serif;letter-spacing:10px}.subtitle{fill:#9eb4b6;font:400 19px Inter,Arial,sans-serif;letter-spacing:2px}.eyebrow{fill:#9eb4b6;font:800 17px Inter,Arial,sans-serif;letter-spacing:4px}.rotation{fill:#f1eee5;font:600 34px Inter,Arial,sans-serif}.label{fill:#9eb4b6;font:600 18px Inter,Arial,sans-serif;letter-spacing:1px}.big-number{fill:#f3dca6;font:500 62px Georgia,serif}.big-number.small{font-size:50px}.big-number.accent{fill:#dff0e8}.unit{fill:#9eb4b6;font:400 18px Inter,Arial,sans-serif}.line-value{fill:#f1eee5;font:600 32px Inter,Arial,sans-serif}.rule{stroke:#d8e5e2;stroke-opacity:.16}.recap-box{fill:#d9b878;fill-opacity:.08;stroke:#d9b878;stroke-opacity:.34}.recap-value{fill:#f3dca6;font:600 28px Inter,Arial,sans-serif}.site{fill:#9eb4b6;font:600 17px Inter,Arial,sans-serif;letter-spacing:2px}

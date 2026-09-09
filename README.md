@@ -22,6 +22,8 @@ Varzia 是非官方社区工具，与 Digital Extremes 没有隶属、赞助或�
 - P50、P90、P95、P99 资源需求
 - 当前 Aya 到 P90/P95/P99 的安全线差值
 - SVG → Canvas/PNG 结果卡，可下载或调用系统分享
+- 方案链接与本地生成的二维码：还原目标、已有部件、预算、队伍与精炼设置
+- 分享方案以临时预览打开，可换成自己的收藏试算；不会覆盖收藏或实时会话
 - 基于已有离散经验 CDF 的毕业复盘与脸黑指数
 - 面向整期目标的遗物购买建议
 - 本地收藏保存
@@ -73,6 +75,10 @@ npm test
 ```
 
 项目不依赖 Vite、React 或其他前端构建链。Cloudflare Pages 继续负责官方实例的正式部署；GitHub 仓库用于源代码、Issue、Pull Request、文档和测试。
+
+`index.html` 是中英文页面共用的模板。修改模板或 `data/locales/*.json` 后，运行 `npm run build:locales` 更新并一并提交 `zh/index.html`、`en/index.html`。这些静态入口包含完整译文、用途说明和常见问题，直接运行同一份 `js/app.js`；Cloudflare Pages 仍从仓库根目录部署，无需线上构建。`npm test` 会检查生成内容是否同步，`npm run check:locales` 可单独只读检查。
+
+增长迭代的分享契约、统计边界与发布验收见 [docs/growth.md](docs/growth.md)。
 
 ## 项目结构
 

@@ -52,6 +52,7 @@ import {
   renderShareCardSvg,
   svgToPngBlob
 } from "./share-card.js";
+import { decodePlan, encodePlan, planUrl, planNavigationChanged } from "./plan-share.js";
 import {
   loadCollectionState,
   saveCollectionState,
@@ -120,6 +121,11 @@ const state = {
   recapAya: "",
   shareCardBlob: null,
   shareCardUrl: "",
+  shareCardPlanUrl: "",
+  shareGeneration: 0,
+  sharedPlan: null,
+  resultsUpdating: true,
+  shareReady: false,
   lastResult: null,
   lastResultOptions: null,
   lastTrials: 0,
@@ -612,10 +618,88 @@ function setMode(mode) {
   scheduleRun();
 }
 
+function applySharedPlan(plan) {
+  state.selectedItemIds = [...plan.selectedItemIds];
+  state.owned = ownedMapsFromPlain(plan.owned);
+  state.squad = plan.squad;
+  state.mode = plan.mode;
+  $("budget").value = String(plan.budget);
+  $("strategy").value = plan.strategy;
+  $("trials").value = String(plan.trials);
+  $("goalLine").value = plan.goal;
+  $("budgetLabel").textContent = message(plan.mode === "goal" ? "budget.goalLabel" : "budget.label");
+  $("goalLine").closest(".goal-line-field").hidden = plan.mode !== "goal";
+  $("modePicker").querySelectorAll("button").forEach((button) => button.setAttribute("aria-pressed", String(button.dataset.mode === plan.mode)));
+  $("squadPicker").querySelectorAll("button").forEach((button) => button.setAttribute("aria-pressed", String(Number(button.dataset.squad) === plan.squad)));
+  $("budgetHint").textContent = message("share.previewHint");
+  renderItemOptions();
+  renderCollections();
+  renderSessionPanel();
+  updateStrategyNote();
+}
+
+function revealSharedPlanNotice(status) {
+  $("sharedPlanNotice").hidden = false;
+  $("sharedPlanTitle").textContent = message(status === "ok" ? "share.previewTitle" : "share.invalidTitle");
+  $("sharedPlanDescription").textContent = message(status === "ok" ? "share.previewHint" : status === "unavailable" ? "share.unavailable" : "share.invalid");
+  $("sharedPlanReturn").href = `/${state.locale}/#planner`;
+  $("sharedPlanOwnCollection").hidden = status !== "ok";
+}
+
+function currentShareUrl() {
+  if (!state.shareReady || !state.lastResult || state.resultsUpdating || state.running || state.rotation?.publicationStatus !== "published") return null;
+  return planUrl(encodePlan({ rotationId: state.rotation.id, options: state.lastResultOptions,
+    mode: state.mode, goal: $("goalLine").value }), state.locale, window.location.origin);
+}
+
+async function copyPlanLink() {
+  const url = currentShareUrl();
+  if (!url) return;
+  const generation = state.shareGeneration;
+  const input = $("sharePlanLink");
+  input.value = url;
+  $("shareLinkFallback").hidden = false;
+  try {
+    await navigator.clipboard.writeText(url);
+    if (generation !== state.shareGeneration) return;
+    $("shareStatus").textContent = message("share.linkCopied");
+  } catch {
+    if (generation !== state.shareGeneration) return;
+    input.focus();
+    input.select();
+    $("shareStatus").textContent = message("share.copyManually");
+  }
+}
+
 function bindEvents() {
+  window.addEventListener("hashchange", (event) => {
+    // Same-document links and Back/Forward must enter or leave preview through a fresh bootstrap.
+    if (planNavigationChanged(event.oldURL, event.newURL)) window.location.reload();
+  });
   document.querySelectorAll("[data-locale-link]").forEach((link) => {
-    link.addEventListener("click", () => {
+    link.addEventListener("click", (event) => {
+      if (state.sharedPlan) {
+        const validation = validateSimulationBudget($("budget").value);
+        if (!validation.valid) {
+          event.preventDefault();
+          showBudgetValidationError();
+          $("budget").focus();
+          return;
+        }
+        // Language navigation preserves current edits even while their simulation is still running.
+        link.href = planUrl(encodePlan({ rotationId: state.rotation.id,
+          options: simulationOptions(validation.budget).options, mode: state.mode, goal: $("goalLine").value
+        }), link.dataset.localeLink, window.location.origin);
+      }
       writeStoredLocale(getStorage(), link.dataset.localeLink);
+    });
+  });
+  document.querySelectorAll('a[href="#planner"]').forEach((link) => {
+    link.addEventListener("click", (event) => {
+      // In-page navigation must not discard the plan stored in the URL fragment.
+      if (!state.sharedPlan) return;
+      event.preventDefault();
+      $("planner")?.scrollIntoView({ behavior: "smooth", block: "start" });
     });
   });
 
@@ -720,6 +804,10 @@ function bindEvents() {
   $("goalLine").addEventListener("change", scheduleRun);
   $("observedAya")?.addEventListener("input", (event) => {
     state.recapAya = event.target.value;
+    state.shareGeneration += 1;
+    $("sharePreview").hidden = true;
+    $("shareStatus").textContent = "";
+    $("shareResultButton").disabled = state.resultsUpdating || !state.shareReady;
     renderGraduationRecap();
   });
   $("squadPicker").addEventListener("click", (event) => {
@@ -733,6 +821,20 @@ function bindEvents() {
   });
   $("runButton").addEventListener("click", run);
   $("shareResultButton")?.addEventListener("click", generateShareCard);
+  $("sharePlanButton")?.addEventListener("click", copyPlanLink);
+  $("shareSystemButton")?.addEventListener("click", shareGeneratedCard);
+  $("sharedPlanOwnCollection")?.addEventListener("click", () => {
+    // Use the recipient's collection only in this temporary preview. Never adopt or write a ledger.
+    if (!state.sharedPlan) return;
+    const saved = loadCollectionState(getStorage(), state.allPrimeItems, {
+      rotationId: state.rotation.id, activeItemIds: state.rotation.items, preview: true
+    });
+    state.owned = ownedMapsFromPlain(saved.owned);
+    renderItemOptions();
+    renderCollections();
+    $("sharedPlanDescription").textContent = message("share.ownCollectionUsed");
+    scheduleRun();
+  });
   $("shareDownloadLink")?.addEventListener("click", (event) => {
     if (!state.shareCardBlob) event.preventDefault();
   });
@@ -759,6 +861,18 @@ function scheduleRun() {
 }
 
 function setResultsUpdating(updating) {
+  state.resultsUpdating = updating;
+  if (updating) state.shareReady = false;
+  for (const id of ["shareResultButton", "sharePlanButton"]) {
+    const button = $(id);
+    if (button) button.disabled = updating || !state.shareReady || state.rotation?.publicationStatus !== "published";
+  }
+  if (updating) {
+    state.shareGeneration += 1;
+    $("sharePreview").hidden = true;
+    $("shareLinkFallback").hidden = true;
+    $("shareStatus").textContent = "";
+  }
   const results = $("resultsSection");
   results?.classList.toggle("is-updating", updating);
   results?.setAttribute("aria-busy", String(updating));
@@ -821,6 +935,7 @@ function finishRun(result, trials, completedRequest) {
   }
   renderResult(result, trials, completedRequest?.options || {});
   if (state.activeSession) renderSessionPanel();
+  state.shareReady = true;
   setResultsUpdating(false);
   $("runButton").disabled = false;
   $("runButtonLabel").textContent = message("run.button");
@@ -1406,12 +1521,14 @@ function shareFilename() {
 }
 
 async function generateShareCard() {
-  if (!state.lastResult) {
+  const sharedUrl = currentShareUrl();
+  if (!sharedUrl) {
     $("shareStatus").textContent = message("share.needsResult");
     return;
   }
   const button = $("shareResultButton");
   const status = $("shareStatus");
+  const generation = ++state.shareGeneration;
   button.disabled = true;
   status.textContent = message("share.generating");
   try {
@@ -1424,14 +1541,18 @@ async function generateShareCard() {
       finishProbability: result.finishProbability,
       percentiles: result,
       analysisCap: result.analysisCap || state.lastResultOptions?.analysisCap,
-      squad: state.squad,
+      squad: state.lastResultOptions.squad,
       trials: state.lastTrials,
       recap: state.currentRecap,
       labels: shareCardLabels()
     });
-    const svg = renderShareCardSvg(model);
+    const { renderPlanQr } = await import("./plan-qr.js");
+    const svg = renderShareCardSvg(model, renderPlanQr(sharedUrl));
     const png = await svgToPngBlob(svg);
+    // A user may edit inputs while PNG encoding is in flight.
+    if (generation !== state.shareGeneration || state.lastResult !== result || state.resultsUpdating || state.running) return;
     state.shareCardBlob = png;
+    state.shareCardPlanUrl = sharedUrl;
     if (state.shareCardUrl) URL.revokeObjectURL(state.shareCardUrl);
     state.shareCardUrl = URL.createObjectURL(png);
     const preview = $("sharePreview");
@@ -1442,28 +1563,31 @@ async function generateShareCard() {
     link.download = shareFilename();
     preview.hidden = false;
     status.textContent = message("share.success");
-
-    const canUseSystemShare = typeof navigator !== "undefined"
-      && typeof navigator.share === "function"
-      && typeof File === "function";
-    if (canUseSystemShare) {
-      const file = new File([png], shareFilename(), { type: "image/png" });
-      const canShare = typeof navigator.canShare !== "function"
-        || navigator.canShare({ files: [file] });
-      if (!canShare) return;
-      try {
-        const sharePromise = navigator.share({ title: message("share.title"), text: message("share.subtitle"), files: [file] });
-        button.disabled = false;
-        await sharePromise;
-      } catch (error) {
-        if (error?.name === "AbortError") status.textContent = message("share.canceled");
-      }
-    }
+    $("shareSystemButton").hidden = typeof navigator.share !== "function";
   } catch (error) {
     console.warn("Varzia share card generation failed", error);
-    status.textContent = message("share.failed");
+    if (generation === state.shareGeneration) status.textContent = message("share.failed");
   } finally {
-    button.disabled = false;
+    if (generation === state.shareGeneration) button.disabled = state.resultsUpdating || !state.shareReady;
+  }
+}
+
+async function shareGeneratedCard() {
+  if (!state.shareReady || state.resultsUpdating || !state.shareCardBlob || typeof navigator.share !== "function") return;
+  const generation = state.shareGeneration;
+  const sharedUrl = state.shareCardPlanUrl;
+  const payload = { title: message("share.title"), text: `${message("share.openPlan")}\n${sharedUrl}`, url: sharedUrl };
+  if (typeof File === "function") {
+    const files = [new File([state.shareCardBlob], shareFilename(), { type: "image/png" })];
+    if (typeof navigator.canShare !== "function" || navigator.canShare({ files })) payload.files = files;
+  }
+  try {
+    // Called directly from a new click so mobile browsers retain transient user activation.
+    await navigator.share(payload);
+  } catch (error) {
+    if (generation === state.shareGeneration) {
+      $("shareStatus").textContent = message(error?.name === "AbortError" ? "share.canceled" : "share.systemFailed");
+    }
   }
 }
 
@@ -2254,10 +2378,12 @@ async function loadData() {
     state.localeMessages = localeMessages;
   } catch (error) {
     console.warn("Varzia locale data failed to load", error);
-    setLocaleMessages(state.locale, {}, {});
-    state.localeMessages = {};
+    let fallback = {};
+    try { fallback = JSON.parse($("localeMessages")?.textContent || "{}"); } catch { /* Keep the static page readable. */ }
+    setLocaleMessages(state.locale, fallback, fallback);
+    state.localeMessages = fallback;
   }
-  applyStaticTranslations();
+  if (Object.keys(state.localeMessages).length) applyStaticTranslations();
   state.dataLoadErrors = [];
   // A newer schema wrote local data; persistence is locked this session so
   // the document can never be downgraded or destroyed. Catalog data itself
@@ -2289,7 +2415,10 @@ async function loadData() {
   state.announcementPreview = selectAnnouncementPreview(state.announcementCandidates);
   state.allPrimeItems = displayData.primeItems;
   state.allRelics = displayData.relics;
+  const shared = decodePlan(window.location.hash, { rotations: state.publishedRotations, primeItems: state.allPrimeItems });
+  state.sharedPlan = shared.status === "ok" ? shared.plan : null;
   state.previewId = new URLSearchParams(window.location.search).get("rotation")?.trim() || "";
+  if (state.sharedPlan) state.previewId = state.sharedPlan.rotationId;
 
   let view = resolveRotationView(state.publishedRotations, Date.now(), state.previewId, state.rotations);
   if (view.invalidPreviewId) {
@@ -2304,6 +2433,8 @@ async function loadData() {
     previousRotation: view.previousRotation
   };
   applyRotation(view.displayRotation, { preview: view.isPreview, scheduleSimulation: false });
+  if (state.sharedPlan) applySharedPlan(state.sharedPlan);
+  if (shared.status !== "absent") revealSharedPlanNotice(shared.status);
 
   $("dataUpdatedAt").textContent = formatDate([
     scheduleData?.lastVerified,

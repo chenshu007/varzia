@@ -7,7 +7,8 @@ const read = (path) => fs.readFileSync(new URL(path, import.meta.url), "utf8");
 test("Pages 静态响应使用严格的全站安全头", () => {
   const headers = read("../_headers");
   assert.match(headers, /^\/\*$/m);
-  assert.match(headers, /Content-Security-Policy: [^\n]*default-src 'self';[^\n]*frame-ancestors 'none';[^\n]*script-src 'self';[^\n]*style-src 'self'/);
+  assert.match(headers, /Content-Security-Policy: [^\n]*default-src 'self';[^\n]*frame-ancestors 'none';[^\n]*script-src 'self' https:\/\/static\.cloudflareinsights\.com\/beacon\.min\.js;[^\n]*style-src 'self'/);
+  assert.match(headers, /connect-src 'self' https:\/\/cloudflareinsights\.com\/cdn-cgi\/rum;/);
   assert.match(headers, /X-Frame-Options: DENY/);
   assert.match(headers, /X-Content-Type-Options: nosniff/);
   assert.match(headers, /Referrer-Policy: strict-origin-when-cross-origin/);

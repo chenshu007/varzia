@@ -4,16 +4,16 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#07141e" />
-    <meta name="description" content="Estimate how much Aya you need for Warframe Prime Resurgence using Monte Carlo simulation." />
+    <meta name="description" content="Plan your Warframe Prime Resurgence farm. Choose Prime targets, enter owned parts and Aya, and compare completion chances for solo or same-Relic squads." />
     <meta property="og:type" content="website" />
     <meta property="og:locale" content="en_US" />
     <meta property="og:site_name" content="VARZIA" />
     <meta property="og:title" content="Varzia - Warframe Prime Resurgence Aya Planner" />
-    <meta property="og:description" content="Select Prime targets and estimate whole-rotation completion probability and Aya budget thresholds." />
+    <meta property="og:description" content="Will your Aya cover this Prime Resurgence? Estimate your budget, account for owned parts, and share your plan." />
     <meta property="og:url" content="https://varzia.starport1116.com/" />
     <meta name="twitter:card" content="summary" />
     <meta name="twitter:title" content="Varzia - Warframe Prime Resurgence Aya Planner" />
-    <meta name="twitter:description" content="Select Prime targets and estimate whole-rotation completion probability and Aya budget thresholds." />
+    <meta name="twitter:description" content="Plan your Warframe Prime Resurgence farm. Choose Prime targets, enter owned parts and Aya, and compare completion chances for solo or same-Relic squads." />
     <title>Varzia - Warframe Prime Resurgence Aya Planner</title>
     <link rel="canonical" href="https://varzia.starport1116.com/" />
     <link rel="icon" href="/assets/ocisly-m.svg" type="image/svg+xml" />
@@ -48,10 +48,10 @@
       <section class="hero" aria-labelledby="page-title">
         <div class="hero-main">
           <div class="hero-kicker"><span class="eyebrow-dot"></span> <span data-i18n="hero.kicker">MONTE CARLO · CURRENT PRIME RESURGENCE</span></div>
-          <h1 id="page-title"><span data-i18n="hero.titleLead">Let randomness</span><br /><em data-i18n="hero.titleAccent">run 100,000 laps.</em></h1>
-          <p class="hero-copy" data-i18n="hero.copy">All currently available Prime targets start selected. Tell Varzia how much Aya you have and see whether this rotation can be finished.</p>
+          <h1 id="page-title"><span data-i18n="hero.titleLead">This Prime Resurgence.</span><br /><em data-i18n="hero.titleAccent">Enough Aya to finish?</em></h1>
+          <p class="hero-copy" data-i18n="hero.copy">Choose the Primes you want, mark the parts you own, and see how much Aya to prepare for your squad.</p>
           <div class="hero-actions">
-            <a class="button button-primary" id="heroPrimaryAction" href="#planner"><span data-i18n="hero.start">Start planning</span> <span aria-hidden="true">↘</span></a>
+            <a class="button button-primary" id="heroPrimaryAction" href="#planner"><span data-i18n="hero.start">Choose my Prime targets</span> <span aria-hidden="true">↘</span></a>
             <button class="button button-secondary" id="budgetJump" type="button" data-i18n="hero.budgetJump">Check whether my Aya is enough</button>
           </div>
           <div class="source-line">
@@ -87,7 +87,7 @@
           <div class="rotation-plaque">
             <div class="plaque-topline">
               <span class="section-label" data-i18n="rotation.label">Current Prime Resurgence</span>
-              <span class="plaque-index" id="rotationIndex">Loading</span>
+              <span class="plaque-index" id="rotationIndex" data-i18n="rotation.waiting">Loading</span>
             </div>
             <h2 id="rotationName" data-i18n="rotation.waiting">Loading</h2>
             <p data-i18n="rotation.description">All Prime targets in this rotation share one Aya wallet; plan the whole rotation at once.</p>
@@ -99,6 +99,16 @@
             <span data-i18n="rotation.note">Precision probability planning · Local collection saved</span>
           </div>
         </aside>
+      </section>
+
+      <noscript><p class="planning-guide" data-i18n="guide.noscript">Enable JavaScript to run the calculator. You can still read the planning guide and official sources below.</p></noscript>
+      <section class="shared-plan-notice" id="sharedPlanNotice" aria-labelledby="sharedPlanTitle" hidden>
+        <h2 id="sharedPlanTitle"></h2>
+        <p id="sharedPlanDescription"></p>
+        <div class="hero-actions">
+          <button class="button button-secondary" id="sharedPlanOwnCollection" type="button" data-i18n="share.useOwn">Calculate with my owned parts</button>
+          <a class="text-button" id="sharedPlanReturn" href="/en/#planner" data-i18n="share.return">Return to my planner</a>
+        </div>
       </section>
 
       <section class="workbench" id="planner" aria-label="Simulator settings" data-i18n-aria-label="planner.aria">
@@ -153,7 +163,7 @@
                 <input id="budget" type="number" min="0" value="33" inputmode="numeric" aria-describedby="budgetHint budgetError" />
                 <span data-i18n="budget.unit">Aya</span>
               </span>
-              <span class="field-hint" id="budgetHint">Start planning from the P50 line: 33 Aya</span>
+              <span class="field-hint" id="budgetHint" data-i18n="hero.loading">Loading rotation data</span>
               <span class="field-hint" id="budgetError" role="alert" hidden></span>
             </label>
 
@@ -374,16 +384,24 @@
         <section class="share-panel" id="sharePanel" aria-labelledby="share-title" aria-label="Share result" data-i18n-aria-label="share.aria" hidden>
           <div class="share-panel-copy">
             <span class="section-label" data-i18n="share.label">SHARE RESULT</span>
-            <h3 id="share-title" data-i18n="share.title">Take this timeline with you</h3>
-            <p data-i18n="share.subtitle">Generate a 1200 × 1500 Varzia result card from the current simulation.</p>
+            <h3 id="share-title" data-i18n="share.title">Compare your plan with friends</h3>
+            <p data-i18n="share.subtitle">Share a link or a result card. Your link includes selected targets, owned part counts, and squad settings.</p>
           </div>
           <div class="share-panel-actions">
-            <button class="button button-secondary share-button" id="shareResultButton" type="button" aria-label="Share result" data-i18n-aria-label="share.aria"><span data-i18n="share.button">Share result</span> <span aria-hidden="true">↗</span></button>
+            <button class="button button-primary" id="sharePlanButton" type="button" data-i18n="share.copyLink" disabled>Copy plan link</button>
+            <button class="button button-secondary share-button" id="shareResultButton" type="button"><span data-i18n="share.button">Create result card</span> <span aria-hidden="true">↗</span></button>
             <span class="share-status" id="shareStatus" role="status" aria-live="polite"></span>
           </div>
+          <label class="share-link-fallback" id="shareLinkFallback" hidden>
+            <span data-i18n="share.linkLabel">Plan link</span>
+            <input id="sharePlanLink" type="url" readonly spellcheck="false" />
+          </label>
           <div class="share-preview" id="sharePreview" hidden>
             <img id="sharePreviewImage" alt="Varzia simulation result share card preview" data-i18n-alt="share.previewAlt" />
-            <a class="text-button share-download" id="shareDownloadLink" href="#" download="varzia-result.png" data-i18n="share.download">Download PNG</a>
+            <div class="share-preview-actions">
+              <a class="text-button share-download" id="shareDownloadLink" href="#" download="varzia-result.png" data-i18n="share.download">Download PNG</a>
+              <button class="button button-secondary" id="shareSystemButton" type="button" data-i18n="share.system" hidden>Share card and link</button>
+            </div>
           </div>
         </section>
 
@@ -413,7 +431,7 @@
         <div class="timeline-panel" id="timelinePanel">
           <div class="timeline-copy">
             <span class="timeline-kicker" data-i18n="timeline.kicker">PARALLEL WORLDS</span>
-            <strong id="timelineHeadline">We ran 100,000 timelines for you.</strong>
+            <strong id="timelineHeadline" data-i18n="guide.waiting">Waiting for your simulation.</strong>
             <span id="timelineDetail">—</span>
           </div>
           <div class="timeline-number" id="timelineSuccess">—</div>
@@ -467,6 +485,20 @@
             <div class="recommendation-list" id="recommendationList"></div>
           </div>
         </div>
+      </section>
+
+      <section class="planning-guide" aria-labelledby="planningGuideTitle">
+        <h2 id="planningGuideTitle" data-i18n="guide.title">Plan your next Prime Resurgence farm</h2>
+        <p data-i18n="guide.intro">Varzia is a free, unofficial Warframe Aya calculator. Estimate the budget to finish your selected Prime equipment together, with one shared Aya wallet.</p>
+        <ol>
+          <li data-i18n="guide.step1">Choose your targets and mark the parts you already own.</li>
+          <li data-i18n="guide.step2">Enter your Aya budget, squad size, and refinement strategy.</li>
+          <li data-i18n="guide.step3">Read your completion chance and the budget needed for 90% or 95% of simulated runs to finish.</li>
+        </ol>
+        <details><summary data-i18n="guide.q1">How much Aya do I need for Prime Resurgence?</summary><p data-i18n="guide.a1">It depends on your missing parts, squad size, and refinement strategy. Enter your own situation above. P95 means about 95% of simulated runs finished all selected targets within that Aya budget; it is not a guarantee.</p></details>
+        <details><summary data-i18n="guide.q2">What does a four-player squad mean here?</summary><p data-i18n="guide.a2">Every squad member opens the same Void Relic at the same refinement level. You can claim one reward from the squad each mission. A mixed-Relic squad will have different odds.</p></details>
+        <details><summary data-i18n="guide.q3">Will Varzia remember my progress?</summary><p data-i18n="guide.a3">Your collection and current-rotation budget are saved in this browser. Bookmark this page to return. Use a live fissure session to record rewards as you play and update your remaining plan. Shared plans open as temporary previews.</p></details>
+        <details><summary data-i18n="guide.q4">Does this calculate Regal Aya purchases or trading?</summary><p data-i18n="guide.a4">No. This planner models Aya spent on Void Relics and their rewards. It does not model Regal Aya purchases, Platinum trading, existing Relic inventory, or the time needed to recruit a squad.</p></details>
       </section>
 
       <section class="boundary-note">
