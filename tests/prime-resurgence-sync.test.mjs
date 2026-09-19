@@ -322,6 +322,40 @@ test("Banshee Prime 与 Mirage Prime 公告 fixture 解析为 announced candidat
   assert.equal(announcement.rawEffectiveText, "September 3 at 2 p.m. ET");
 });
 
+test("Ivara/Protea 新公告句式生成 pending candidate，保留生产数据及严格校验", async () => {
+  const text = "Prepare to take aim and manipulate time itself.\n\nIvara Prime and Protea Prime enter Prime Resurgence on October 1 at 2 p.m. ET.";
+  const createdAt = "2026-09-17T18:00:20.412666127Z";
+  const inputs = await announcementOnlyInputs();
+  const payload = JSON.parse(inputs.announcementText);
+  const entry = payload.feed.find((entry) => !entry.reason && entry.post?.author?.handle === "warframe.com");
+  entry.post.record.text = text;
+  entry.post.record.createdAt = createdAt;
+  entry.post.uri = "at://did:plc:24m2xjetjmjfdbgo752skciu/app.bsky.feed.post/3mvqabe4v5m2w";
+  inputs.announcementText = JSON.stringify({ feed: [entry] });
+  const [announcement] = parseOfficialAnnouncements(JSON.parse(inputs.announcementText));
+  assert.deepEqual(announcement.warframes, ["Ivara Prime", "Protea Prime"]);
+  assert.equal(announcement.startsAt, "2026-10-01T18:00:00Z");
+
+  const directory = await temporaryRepositoryWithoutPreparedCandidate();
+  const names = ["rotation.json", "primes.json", "relics.json"];
+  const before = await Promise.all(names.map((name) => readFile(path.join(directory, "data", name), "utf8")));
+  const result = await runPrimeResurgenceSync({ rootDir: directory, inputs, now: "2026-09-19T13:10:19Z" });
+  assert.deepEqual(result.changedFiles, ["data/prime-resurgence-candidates.json"]);
+  const candidate = (await candidateSnapshot(directory)).candidates[0];
+  assert.equal(candidate.id, "ivara-protea-2026-10");
+  assert.equal(candidate.effectiveAt, "2026-10-01T18:00:00Z");
+  assert.equal(candidate.status, "announced");
+  assert.equal(candidate.relicDataStatus, "pending");
+  assert.equal(candidate.verified, false);
+  assert.deepEqual(await Promise.all(names.map((name) => readFile(path.join(directory, "data", name), "utf8"))), before);
+
+  assert.throws(() => parseAnnouncementText(`${text} ${text}`, createdAt), /Expected one Prime Resurgence announcement/);
+  assert.throws(() => parseAnnouncementText(text.replace("2 p.m.", "13 p.m."), createdAt), /hour is invalid/);
+  assert.equal(parseAnnouncementText(text.replace("Ivara Prime and Protea Prime enter", "Ivara Prime enters"), createdAt), null);
+  entry.post.author.did = "did:plc:untrusted";
+  assert.throws(() => parseOfficialAnnouncements({ feed: [entry] }), /author DID changed/);
+});
+
 test("ET 时间使用 America/New_York 正确处理 EDT 和 EST", () => {
   const edt = parseAnnouncementText(
     "Banshee Prime and Mirage Prime return with the next Prime Resurgence rotation on September 3 at 2 p.m. ET.",

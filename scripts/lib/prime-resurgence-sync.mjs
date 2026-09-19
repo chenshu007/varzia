@@ -359,7 +359,7 @@ function etLocalToIso(year, monthIndex, day, hour, minute) {
 
 export function parseAnnouncementText(text, createdAt) {
   const primeName = "[A-Z][A-Za-z0-9'.-]*(?: (?:&|[A-Z][A-Za-z0-9'.-]*)){0,3} Prime";
-  const pattern = new RegExp(`(${primeName})\\s+(?:and|&)\\s+(${primeName}) return with the next Prime Resurgence rotation on (January|February|March|April|May|June|July|August|September|October|November|December) (\\d{1,2})(?: at (\\d{1,2})(?::(\\d{2}))? ([ap])\\.m\\. ET)?\\.`, "g");
+  const pattern = new RegExp(`(${primeName})\\s+(?:and|&)\\s+(${primeName}) (?:return with the next Prime Resurgence rotation|enter Prime Resurgence) on (January|February|March|April|May|June|July|August|September|October|November|December) (\\d{1,2})(?: at (\\d{1,2})(?::(\\d{2}))? ([ap])\\.m\\. ET)?\\.`, "g");
   const matches = [...normalizedText(text).matchAll(pattern)];
   if (!matches.length) return null;
   invariant(matches.length === 1, `Expected one Prime Resurgence announcement in a post; found ${matches.length}.`);
