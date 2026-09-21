@@ -16,7 +16,9 @@ concurrency:
 jobs:
   prepare:
     name: Prepare and validate provisional candidate
-    runs-on: ubuntu-latest
+    # The official World State CDN returns 403 to Ubuntu-hosted runner networks.
+    # macOS-hosted runners can fetch the same official endpoint directly.
+    runs-on: macos-latest
     timeout-minutes: 15
     permissions:
       contents: read
@@ -58,7 +60,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          mapfile -t managed_paths < <(node scripts/prime-resurgence-sync.mjs --print-managed-paths)
+          managed_paths=()
+          while IFS= read -r managed_path; do
+            managed_paths+=("$managed_path")
+          done < <(node scripts/prime-resurgence-sync.mjs --print-managed-paths)
           is_managed_path() {
             local candidate="$1"
             local managed_path
@@ -67,13 +72,12 @@ jobs:
             done
             return 1
           }
-          mapfile -t changed_paths < <(git diff --name-only)
-          for changed_path in "${changed_paths[@]}"; do
+          while IFS= read -r changed_path; do
             if ! is_managed_path "$changed_path"; then
               echo "Unexpected generated path: $changed_path" >&2
               exit 1
             fi
-          done
+          done < <(git diff --name-only)
 
           if git diff --quiet -- "${managed_paths[@]}"; then
             echo "changed=false" >> "$GITHUB_OUTPUT"

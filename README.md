@@ -150,7 +150,7 @@ assets/
 
 ## Prime Resurgence 候选数据自动化
 
-`.github/workflows/prime-resurgence-sync.yml` 每天 `17 9 * * *` UTC 运行 announcement discovery，也支持手动触发。它使用确定性 Node 代码读取以下官方来源：
+`.github/workflows/prime-resurgence-sync.yml` 每天 `17 9 * * *` UTC 运行 announcement discovery，也支持手动触发。抓取与验证使用 macOS runner（官方 World State CDN 在实测 Ubuntu runner 网络返回 403），发布 Draft PR 的任务仍使用 Ubuntu；全程直接读取官方来源。它使用确定性 Node 代码读取以下官方来源：
 
 - 官方 World State `https://api.warframe.com/cdn/worldState.php`：`PrimeVaultTraders.Manifest` 决定实际售卖的装备、遗物及价格；`Activation` / `Expiry` 决定该快照是否有效。不会把 `EvergreenManifest`、历史遗物或尚未生效的清单混入本期。
 - Public Export 的 `ExportRelicArcane`、中英文装备目录：将售卖物品 ID 精确映射到遗物和装备名称，保留带版本号的 manifest URL。
