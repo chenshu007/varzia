@@ -55,9 +55,12 @@ async function fixtureInputs() {
 async function temporaryRepository() {
   const directory = await mkdtemp(path.join(os.tmpdir(), "varzia-prime-sync-"));
   await mkdir(path.join(directory, "data"));
-  for (const name of ["rotation.json", "primes.json", "relics.json", "prime-resurgence-candidates.json", "prime-resurgence-recipe-exceptions.json"]) {
+  for (const name of ["rotation.json", "primes.json", "relics.json", "prime-resurgence-recipe-exceptions.json"]) {
     await writeFile(path.join(directory, "data", name), await readFile(path.join(repositoryRoot, "data", name), "utf8"), "utf8");
   }
+  // The workflow runs tests after syncing live announcements. Start each
+  // scenario empty so newly generated candidates cannot leak into fixtures.
+  await writeFile(path.join(directory, "data/prime-resurgence-candidates.json"), `${JSON.stringify({ schemaVersion: 1, candidates: [] }, null, 2)}\n`, "utf8");
 
   // Production data may already contain the currently published rotation.
   // Candidate-pipeline tests need the prior published rotation as their
