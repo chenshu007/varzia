@@ -46,6 +46,7 @@ function requireProvisionalSource(source, label, { recipe = false } = {}) {
     requireValue(source[field] === null || (typeof source[field] === "string" && source[field].length > 0), `Invalid provisional source field: ${label} / ${field}`);
   }
   if (source.inventory !== undefined) requireInventoryEvidence(source.inventory, label);
+  if (source.vaultExport !== undefined) requireVaultExportEvidence(source.vaultExport, label);
   if (source.recipeExceptions !== undefined) {
     requireValue(Array.isArray(source.recipeExceptions), `Invalid recipeExceptions: ${label}`);
     requireUnique(source.recipeExceptions.map((exception) => exception?.itemId), `Duplicate recipe exception: ${label}`);
@@ -90,6 +91,30 @@ function requireInventoryEvidence(record, label) {
   }
 }
 
+function requireVaultExportEvidence(record, label) {
+  requireValue(record?.type === "digital-extremes-public-export-vault-group", `Invalid Vault export evidence: ${label}`);
+  requireValue(isExactUtcTimestamp(record.startsAt), `Invalid Vault export start time: ${label}`);
+  requireValue(record.selectionBasis === "announced-pair-specific-vault-group" && record.priceBasis === "planner-preset", `Invalid Vault export evidence basis: ${label}`);
+  requireValue(Array.isArray(record.rawPrimeWarframes) && record.rawPrimeWarframes.length === 2
+    && record.rawPrimeWarframes.every(name => typeof name === "string" && /^[A-Za-z0-9 ]+ Prime$/.test(name)), `Invalid Vault export Prime names: ${label}`);
+  requireUnique(record.rawPrimeWarframes, `Duplicate Vault export Prime name: ${label}`);
+  const names = record.rawPrimeWarframes.map(name => name.replace(/ Prime$/, "").replaceAll(" ", ""));
+  requireValue([`${names[0]}${names[1]}Vault`, `${names[1]}${names[0]}Vault`].includes(record.group), `Vault export group disagrees with announcement: ${label}`);
+  requireValue(Array.isArray(record.relics) && record.relics.length > 0, `Missing Vault export relics: ${label}`);
+  requireUnique(record.relics.map(relic => relic.itemType), `Duplicate Vault export relic ID: ${label}`);
+  requireUnique(record.relics.map(relic => relic.name), `Duplicate Vault export relic name: ${label}`);
+  for (const relic of record.relics) {
+    const match = /^\/Lotus\/StoreItems\/Types\/Game\/Projections\/T([1-4])VoidProjection([A-Za-z0-9]+Vault)[A-Z]+Bronze$/.exec(relic.itemType);
+    requireValue(match && match[2] === record.group, `Wrong Vault export relic group: ${label}`);
+    requireValue(/^(Lith|Meso|Neo|Axi) [A-Z]\d+$/.test(relic.name) && relic.name.split(" ")[0] === ["Lith", "Meso", "Neo", "Axi"][Number(match[1]) - 1]
+      && relic.costAya === 1, `Invalid Vault export relic name or price preset: ${label}`);
+  }
+  for (const key of ["Recipes_en", "RelicArcane_en", "Warframes_en", "Weapons_en", "Sentinels_en", "Warframes_zh", "Weapons_zh", "Sentinels_zh"]) {
+    requireValue(typeof record.exportUrls?.[key] === "string" && record.exportUrls[key].startsWith(`https://content.warframe.com/PublicExport/Manifest/Export${key}.json!`), `Invalid Vault export URL: ${label} / ${key}`);
+  }
+  requireValue(record.url === record.exportUrls.RelicArcane_en, `Wrong Vault relic export URL: ${label}`);
+}
+
 function requireAnnouncementEvidence(evidence, label) {
   requireValue(typeof evidence?.url === "string" && /^https:\/\/bsky\.app\/profile\/warframe\.com\/post\/[a-z0-9]+$/.test(evidence.url), `Invalid announcement source URL: ${label}`);
   requireValue(isIsoTimestamp(evidence.publishedAt), `Invalid announcement publishedAt: ${label}`);
@@ -115,8 +140,11 @@ function requireAnnouncementCandidateSource(source, label) {
   if (source.officialData !== undefined) {
     const officialData = source.officialData;
     requireValue(officialData && typeof officialData === "object", `Invalid official data evidence: ${label}`);
+    requireValue([officialData.worldState, officialData.vaultExport, officialData.rotationPage].filter(Boolean).length === 1, `Ambiguous rotation evidence: ${label}`);
     for (const [field, expectedUrl] of [
-      ...(officialData.worldState ? [["worldState", "https://api.warframe.com/cdn/worldState.php"]] : [["rotationPage", "https://www.warframe.com/en/prime-resurgence"]]),
+      ...(officialData.worldState ? [["worldState", "https://api.warframe.com/cdn/worldState.php"]]
+        : officialData.vaultExport ? [["vaultExport", "https://content.warframe.com/PublicExport/Manifest/ExportRelicArcane_en.json!"]]
+          : [["rotationPage", "https://www.warframe.com/en/prime-resurgence"]]),
       ["dropTable", "https://www.warframe.com/droptables"],
       ["recipeExport", "https://content.warframe.com/PublicExport/Manifest/"]
     ]) {
@@ -126,6 +154,7 @@ function requireAnnouncementCandidateSource(source, label) {
       requireValue(isIsoTimestamp(record.discoveredAt), `Invalid official data discoveredAt: ${label} / ${field}`);
     }
     if (officialData.worldState) requireInventoryEvidence(officialData.worldState, label);
+    if (officialData.vaultExport) requireVaultExportEvidence(officialData.vaultExport, label);
     requireValue(Array.isArray(officialData.rawPrimeWarframes) && officialData.rawPrimeWarframes.length === 2, `Invalid official data Prime names: ${label}`);
     requireUnique(officialData.rawPrimeWarframes, `Duplicate official data Prime name: ${label}`);
   }
@@ -208,9 +237,10 @@ export function validateAnnouncementCandidates(candidateData, rotationData = nul
         requireValue(rotation?.publicationStatus === "provisional", `Ready candidate does not reference a provisional rotation: ${label}`);
       }
     }
-    if (candidate.source.officialData?.worldState) {
-      const evidence = candidate.source.officialData.worldState;
+    if (candidate.source.officialData?.worldState || candidate.source.officialData?.vaultExport) {
+      const evidence = candidate.source.officialData.worldState || candidate.source.officialData.vaultExport;
       requireValue(evidence.startsAt === candidate.effectiveAt, `Inventory activation disagrees with announcement: ${label}`);
+      requireValue(JSON.stringify([...evidence.rawPrimeWarframes].sort()) === JSON.stringify([...candidate.primeWarframes].sort()), `Rotation evidence Prime names disagree with announcement: ${label}`);
       requireValue(JSON.stringify([...candidate.source.officialData.rawPrimeWarframes].sort()) === JSON.stringify([...candidate.primeWarframes].sort()), `Inventory Prime names disagree with announcement: ${label}`);
     }
     if (candidate.status === "conflict") {
@@ -260,6 +290,15 @@ export function validateRotationData(rotationData, primeData, relicData) {
       requireInventoryEvidence(inventory, rotation.id);
       requireValue(inventory.startsAt === rotation.startsAt, `Inventory activation disagrees with rotation: ${rotation.id}`);
       requireValue(JSON.stringify(inventory.relics.map(relic => relic.name.toLowerCase().replaceAll(" ", "-")).sort()) === JSON.stringify([...rotation.relics].sort()), `Rotation relics disagree with sale inventory: ${rotation.id}`);
+    }
+    if (rotation.source?.vaultExport) {
+      const evidence = rotation.source.vaultExport;
+      requireValue(!rotation.source.inventory, `Ambiguous rotation source: ${rotation.id}`);
+      requireVaultExportEvidence(evidence, rotation.id);
+      requireValue(evidence.startsAt === rotation.startsAt, `Vault export start disagrees with rotation: ${rotation.id}`);
+      requireValue(JSON.stringify(evidence.relics.map(relic => relic.name.toLowerCase().replaceAll(" ", "-")).sort()) === JSON.stringify([...rotation.relics].sort()), `Rotation relics disagree with Vault export: ${rotation.id}`);
+      const frames = primeItems.filter(item => rotation.items.includes(item.id) && item.type === "warframe").map(item => item.nameEn || item.name).sort();
+      requireValue(JSON.stringify(frames) === JSON.stringify([...evidence.rawPrimeWarframes].sort()), `Rotation Prime names disagree with Vault export: ${rotation.id}`);
     }
     if (rotation.defaults?.ayaBudget !== undefined) {
       requireValue(

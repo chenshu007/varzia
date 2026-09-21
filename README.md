@@ -153,7 +153,7 @@ assets/
 `.github/workflows/prime-resurgence-sync.yml` 每天 `17 9 * * *` UTC 运行 announcement discovery，也支持手动触发。抓取与验证使用 macOS runner（官方 World State CDN 在实测 Ubuntu runner 网络返回 403），发布 Draft PR 的任务仍使用 Ubuntu；全程直接读取官方来源。它使用确定性 Node 代码读取以下官方来源：
 
 - 官方 World State `https://api.warframe.com/cdn/worldState.php`：`PrimeVaultTraders.Manifest` 决定实际售卖的装备、遗物及价格；`Activation` / `Expiry` 决定该快照是否有效。不会把 `EvergreenManifest`、历史遗物或尚未生效的清单混入本期。
-- Public Export 的 `ExportRelicArcane`、中英文装备目录：将售卖物品 ID 精确映射到遗物和装备名称，保留带版本号的 manifest URL。
+- Public Export 的 `ExportRelicArcane`、中英文装备目录：将物品 ID 精确映射到遗物和装备名称，保留带版本号的 manifest URL。开卖前还可按公告战甲组合的专属 `Vault` 组识别本期遗物。
 - Prime Resurgence 中英文页面：辅助交叉核对。页面仍显示上一期、暂时不可用或结构变化时记录警告；已成功解析且出现不同于实际清单及上一期的阵容时停止升级。
 - `warframe.com` 官方账号公告：两名 Prime 战甲和精确生效时间；账号 DID 固定校验，变化时停止。公告只给日期时保留 `effectiveAt: null`，绝不推测具体时刻。
 - Official Drop Tables：Intact 遗物奖励、文本 rarity label 与数值概率。流水线以数值概率映射到标准模拟稀有度；label 不一致会进入 Actions/PR audit warning，不能被静默隐藏。
@@ -181,15 +181,17 @@ node scripts/prime-resurgence-sync.mjs --mode near-rotation --dry-run
 
 公告会先独立写入 `data/prime-resurgence-candidates.json`，状态为 `announced`：只保存官方明确写出的两名 Prime、明确的 UTC 开始时间（如有）、原始解析文本、发布/发现时间和官方 URL；遗物数据始终为 `pending`、`verified: false`。该文件驱动首页“下一期”预览，不会修改 `rotation.json`、`primes.json` 或 `relics.json`。
 
-发现阶段每天读取公告、World State、Public Export 和官方掉落表。在实际售卖清单切换前，即可计算公告战甲的部件数量、配方及历史奖励路线，准备结果写入 Actions 摘要。历史路线仅作目录准备，不作为本期售卖证据，不提前写入正式轮换；没有原始数据时明确报告待补齐。
+发现阶段每天读取公告、World State、Public Export 和官方掉落表。在实际售卖清单切换前，优先匹配公告战甲组合的精确 Public Export 遗物组，例如 `BansheeMirageVault`（也接受两名战甲顺序互换）。只接受明确的 `T1..T4VoidProjection<组合>Vault<编号>Bronze` ID；两种顺序同时出现、重复 ID、未知奖励或中英文装备映射缺失均停止。组内全部遗物逐个与官方掉落表及配方交叉校验，通过后可以提前生成完整 provisional rotation 并进入 `ready-for-review`，无需等待当前商店切换。
+
+预备证据单独记录为 `vaultExport`，保留组名、完整遗物 ID、公告生效时间及版本化导出 URL，不伪装成已经观测的 `inventory`。开卖前 `costAya=1` 明确标为规划器预设，实际售价等待商店复核。缺少精确组合组时，仍计算战甲部件数量、配方及历史奖励路线，并在 Actions 摘要列出缺失的组名；历史路线不替代本期清单。World State 暂不可用时，有完整预备证据仍可生成候选并记录警告；需要实际商店证据的路径仍会停止。
 
 同一 workflow 另在每小时 `43 * * * *` UTC 唤醒 `--mode near-rotation` watcher。它只先读本地 `prime-resurgence-candidates.json`：仅当当前时间位于已有 `announced` candidate 的 `[effectiveAt - 2h, effectiveAt + 12h]` 时，才请求 World State。窗口外、缺少精确时间、`conflict` 或 `ready-for-review` 均为零外部请求的成功 no-op；售卖快照仍是上一期、已过期或尚未生效时，仅检查 World State 并等待，不请求完整目录。near watcher 从不读取 Bluesky、不重新发现或重建 candidate，并保留原始 stable ID、provenance 和状态历史。
 
-实际售卖阵容与公告两名 Prime 匹配，且 World State 的 `Activation` 与公告精确生效时间一致后，按 Manifest 中的遗物 ID 逐个关联 Public Export 和官方掉落表；不再按覆盖率猜选六种遗物，也不限制整期遗物数量必须为六。校验每个遗物六个奖励槽、数值概率、跨来源目标奖励与 rarity、1 Aya 售价、配方需求和双向映射，再生成完整 provisional rotation，记录 `official-data-available`、`validated`、`ready-for-review` 状态历史。若实际阵容与公告不一致，保存 World State provenance 和 `conflict` 原因。缺字段、重复 ID、错误价格、来源冲突、未知概率、缺失配方或部件覆盖不全均停止；不能通过删除校验或使用历史清单替代来发布。四文件写入会保留 mode，并对 cleanup/rollback 结果进行检查；GitHub Actions 还会在测试通过后把四份 JSON 作为一个 allowlisted artifact 交给独立 publish job，失败的本地状态不会进入 bot branch。
+实际商店路径中，售卖阵容与公告两名 Prime 匹配，且 World State 的 `Activation` 与公告精确生效时间一致后，按 Manifest 中的遗物 ID 逐个关联 Public Export 和官方掉落表；不再按覆盖率猜选六种遗物，也不限制整期遗物数量必须为六。校验每个遗物六个奖励槽、数值概率、跨来源目标奖励与 rarity、1 Aya 售价、配方需求和双向映射，再生成完整 provisional rotation，记录 `official-data-available`、`validated`、`ready-for-review` 状态历史。若实际阵容与公告不一致，保存 World State provenance 和 `conflict` 原因。缺字段、重复 ID、错误价格、来源冲突、未知概率、缺失配方或部件覆盖不全均停止；不能通过删除校验或使用历史清单替代来发布。四文件写入会保留 mode，并对 cleanup/rollback 结果进行检查；GitHub Actions 还会在测试通过后把四份 JSON 作为一个 allowlisted artifact 交给独立 publish job，失败的本地状态不会进入 bot branch。
 
 workflow 的 prepare job 只有 `contents: read`，checkout 不持久化 credential。`contents: write` / `pull-requests: write` 只存在于 publish job，token 也只注入固定的 branch/PR step；仓库 parser 与测试代码不会接触写 token。
 
-自动生成的 rotation 永远是 `publicationStatus: "provisional"`。流水线不推进正式数据的 `lastVerified` 或目录级 `updatedAt`，不从官方来源推导 `ayaBudget`，也不会把候选加入 `publishedRotations()`。只有人工 Review 后单独把状态改为 `published`，正常排期才可能消费该轮换。
+自动生成的 rotation 永远是 `publicationStatus: "provisional"`。流水线不推进正式数据的 `lastVerified` 或目录级 `updatedAt`，不从官方来源推导 `ayaBudget`，也不会把候选加入 `publishedRotations()`。人工 Review 合格后把 rotation 的状态改为 `published`，同时移除已完成的 announcement candidate。允许在未来生效时间之前发布；正常排期仅在 `startsAt` 到达后启用该轮换。后续 daily sync 用实际商店、掉落表和配方复核提前发布的数据，发现遗物集合、价格、奖励或配方差异会报错，绝不覆盖已发布内容。
 
 ## 贡献
 

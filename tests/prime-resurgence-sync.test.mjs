@@ -7,6 +7,7 @@ import {
   OFFICIAL_SOURCES,
   candidateIdFor,
   escapeMarkdownInline,
+  fetchOfficialInputs,
   fetchResource,
   failureSummary,
   nearRotationWatchWindow,
@@ -28,6 +29,7 @@ import { validateAnnouncementCandidates, validateRotationData } from "../js/data
 import { normalizeOfficialTimestamp } from "../js/prime-resurgence-candidate.js";
 import { publishedRotations, resolveRotationState } from "../js/rotation-schedule.js";
 import { lineupFromInventory, parsePrimeVaultTrader } from "../scripts/lib/prime-vault-inventory.mjs";
+import { lineupFromVaultExport } from "../scripts/lib/prime-vault-preview.mjs";
 
 const fixtureDirectory = new URL("./fixtures/", import.meta.url);
 const inventoryNames = ["Lith K5", "Lith M7", "Meso E5", "Neo B6", "Axi A12", "Axi H5"];
@@ -107,6 +109,136 @@ async function announcementOnlyInputs() {
   previous.worldStateText = JSON.stringify(world);
   return previous;
 }
+
+async function prelaunchInputs() {
+  const inputs = await fixtureInputs();
+  const previous = await announcementOnlyInputs();
+  return { ...inputs, worldStateText: previous.worldStateText, englishHtml: previous.englishHtml, chineseHtml: previous.chineseHtml };
+}
+
+test("开卖前从官方组合专属 Vault 组完成候选，旧商店和旧官网不阻挡审核", async () => {
+  const rootDir = await temporaryRepository();
+  const before = (await dataSnapshot(rootDir)).map(text => JSON.parse(text));
+  const inputs = await prelaunchInputs();
+  const result = await runPrimeResurgenceSync({ rootDir, inputs, now: "2026-08-21T18:00:00Z" });
+  assert.equal(result.candidate.status, "ready-for-review");
+  assert.equal(result.itemCount, 6);
+  assert.equal(result.relicCount, 6);
+  assert.equal(result.totalRequiredParts, 26);
+  assert.equal(result.candidate.source.officialData.worldState, undefined);
+  assert.equal(result.candidate.source.officialData.vaultExport.group, "BansheeMirageVault");
+  assert.match(result.summary, /actual sale price has not been observed/);
+  const [rotations, primes, relics] = (await dataSnapshot(rootDir)).map(text => JSON.parse(text));
+  const prepared = rotations.rotations.find(rotation => rotation.id === result.candidate.id);
+  assert.equal(prepared.publicationStatus, "provisional");
+  assert.equal(prepared.source.inventory, undefined);
+  assert.deepEqual(prepared.relics.slice().sort(), inventoryNames.map(name => name.toLowerCase().replaceAll(" ", "-")).sort());
+  for (const previous of before[0].rotations) assert.deepEqual(rotations.rotations.find(rotation => rotation.id === previous.id), previous);
+  assert.equal(validateRotationData(rotations, primes, relics), true);
+  assert.equal(publishedRotations(rotations.rotations).some(rotation => rotation.id === prepared.id), false);
+  // A human-reviewed future rotation is published now, then activated on time.
+  prepared.publicationStatus = "published";
+  assert.equal(validateRotationData(rotations, primes, relics), true);
+  const schedule = publishedRotations(rotations.rotations);
+  assert.equal(resolveRotationState(schedule, Date.parse("2026-09-03T17:59:59Z")).activeRotation.id, "revenant-baruuk-2026-08");
+  assert.equal(resolveRotationState(schedule, Date.parse("2026-09-03T18:00:00Z")).activeRotation.id, prepared.id);
+  const snapshot = await dataSnapshot(rootDir);
+  const rerun = await runPrimeResurgenceSync({ rootDir, inputs, now: "2026-08-22T18:00:00Z" });
+  assert.equal(rerun.status, "NO_OP");
+  assert.deepEqual(await dataSnapshot(rootDir), snapshot);
+});
+
+test("World State 暂不可用也不阻挡提前准备，有明确来源警告", async () => {
+  const fixture = await prelaunchInputs();
+  const fetchFixture = officialFetchFixture(fixture, []);
+  const inputs = await fetchOfficialInputs({ decompress: fixtureIndexDecompress,
+    fetchImpl: async (url, options) => url === OFFICIAL_SOURCES.worldState ? new Response("unavailable", { status: 403 }) : fetchFixture(url, options)
+  });
+  assert.equal(inputs.worldStateText, undefined);
+  const result = await runPrimeResurgenceSync({ rootDir: await temporaryRepository(), inputs, now: "2026-08-21T18:00:00Z" });
+  assert.equal(result.candidate.status, "ready-for-review");
+  assert.match(result.summary, /World State unavailable: Official source returned HTTP 403/);
+});
+
+test("提前审核发布后按实际商店复核，清单变化会报错而不覆盖已发布数据", async () => {
+  const rootDir = await temporaryRepository();
+  const prepared = await runPrimeResurgenceSync({ rootDir, inputs: await prelaunchInputs(), now: "2026-08-21T18:00:00Z" });
+  const rotations = JSON.parse(await readFile(path.join(rootDir, "data/rotation.json"), "utf8"));
+  rotations.rotations.find(rotation => rotation.id === prepared.candidate.id).publicationStatus = "published";
+  await writeFile(path.join(rootDir, "data/rotation.json"), JSON.stringify(rotations));
+  await writeFile(path.join(rootDir, "data/prime-resurgence-candidates.json"), JSON.stringify({ schemaVersion: 1, candidates: [] }));
+  const before = await dataSnapshot(rootDir);
+  const actual = await fixtureInputs();
+  const verified = await runPrimeResurgenceSync({ rootDir, inputs: actual, now: "2026-09-03T18:00:00Z" });
+  assert.equal(verified.publicationStatus, "published");
+  assert.deepEqual(verified.changedFiles, []);
+  assert.deepEqual(await dataSnapshot(rootDir), before);
+  const feed = JSON.parse(actual.announcementText);
+  const next = structuredClone(feed.feed[0]);
+  next.post.uri = next.post.uri.replace("3mtjt7pmvpr2o", "3mvqabe4v5m2w");
+  next.post.record.createdAt = "2026-09-17T18:00:20.412Z";
+  next.post.record.text = "Ivara Prime and Protea Prime enter Prime Resurgence on October 1 at 2 p.m. ET.";
+  feed.feed.unshift(next);
+  actual.announcementText = JSON.stringify(feed);
+  const pending = await runPrimeResurgenceSync({ rootDir, inputs: actual, now: "2026-09-21T18:00:00Z", dryRun: true });
+  assert.equal(pending.candidateStage, "announced");
+  assert.equal(pending.publishedVerification, prepared.candidate.id);
+  assert.match(pending.summary, /Published preview verified against live inventory/);
+  // Revalidation must still run while the following rotation is pending.
+  const world = JSON.parse(actual.worldStateText);
+  world.PrimeVaultTraders[0].Manifest = world.PrimeVaultTraders[0].Manifest.filter(entry => !entry.ItemType.endsWith("T1VoidProjectionBansheeMirageVaultBBronze"));
+  actual.worldStateText = JSON.stringify(world);
+  await assert.rejects(runPrimeResurgenceSync({ rootDir, inputs: actual, now: "2026-09-21T18:00:00Z" }), /Incomplete|differs|mismatch|missing/i);
+  assert.deepEqual(await dataSnapshot(rootDir), before);
+});
+
+test("提前准备只使用精确 Vault 组合，不按历史奖励覆盖率猜测或截断遗物", async () => {
+  const inputs = await prelaunchInputs();
+  const candidate = { primeWarframes: ["Banshee Prime", "Mirage Prime"], effectiveAt: "2026-09-03T18:00:00Z" };
+  const dropRelics = parseDropTables(inputs.dropTablesHtml);
+  const unrelated = structuredClone(inputs.relicExport[0]);
+  unrelated.uniqueName = unrelated.uniqueName.replace("BansheeMirageVault", "BansheeOtherVault");
+  unrelated.name = "Axi Z99 Relic";
+  inputs.relicExport.push(unrelated);
+  dropRelics.push({ ...structuredClone(dropRelics[0]), name: "Axi Z99" });
+  assert.equal(lineupFromVaultExport(candidate, inputs, dropRelics).inventoryRelics.length, 6);
+  inputs.relicExport.at(-1).uniqueName = inputs.relicExport.at(-1).uniqueName.replace("BansheeOtherVaultB", "BansheeMirageVaultC");
+  assert.equal(lineupFromVaultExport(candidate, inputs, dropRelics).inventoryRelics.length, 7);
+  assert.equal(lineupFromVaultExport({ ...candidate, primeWarframes: ["Ivara Prime", "Protea Prime"] }, inputs, dropRelics), null);
+});
+
+test("提前准备遇到歧义、部分数据和来源冲突时停止且不写四份数据", async () => {
+  for (const variant of ["ambiguous-group", "duplicate-id", "missing-table", "partial-parts", "wrong-reward", "wrong-warframes", "missing-translation"]) {
+    const rootDir = await temporaryRepository();
+    const before = await dataSnapshot(rootDir);
+    const inputs = await prelaunchInputs();
+    if (variant === "ambiguous-group") inputs.relicExport.push({ ...structuredClone(inputs.relicExport[0]), uniqueName: inputs.relicExport[0].uniqueName.replace("BansheeMirageVault", "MirageBansheeVault") });
+    if (variant === "duplicate-id") inputs.relicExport.push(structuredClone(inputs.relicExport[0]));
+    if (variant === "missing-table") inputs.relicExport[0].name = "Axi Z99 Relic";
+    if (variant === "partial-parts") inputs.relicExport = inputs.relicExport.slice(0, 2);
+    if (variant === "wrong-reward") inputs.relicExport[0].relicRewards[0].rewardName = "/Lotus/StoreItems/Types/Recipes/Weapons/WeaponParts/AkboltoPrimeBarrel";
+    if (variant === "wrong-warframes") inputs.dropTablesHtml = inputs.dropTablesHtml.replaceAll("Mirage Prime", "Ivara Prime");
+    if (variant === "missing-translation") inputs.equipmentZh = inputs.equipmentZh.slice(1);
+    await assert.rejects(runPrimeResurgenceSync({ rootDir, inputs, now: "2026-08-21T18:00:00Z" }), /Ambiguous|Duplicate|missing|Incomplete|Missing|disagree/i, variant);
+    assert.deepEqual(await dataSnapshot(rootDir), before, variant);
+  }
+});
+
+test("Vault 预备证据必须绑定公告组合、生效时间和完整遗物集合", async () => {
+  const rootDir = await temporaryRepository();
+  await runPrimeResurgenceSync({ rootDir, inputs: await prelaunchInputs(), now: "2026-08-21T18:00:00Z" });
+  const [rotations, primes, relics, candidates] = (await dataSnapshot(rootDir)).map(text => JSON.parse(text));
+  for (const variant of ["wrong-group", "wrong-time", "wrong-price-basis"]) {
+    const altered = structuredClone(candidates);
+    const evidence = altered.candidates[0].source.officialData.vaultExport;
+    if (variant === "wrong-group") evidence.group = "IvaraProteaVault";
+    if (variant === "wrong-time") evidence.startsAt = "2026-09-04T18:00:00Z";
+    if (variant === "wrong-price-basis") evidence.priceBasis = "observed-sale-price";
+    assert.throws(() => validateAnnouncementCandidates(altered), /disagree|basis/i);
+  }
+  rotations.rotations.find(rotation => rotation.source?.vaultExport).source.vaultExport.relics.pop();
+  assert.throws(() => validateRotationData(rotations, primes, relics), /disagree with Vault export/);
+});
 
 function officialFetchFixture(inputs, requested) {
   const payloads = new Map([
@@ -349,7 +481,7 @@ test("历史同奖励遗物不会取代实际售卖清单", async () => {
   const relics = parseDropTables(inputs.dropTablesHtml);
   relics.push({ ...structuredClone(relics[0]), name: "Axi Z99" });
   assert.deepEqual(selectRelicSet(relics, lineup.items, inventoryNames).relics.map(relic => relic.name), inventoryNames);
-  assert.throws(() => selectRelicSet(relics, lineup.items), /explicit World State relic inventory/);
+  assert.throws(() => selectRelicSet(relics, lineup.items), /explicit official relic selection/);
 });
 
 test("Public Export recipe 同时计算 ×1 与 ×2 Prime 部件", async () => {
@@ -606,7 +738,7 @@ test("announcement-only candidate 幂等、保留 provenance，且不修改正�
   assert.equal(candidate.source.discoveredAt, now);
   assert.deepEqual(candidate.statusHistory, [{ status: "announced", at: now }]);
   assert.match(first.summary, /Officially announced Prime Warframes: Banshee Prime & Mirage Prime/);
-  assert.match(first.summary, /Relic data: pending official rotation inventory/);
+  assert.match(first.summary, /Relic data: pending pair-specific Vault export or official rotation inventory/);
   assert.deepEqual((await dataSnapshot(directory)).slice(0, 3), beforeProduction);
   assert.equal(validateAnnouncementCandidates(firstCandidateData, JSON.parse(beforeProduction[0])), true);
 
