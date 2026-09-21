@@ -45,6 +45,7 @@ function requireProvisionalSource(source, label, { recipe = false } = {}) {
     requireValue(Object.prototype.hasOwnProperty.call(source, field), `Missing provisional source field: ${label} / ${field}`);
     requireValue(source[field] === null || (typeof source[field] === "string" && source[field].length > 0), `Invalid provisional source field: ${label} / ${field}`);
   }
+  if (source.inventory !== undefined) requireInventoryEvidence(source.inventory, label);
   if (source.recipeExceptions !== undefined) {
     requireValue(Array.isArray(source.recipeExceptions), `Invalid recipeExceptions: ${label}`);
     requireUnique(source.recipeExceptions.map((exception) => exception?.itemId), `Duplicate recipe exception: ${label}`);
@@ -73,6 +74,22 @@ function isIsoTimestamp(value) {
   return Number.isFinite(timestamp) && new Date(timestamp).toISOString() === value;
 }
 
+function requireInventoryEvidence(record, label) {
+  requireValue(record?.type === "digital-extremes-world-state" && record.url === "https://api.warframe.com/cdn/worldState.php", `Invalid World State evidence: ${label}`);
+  requireValue(isExactUtcTimestamp(record.startsAt) && isExactUtcTimestamp(record.endsAt) && Date.parse(record.startsAt) < Date.parse(record.endsAt), `Invalid inventory interval: ${label}`);
+  requireValue(Array.isArray(record.relics) && record.relics.length > 0, `Missing inventory relics: ${label}`);
+  requireUnique(record.relics.map(relic => relic.itemType), `Duplicate inventory item: ${label}`);
+  requireUnique(record.relics.map(relic => relic.name), `Duplicate inventory relic: ${label}`);
+  for (const relic of record.relics) {
+    requireValue(typeof relic.itemType === "string" && /^\/Lotus\/StoreItems\/Types\/Game\/Projections\/[A-Za-z0-9]+Bronze$/.test(relic.itemType), `Invalid inventory relic item: ${label}`);
+    requireValue(/^(Lith|Meso|Neo|Axi) [A-Z]\d+$/.test(relic.name) && relic.costAya === 1, `Invalid inventory relic name or price: ${label}`);
+  }
+  requireValue(record.exportUrls && typeof record.exportUrls === "object", `Missing inventory export URLs: ${label}`);
+  for (const key of ["Recipes_en", "RelicArcane_en", "Warframes_en", "Weapons_en", "Sentinels_en", "Warframes_zh", "Weapons_zh", "Sentinels_zh"]) {
+    requireValue(typeof record.exportUrls[key] === "string" && record.exportUrls[key].startsWith(`https://content.warframe.com/PublicExport/Manifest/Export${key}.json!`), `Invalid inventory export URL: ${label} / ${key}`);
+  }
+}
+
 function requireAnnouncementEvidence(evidence, label) {
   requireValue(typeof evidence?.url === "string" && /^https:\/\/bsky\.app\/profile\/warframe\.com\/post\/[a-z0-9]+$/.test(evidence.url), `Invalid announcement source URL: ${label}`);
   requireValue(isIsoTimestamp(evidence.publishedAt), `Invalid announcement publishedAt: ${label}`);
@@ -99,7 +116,7 @@ function requireAnnouncementCandidateSource(source, label) {
     const officialData = source.officialData;
     requireValue(officialData && typeof officialData === "object", `Invalid official data evidence: ${label}`);
     for (const [field, expectedUrl] of [
-      ["rotationPage", "https://www.warframe.com/en/prime-resurgence"],
+      ...(officialData.worldState ? [["worldState", "https://api.warframe.com/cdn/worldState.php"]] : [["rotationPage", "https://www.warframe.com/en/prime-resurgence"]]),
       ["dropTable", "https://www.warframe.com/droptables"],
       ["recipeExport", "https://content.warframe.com/PublicExport/Manifest/"]
     ]) {
@@ -108,6 +125,7 @@ function requireAnnouncementCandidateSource(source, label) {
       requireValue(typeof record.url === "string" && record.url.startsWith(expectedUrl), `Invalid official data URL: ${label} / ${field}`);
       requireValue(isIsoTimestamp(record.discoveredAt), `Invalid official data discoveredAt: ${label} / ${field}`);
     }
+    if (officialData.worldState) requireInventoryEvidence(officialData.worldState, label);
     requireValue(Array.isArray(officialData.rawPrimeWarframes) && officialData.rawPrimeWarframes.length === 2, `Invalid official data Prime names: ${label}`);
     requireUnique(officialData.rawPrimeWarframes, `Duplicate official data Prime name: ${label}`);
   }
@@ -115,6 +133,12 @@ function requireAnnouncementCandidateSource(source, label) {
   if (source.conflict !== undefined) {
     const conflict = source.conflict;
     requireValue(conflict && typeof conflict === "object", `Invalid announcement conflict evidence: ${label}`);
+    if (conflict.worldState) {
+      requireInventoryEvidence(conflict.worldState, label);
+      requireValue(isIsoTimestamp(conflict.worldState.discoveredAt), `Invalid conflict discoveredAt: ${label}`);
+      requireValue(Array.isArray(conflict.worldState.rawPrimeWarframes) && conflict.worldState.rawPrimeWarframes.length === 2, `Invalid conflict Prime names: ${label}`);
+      return;
+    }
     requireValue(conflict.officialRotationPage?.type === "digital-extremes-official-rotation-page", `Invalid conflict source type: ${label}`);
     requireValue(conflict.officialRotationPage?.url === "https://www.warframe.com/en/prime-resurgence", `Invalid conflict source URL: ${label}`);
     requireValue(isIsoTimestamp(conflict.officialRotationPage?.discoveredAt), `Invalid conflict discoveredAt: ${label}`);
@@ -184,6 +208,11 @@ export function validateAnnouncementCandidates(candidateData, rotationData = nul
         requireValue(rotation?.publicationStatus === "provisional", `Ready candidate does not reference a provisional rotation: ${label}`);
       }
     }
+    if (candidate.source.officialData?.worldState) {
+      const evidence = candidate.source.officialData.worldState;
+      requireValue(evidence.startsAt === candidate.effectiveAt, `Inventory activation disagrees with announcement: ${label}`);
+      requireValue(JSON.stringify([...candidate.source.officialData.rawPrimeWarframes].sort()) === JSON.stringify([...candidate.primeWarframes].sort()), `Inventory Prime names disagree with announcement: ${label}`);
+    }
     if (candidate.status === "conflict") {
       requireValue(candidate.relicDataStatus === "conflict" && candidate.verified === false, `Conflict candidate verification state is invalid: ${label}`);
       requireValue(candidate.source.conflict !== undefined, `Conflict candidate is missing both sources: ${label}`);
@@ -226,6 +255,12 @@ export function validateRotationData(rotationData, primeData, relicData) {
     requireValue(rotation.relics.length > 0, `Rotation ${rotation.id} must contain at least one relic.`);
     requireUnique(rotation.items, `Duplicate rotation item: ${rotation.id}`);
     requireUnique(rotation.relics, `Duplicate rotation relic: ${rotation.id}`);
+    if (rotation.source?.inventory) {
+      const inventory = rotation.source.inventory;
+      requireInventoryEvidence(inventory, rotation.id);
+      requireValue(inventory.startsAt === rotation.startsAt, `Inventory activation disagrees with rotation: ${rotation.id}`);
+      requireValue(JSON.stringify(inventory.relics.map(relic => relic.name.toLowerCase().replaceAll(" ", "-")).sort()) === JSON.stringify([...rotation.relics].sort()), `Rotation relics disagree with sale inventory: ${rotation.id}`);
+    }
     if (rotation.defaults?.ayaBudget !== undefined) {
       requireValue(
         Number.isInteger(rotation.defaults.ayaBudget) && rotation.defaults.ayaBudget >= 0,

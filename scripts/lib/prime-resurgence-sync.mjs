@@ -1,3 +1,4 @@
+import { WORLD_STATE_URL, parsePrimeVaultTrader, lineupFromInventory } from "./prime-vault-inventory.mjs";
 import { spawn } from "node:child_process";
 import { open, readFile, rename, stat, unlink } from "node:fs/promises";
 import path from "node:path";
@@ -6,6 +7,7 @@ import { candidateIdFor as canonicalCandidateIdFor, normalizeOfficialTimestamp }
 import { publishedRotations, resolveRotationState } from "../../js/rotation-schedule.js";
 
 export const OFFICIAL_SOURCES = Object.freeze({
+  worldState: WORLD_STATE_URL,
   rotationEn: "https://www.warframe.com/en/prime-resurgence",
   rotationZh: "https://www.warframe.com/zh-hans/prime-resurgence",
   announcementFeed: "https://public.api.bsky.app/xrpc/app.bsky.feed.getAuthorFeed?actor=warframe.com&limit=100&filter=posts_no_replies",
@@ -238,7 +240,7 @@ function parsePrimePage(html, { english }) {
   const craftable = cards
     .filter((card) => ITEM_TYPE_BY_OFFICIAL_LABEL.has(card.officialType))
     .map((card) => ({ ...card, type: ITEM_TYPE_BY_OFFICIAL_LABEL.get(card.officialType) }));
-  invariant(craftable.length === 6, `Expected six craftable Prime items; found ${craftable.length}.`);
+  invariant(craftable.length >= 2, `Expected craftable Prime items; found ${craftable.length}.`);
   invariant(craftable.filter((item) => item.type === "warframe").length === 2, "Expected exactly two Prime Warframes.");
   const titleNames = title.split(/\s*(?:&|and)\s*/i).map(normalizedText);
   const warframeNames = craftable.filter((item) => item.type === "warframe").map((item) => item.name);
@@ -474,48 +476,30 @@ function relicSort(left, right) {
   return (ERA_ORDER.get(leftEra) - ERA_ORDER.get(rightEra)) || leftCode.localeCompare(rightCode, "en", { numeric: true });
 }
 
-export function selectRelicSet(dropRelics, lineupItems) {
-  const annotated = dropRelics.map((relic) => {
-    const targetRewards = relic.rewards.map((reward) => targetReward(reward, lineupItems)).filter(Boolean);
-    unique(targetRewards.map((reward) => `${reward.itemId}:${reward.partId}`), `Duplicate target reward in ${relic.name}`);
+export function selectRelicSet(dropRelics, lineupItems, inventoryRelicNames) {
+  invariant(Array.isArray(inventoryRelicNames) && inventoryRelicNames.length > 0, "An explicit World State relic inventory is required.");
+  unique(inventoryRelicNames, "Duplicate inventory relic name");
+  unique(dropRelics.map(relic => relic.name), "Duplicate Intact relic");
+  const relics = inventoryRelicNames.map(name => {
+    const relic = dropRelics.find(entry => entry.name === name);
+    invariant(relic, `Inventory relic is missing from official Drop Tables: ${name}.`);
+    const targetRewards = relic.rewards.map(reward => targetReward(reward, lineupItems)).filter(Boolean);
+    unique(targetRewards.map(reward => `${reward.itemId}:${reward.partId}`), `Duplicate target reward in ${relic.name}`);
+    invariant(targetRewards.length > 0, `Inventory relic has no lineup rewards: ${name}.`);
     return { ...relic, targetRewards };
   });
-  const expected = new Set(annotated.flatMap((relic) => relic.targetRewards.map((reward) => `${reward.itemId}:${reward.partId}`)));
   const expectedByItem = new Map();
-  for (const reward of annotated.flatMap((relic) => relic.targetRewards)) {
-    const itemParts = expectedByItem.get(reward.itemId) || new Map();
-    const existingName = itemParts.get(reward.partId);
-    invariant(!existingName || existingName === reward.partName, `Conflicting part names for ${reward.itemId}/${reward.partId}.`);
-    itemParts.set(reward.partId, reward.partName);
-    expectedByItem.set(reward.itemId, itemParts);
+  for (const reward of relics.flatMap(relic => relic.targetRewards)) {
+    const parts = expectedByItem.get(reward.itemId) || new Map();
+    invariant(!parts.has(reward.partId) || parts.get(reward.partId) === reward.partName, `Conflicting part names for ${reward.itemId}/${reward.partId}.`);
+    parts.set(reward.partId, reward.partName);
+    expectedByItem.set(reward.itemId, parts);
   }
   for (const item of lineupItems) {
     const parts = expectedByItem.get(slugify(item.name));
     invariant(parts && parts.has("blueprint") && parts.size >= 3 && parts.size <= 5, `Incomplete Prime part catalog for ${item.name}.`);
   }
-
-  const candidates = annotated.filter((relic) => relic.targetRewards.length >= 3);
-  invariant(candidates.length >= 6 && candidates.length <= 20, `Relic candidate count is unsafe: ${candidates.length}.`);
-  let bestScore = -1;
-  const best = [];
-  const choose = (start, selection) => {
-    if (selection.length === 6) {
-      const covered = new Set(selection.flatMap((relic) => relic.targetRewards.map((reward) => `${reward.itemId}:${reward.partId}`)));
-      if (covered.size !== expected.size) return;
-      const score = selection.reduce((sum, relic) => sum + relic.targetRewards.length, 0);
-      if (score > bestScore) {
-        bestScore = score;
-        best.splice(0, best.length, selection);
-      } else if (score === bestScore) {
-        best.push(selection);
-      }
-      return;
-    }
-    for (let index = start; index < candidates.length; index += 1) choose(index + 1, [...selection, candidates[index]]);
-  };
-  choose(0, []);
-  invariant(best.length === 1, best.length ? "Multiple equally supported relic sets were found." : "No six-relic set covers every Prime part.");
-  return { relics: [...best[0]].sort(relicSort), expectedByItem };
+  return { relics: [...relics].sort(relicSort), expectedByItem };
 }
 
 function normalizedInternal(value) {
@@ -538,6 +522,27 @@ function internalPartId(itemName, itemType) {
   let part = tail.slice(prefix.length).replace(/component$/, "").replace(/part$/, "");
   if (part === "helmet") part = "neuroptics";
   return part || null;
+}
+
+function validateInventoryRewards(selection, lineup, relicExport) {
+  for (const relic of selection.relics) {
+    const inventory = lineup.inventoryRelics.find(entry => entry.name === relic.name);
+    const exported = relicExport.find(entry => entry.uniqueName === inventory.itemType.replace(/^\/Lotus\/StoreItems\//, "/Lotus/"));
+    const exportedTargets = [];
+    for (const reward of exported.relicRewards) {
+      for (const item of lineup.items) {
+        const tail = normalizedInternal(reward.rewardName);
+        const mainBlueprint = itemInternalPrefixes(item.name).some(prefix => tail === `${prefix}blueprint`);
+        let partId = mainBlueprint ? "blueprint" : internalPartId(item.name, reward.rewardName.replace(/Blueprint$/, ""));
+        if (!partId) continue;
+        if (partId === "handle" && selection.expectedByItem.get(slugify(item.name))?.has("hilt")) partId = "hilt";
+        invariant(reward.itemCount === 1, `Unsupported target reward quantity in ${relic.name}.`);
+        exportedTargets.push(`${slugify(item.name)}:${partId}:${reward.rarity.toLowerCase()}`);
+      }
+    }
+    const tableTargets = relic.targetRewards.map(reward => `${reward.itemId}:${reward.partId}:${reward.rarity}`);
+    invariant(sameSet(exportedTargets, tableTargets), `Public Export rewards disagree with official Drop Tables for ${relic.name}; human review is required.`);
+  }
 }
 
 export function parseRecipes(payload, { minimumRecipes = 1 } = {}) {
@@ -924,12 +929,8 @@ function upsertAnnouncementCandidates(candidateData, announcements, rotationData
 }
 
 function officialRotationEvidence(lineup, discoveredAt) {
-  return {
-    type: "digital-extremes-official-rotation-page",
-    url: OFFICIAL_SOURCES.rotationEn,
-    discoveredAt,
-    rawPrimeWarframes: lineup.warframes.map((item) => item.name)
-  };
+  invariant(lineup.inventoryEvidence, "World State inventory evidence is required.");
+  return { ...lineup.inventoryEvidence, discoveredAt, rawPrimeWarframes: lineup.warframes.map(item => item.name) };
 }
 
 function sameWarframePair(left, right) {
@@ -952,15 +953,15 @@ function candidateForLineup(candidateData, lineup) {
     candidate.status !== "conflict" && sameWarframePair(candidate.primeWarframes, lineup.warframes)
   ));
   const announced = matches.filter((candidate) => candidate.status === "announced");
-  invariant(announced.length <= 1, `Multiple announced candidates match the official page lineup: ${announced.map((candidate) => candidate.id).join(", ")}.`);
+  invariant(announced.length <= 1, `Multiple announced candidates match the official inventory lineup: ${announced.map((candidate) => candidate.id).join(", ")}.`);
   if (announced.length) return announced[0];
-  invariant(matches.length <= 1, `Multiple announcement candidates match the official page lineup: ${matches.map((candidate) => candidate.id).join(", ")}.`);
+  invariant(matches.length <= 1, `Multiple announcement candidates match the official inventory lineup: ${matches.map((candidate) => candidate.id).join(", ")}.`);
   return matches[0] || null;
 }
 
 function officialDataEvidence(lineup, recipeUrl, discoveredAt) {
   return {
-    rotationPage: officialRotationEvidence(lineup, discoveredAt),
+    worldState: officialRotationEvidence(lineup, discoveredAt),
     dropTable: {
       type: "digital-extremes-official-drop-table",
       url: OFFICIAL_SOURCES.dropTables,
@@ -981,17 +982,17 @@ function upgradeAnnouncementCandidate(candidateData, { announcement, lineup, rec
   const existing = candidateData.candidates.find((candidate) => candidateIdentityForRecord(candidate) === identity);
   const baseline = existing ? clone(existing) : announcementCandidate(announcement, discoveredAt);
   invariant(baseline.status !== "conflict", `Candidate ${baseline.id} is conflicted and cannot be upgraded automatically.`);
-  invariant(sameSet(baseline.primeWarframes, lineup.warframes.map((item) => item.name)), `Announcement candidate ${baseline.id} conflicts with the official rotation page.`);
+  invariant(sameSet(baseline.primeWarframes, lineup.warframes.map((item) => item.name)), `Announcement candidate ${baseline.id} conflicts with the official inventory.`);
   const nextOfficialData = officialDataEvidence(lineup, recipeUrl, discoveredAt);
   const existingOfficialData = baseline.source?.officialData;
   const officialData = existingOfficialData
     && JSON.stringify({
-      rotationPage: existingOfficialData.rotationPage?.url,
+      worldState: existingOfficialData.worldState && { ...existingOfficialData.worldState, discoveredAt: null },
       dropTable: existingOfficialData.dropTable?.url,
       recipeExport: existingOfficialData.recipeExport?.url,
       rawPrimeWarframes: existingOfficialData.rawPrimeWarframes
     }) === JSON.stringify({
-      rotationPage: nextOfficialData.rotationPage.url,
+      worldState: { ...nextOfficialData.worldState, discoveredAt: null },
       dropTable: nextOfficialData.dropTable.url,
       recipeExport: nextOfficialData.recipeExport.url,
       rawPrimeWarframes: nextOfficialData.rawPrimeWarframes
@@ -1012,7 +1013,7 @@ function upgradeAnnouncementCandidate(candidateData, { announcement, lineup, rec
     verified: true,
     rotationId,
     statusHistory: withStatusTransitions(baseline, ["official-data-available", "validated", "ready-for-review"], discoveredAt),
-    reviewReason: "Official rotation page, drop table, and Public Export data passed validation; ready for human review."
+    reviewReason: "Official World State inventory, drop table, and Public Export data passed validation; ready for human review."
   };
   const candidates = candidateData.candidates.filter((candidate) => candidate.id !== upgraded.id);
   candidates.push(upgraded);
@@ -1027,13 +1028,13 @@ function recordAnnouncementConflict(candidateData, candidate, lineup, discovered
     source: {
       ...clone(candidate.source),
       conflict: {
-        officialRotationPage: officialRotationEvidence(lineup, discoveredAt)
+        worldState: officialRotationEvidence(lineup, discoveredAt)
       }
     },
     relicDataStatus: "conflict",
     verified: false,
     statusHistory: withStatusTransition(candidate, "conflict", discoveredAt),
-    reviewReason: `Official Prime Resurgence page lists ${lineup.warframes.map((item) => item.name).join(" & ")}, which conflicts with the announced ${candidate.primeWarframes.join(" & ")}. Automatic upgrade stopped.`,
+    reviewReason: `Official World State inventory lists ${lineup.warframes.map((item) => item.name).join(" & ")}, which conflicts with the announced ${candidate.primeWarframes.join(" & ")}. Automatic upgrade stopped.`,
   };
   delete conflict.rotationId;
   const candidates = candidateData.candidates.map((entry) => entry.id === candidate.id ? conflict : clone(entry));
@@ -1054,10 +1055,11 @@ function rarityWarningsFor(selectedRelics) {
     .map((reward) => `${relic.name} / ${reward.itemName} ${reward.partName}: official label ${reward.sourceRarity}, intact probability ${reward.probability}% maps to ${reward.rarity}`));
 }
 
-function sourceRecords({ announcement, recipeUrl, preparedAt, recipeExceptions, rarityWarnings }) {
+function sourceRecords({ announcement, recipeUrl, preparedAt, recipeExceptions, rarityWarnings, lineup }) {
   const common = {
     status: "provisional",
-    rotationUrl: OFFICIAL_SOURCES.rotationZh,
+    rotationUrl: OFFICIAL_SOURCES.worldState,
+    inventory: lineup.inventoryEvidence,
     announcementUrl: announcement.url,
     dropTableUrl: OFFICIAL_SOURCES.dropTables,
     recipeExportUrl: recipeUrl,
@@ -1068,15 +1070,16 @@ function sourceRecords({ announcement, recipeUrl, preparedAt, recipeExceptions, 
   return {
     rotation: {
       ...common,
-      note: "官方 Prime 重生页面确认完整阵容；warframe.com 官方公告确认生效时间；官方掉落表的数值概率决定规划器 rarity。制造数量优先来自 Public Export；若官方 export 确认缺失，只允许使用显式 curated-manual exception。ayaBudget 仍只是 Varzia 产品预设。此候选不会自动发布。"
+      note: "官方 World State Manifest 确认售卖阵容和遗物清单；warframe.com 官方公告确认生效时间；官方掉落表的数值概率决定规划器 rarity。制造数量优先来自 Public Export；若官方 export 确认缺失，只允许使用显式 curated-manual exception。ayaBudget 仍只是 Varzia 产品预设。此候选不会自动发布。"
     },
     primes: {
       ...common,
-      note: "装备和部件映射来自官方 Prime 重生页面与掉落表；制造数量的 Public Export 与 curated-manual evidence 分开记录，候选只供人工 Review。"
+      note: "装备和部件映射来自官方 World State、Public Export 与掉落表；制造数量的 Public Export 与 curated-manual evidence 分开记录，候选只供人工 Review。"
     },
     relics: {
       status: common.status,
       rotationUrl: common.rotationUrl,
+      inventory: common.inventory,
       announcementUrl: common.announcementUrl,
       dropTableUrl: common.dropTableUrl,
       preparedAt,
@@ -1096,7 +1099,7 @@ function comparePublishedFacts({ rotation, primeData, relicData, lineup, selecte
   invariant(rotation.publicationStatus === "published", `Rotation ${rotation.id} is not published.`);
   invariant(rotation.startsAt === announcement.startsAt, `Published startsAt differs from official announcement for ${rotation.id}.`);
   const itemIds = lineup.items.map((item) => slugify(item.name));
-  invariant(sameSet(rotation.items, itemIds), `Published item lineup differs from the official page for ${rotation.id}.`);
+  invariant(sameSet(rotation.items, itemIds), `Published item lineup differs from the official inventory for ${rotation.id}.`);
   const selectedRelicIds = selectedRelics.map((relic) => relicId(relic.name));
   invariant(sameSet(rotation.relics, selectedRelicIds), `Published relic set differs from official Drop Tables for ${rotation.id}.`);
   const itemMap = new Map(primeData.primeItems.map((item) => [item.id, item]));
@@ -1135,7 +1138,7 @@ function mergeCandidate({ rotationData, primeData, relicData, lineup, selectedRe
     || new Date(announcement.createdAt).toISOString().slice(0, 10);
   const recipeExceptions = recipeExceptionProvenance(requirements);
   const rarityWarnings = rarityWarningsFor(selectedRelics);
-  const sources = sourceRecords({ announcement, recipeUrl, preparedAt, recipeExceptions, rarityWarnings });
+  const sources = sourceRecords({ announcement, recipeUrl, preparedAt, recipeExceptions, rarityWarnings, lineup });
 
   const rebuiltItems = new Map();
   for (const pageItem of lineup.items) {
@@ -1411,14 +1414,6 @@ export async function fetchResource(fetchImpl, url, { binary = false, finalHosts
   return binary ? buffer : buffer.toString("utf8");
 }
 
-export async function fetchOfficialAnnouncementInputs({ fetchImpl = globalThis.fetch } = {}) {
-  const [rotationInputs, announcementText] = await Promise.all([
-    fetchOfficialRotationPages({ fetchImpl }),
-    fetchResource(fetchImpl, OFFICIAL_SOURCES.announcementFeed, { finalHosts: ["public.api.bsky.app"], maximumBytes: 5_000_000 })
-  ]);
-  return { ...rotationInputs, announcementText };
-}
-
 export async function fetchOfficialRotationPages({ fetchImpl = globalThis.fetch } = {}) {
   const [englishHtml, chineseHtml] = await Promise.all([
     fetchResource(fetchImpl, OFFICIAL_SOURCES.rotationEn, { finalHosts: ["www.warframe.com"], maximumBytes: 1_000_000 }),
@@ -1428,23 +1423,87 @@ export async function fetchOfficialRotationPages({ fetchImpl = globalThis.fetch 
 }
 
 export async function fetchOfficialRotationData({ fetchImpl = globalThis.fetch, decompress = decompressLzma } = {}) {
-  const [dropTablesHtml, indexBuffer] = await Promise.all([
+  const content = (url, options = {}) => fetchResource(fetchImpl, url, { finalHosts: ["content.warframe.com"], maximumBytes: 20_000_000, ...options });
+  const [dropTablesHtml, ...indexes] = await Promise.all([
     fetchResource(fetchImpl, OFFICIAL_SOURCES.dropTables, {
-      finalHosts: ["www.warframe.com", "warframe-web-assets.nyc3.cdn.digitaloceanspaces.com"],
-      maximumBytes: 10_000_000
+      finalHosts: ["www.warframe.com", "warframe-web-assets.nyc3.cdn.digitaloceanspaces.com"], maximumBytes: 10_000_000
     }),
-    fetchResource(fetchImpl, OFFICIAL_SOURCES.publicExportIndex, { binary: true, finalHosts: ["content.warframe.com"], maximumBytes: 1_000_000 })
+    ...["en", "zh"].map(async locale => decompress(await content(`https://content.warframe.com/PublicExport/index_${locale}.txt.lzma`, { binary: true, maximumBytes: 1_000_000 })))
   ]);
-  const indexText = await decompress(indexBuffer);
-  const recipeUrl = parsePublicExportIndex(indexText);
-  const recipesText = await fetchResource(fetchImpl, recipeUrl, { finalHosts: ["content.warframe.com"], maximumBytes: 20_000_000 });
-  return { dropTablesHtml, recipesText, recipeUrl };
+  const exportUrls = {};
+  const readExport = async (type, locale) => {
+    const prefix = `Export${type}_${locale}.json!`;
+    const matches = indexes[locale === "en" ? 0 : 1].split(/\r?\n/).filter(line => line.startsWith(prefix));
+    invariant(matches.length === 1 && /^[A-Za-z0-9_.!+-]+$/.test(matches[0]), `Missing or ambiguous Public Export manifest: ${prefix}`);
+    const url = `https://content.warframe.com/PublicExport/Manifest/${matches[0]}`;
+    exportUrls[`${type}_${locale}`] = url;
+    const text = await content(url);
+    const records = JSON.parse(text)[`Export${type}`];
+    invariant(Array.isArray(records) && records.length > 0, `Malformed Public Export: ${url}`);
+    return { text, records };
+  };
+  const [recipes, relics, en, zh] = await Promise.all([
+    readExport("Recipes", "en"), readExport("RelicArcane", "en"),
+    Promise.all(["Warframes", "Weapons", "Sentinels"].map(type => readExport(type, "en"))),
+    Promise.all(["Warframes", "Weapons", "Sentinels"].map(type => readExport(type, "zh")))
+  ]);
+  return { dropTablesHtml, recipesText: recipes.text, recipeUrl: exportUrls.Recipes_en,
+    relicExport: relics.records, equipmentEn: en.flatMap(item => item.records), equipmentZh: zh.flatMap(item => item.records), exportUrls };
 }
 
-export async function fetchOfficialInputs({ fetchImpl = globalThis.fetch, decompress = decompressLzma } = {}) {
-  const announcementInputs = await fetchOfficialAnnouncementInputs({ fetchImpl });
-  const rotationInputs = await fetchOfficialRotationData({ fetchImpl, decompress });
-  return { ...announcementInputs, ...rotationInputs };
+async function fetchWorldState(fetchImpl) {
+  return fetchResource(fetchImpl, OFFICIAL_SOURCES.worldState, { finalHosts: ["api.warframe.com"], maximumBytes: 10_000_000 });
+}
+
+async function fetchInventoryInputs({ fetchImpl = globalThis.fetch, decompress = decompressLzma, worldStateText } = {}) {
+  const [world, data, pages] = await Promise.all([
+    worldStateText ?? fetchWorldState(fetchImpl),
+    fetchOfficialRotationData({ fetchImpl, decompress }),
+    fetchOfficialRotationPages({ fetchImpl }).catch(error => ({ pageWarning: `Auxiliary page unavailable: ${safeErrorMessage(error)}` }))
+  ]);
+  return { ...data, ...pages, worldStateText: world };
+}
+
+export async function fetchOfficialAnnouncementInputs({ fetchImpl = globalThis.fetch, decompress = decompressLzma } = {}) {
+  const [inventoryInputs, announcementText] = await Promise.all([
+    fetchInventoryInputs({ fetchImpl, decompress }),
+    fetchResource(fetchImpl, OFFICIAL_SOURCES.announcementFeed, { finalHosts: ["public.api.bsky.app"], maximumBytes: 5_000_000 })
+  ]);
+  return { ...inventoryInputs, announcementText };
+}
+
+export async function fetchOfficialInputs(options = {}) {
+  return fetchOfficialAnnouncementInputs(options);
+}
+
+function inventoryLineup(official, now) {
+  const trader = parsePrimeVaultTrader(JSON.parse(official.worldStateText), now);
+  invariant(trader.active, "World State inventory is expired or not active yet; refusing to prepare a rotation.");
+  return lineupFromInventory(trader, official);
+}
+
+function prepareAnnouncementCatalog(candidate, official) {
+  const items = candidate.primeWarframes.map(name => {
+    const matches = official.equipmentEn.filter(item => item.name === name && item.productCategory === "Suits");
+    invariant(matches.length <= 1, `Ambiguous Public Export Warframe: ${name}.`);
+    return matches.length ? { name, type: "warframe" } : null;
+  });
+  if (items.some(item => !item)) return { status: "pending equipment export", itemCount: items.filter(Boolean).length };
+  const relics = parseDropTables(official.dropTablesHtml);
+  const matching = relics.filter(relic => relic.rewards.some(reward => items.some(item => reward.name.startsWith(`${item.name} `))));
+  const selection = selectRelicSet(relics, items, matching.map(relic => relic.name));
+  const requirements = resolveRecipeRequirements(parseRecipes(official.recipesText), items, selection.expectedByItem, { recipeUrl: official.recipeUrl });
+  return { status: "catalog validated; rotation inventory still pending", itemCount: items.length, totalRequiredParts: totalRequired(requirements), matchingHistoricalRelics: matching.length, recipeUrl: official.recipeUrl };
+}
+
+function checkAuxiliaryPage(official, lineup, rotationData, primeData) {
+  if (official.pageWarning) return official.pageWarning;
+  let page;
+  try { page = parsePrimeResurgencePages(official.englishHtml, official.chineseHtml); }
+  catch (error) { return `Auxiliary page could not be parsed: ${safeErrorMessage(error)}`; }
+  if (sameSet(page.items.map(item => item.name), lineup.items.map(item => item.name))) return null;
+  if (pageMatchesPublishedLineup(page, rotationData, primeData)) return "Auxiliary page still shows the previous published rotation; World State inventory is authoritative.";
+  invariant(false, "Auxiliary official page conflicts with World State inventory and the previous published rotation; human review is required.");
 }
 
 function upcomingAnnouncement(announcements, currentAnnouncement) {
@@ -1473,11 +1532,12 @@ function markdownSummary(result) {
     }
     lines.push(`- Current: ${inline(watcher.current)}`);
     lines.push(`- Eligible: ${watcher.eligible ? "yes" : "no"}`);
-    if (!watcher.eligible) lines.push(`- Reason: ${inline(watcher.reason)}`);
+    if (watcher.reason) lines.push(`- Reason: ${inline(watcher.reason)}`);
     lines.push(`- Official rotation changed: ${watcher.officialRotationChanged === null ? "not checked" : watcher.officialRotationChanged ? "yes" : "no"}`);
     lines.push(`- External requests: ${watcher.externalRequests}`);
     lines.push(`- Result: ${inline(result.status)}`);
-    return `${lines.join("\n")}\n`;
+    if (result.status === "NO_OP") return `${lines.join("\n")}\n`;
+    lines.push("");
   }
   if (result.candidateStage === "terminal") {
     lines.push(`- Result: NO_OP (${inline(result.candidate.status)} is terminal)`);
@@ -1494,7 +1554,14 @@ function markdownSummary(result) {
     lines.push(`- Official announcement: ${inline(result.candidate.source.url)}`);
     lines.push(`- Announcement published: ${inline(result.candidate.source.publishedAt)}`);
     lines.push(`- Discovered: ${inline(result.candidate.source.discoveredAt)}`);
-    lines.push("- Relic data: pending official rotation data");
+    lines.push("- Relic data: pending official rotation inventory");
+    if (result.catalogPreparation) {
+      const prepared = result.catalogPreparation;
+      lines.push(`- Early catalog preparation: ${inline(prepared.status)}`);
+      lines.push(`- Prepared Warframes: ${prepared.itemCount}; required parts: ${prepared.totalRequiredParts ?? "pending"}; historical relics: ${prepared.matchingHistoricalRelics ?? "pending"}`);
+      if (prepared.recipeUrl) lines.push(`- Prepared recipe source: ${inline(prepared.recipeUrl)}`);
+      lines.push("- Historical reward routes are not treated as this rotation’s sale inventory.");
+    }
     lines.push("- Verified: false");
     if (result.changedFiles.length) lines.push(`- Candidate diff: ${result.changedFiles.join(", ")}`);
     else lines.push("- Candidate diff: empty");
@@ -1506,17 +1573,18 @@ function markdownSummary(result) {
     lines.push("- Result: CONFLICT / review required");
     lines.push(`- Candidate ID: ${inline(result.candidate.id)}`);
     lines.push(`- Announced Prime Warframes: ${inline(result.candidate.primeWarframes.join(" & "))}`);
-    lines.push(`- Official page Prime Warframes: ${inline(result.officialPageWarframes.join(" & "))}`);
+    const evidence = result.candidate.source.conflict.worldState || result.candidate.source.conflict.officialRotationPage;
+    lines.push(`- Official inventory Prime Warframes: ${inline(evidence.rawPrimeWarframes.join(" & "))}`);
     lines.push(`- Review reason: ${inline(result.candidate.reviewReason)}`);
     lines.push(`- Announcement source: ${inline(result.candidate.source.url)}`);
-    lines.push(`- Official page source: ${inline(result.candidate.source.conflict.officialRotationPage.url)}`);
+    lines.push(`- Official inventory source: ${inline(evidence.url)}`);
     if (result.changedFiles.length) lines.push(`- Candidate diff: ${result.changedFiles.join(", ")}`);
     else lines.push("- Candidate diff: empty");
     lines.push("", "Automatic candidate upgrade stopped. Production rotation data modification: none.");
     return `${lines.join("\n")}\n`;
   }
   lines.push(`- Result: ${inline(result.status)}`);
-  lines.push(`- Official page rotation: ${inline(result.rotationName)}`);
+  lines.push(`- Official inventory rotation: ${inline(result.rotationName)}`);
   lines.push(`- Effective at: ${inline(result.startsAt)}`);
   lines.push(`- Prime/item count: ${inline(result.itemCount)}`);
   lines.push(`- Relic count: ${inline(result.relicCount)}`);
@@ -1539,13 +1607,19 @@ function markdownSummary(result) {
   if (result.changedFiles.length) lines.push(`- Candidate diff: ${result.changedFiles.join(", ")}`);
   else lines.push("- Candidate diff: empty");
   lines.push("", "Official source mapping:");
-  lines.push(`- Rotation lineup: ${OFFICIAL_SOURCES.rotationEn}`);
+  lines.push(`- Rotation inventory: ${OFFICIAL_SOURCES.worldState}`);
   lines.push(`- Announcement: ${result.announcementUrl}`);
   lines.push(`- Relic rewards and rarity: ${OFFICIAL_SOURCES.dropTables}`);
   lines.push(`- Public Export recipe evidence: ${result.recipeUrl}`);
   lines.push("- A curated/manual exception is never described as Public Export verification.");
   lines.push("- ayaBudget: Varzia planner preset only; not verified by an official source.");
-  lines.push("- costAya: 1 follows the existing Varzia six-relic planner model.");
+  lines.push("- costAya: checked against the World State inventory price (1 Aya).");
+  if (result.inventory) {
+    lines.push(`- Inventory valid from ${inline(result.inventory.startsAt)} through ${inline(result.inventory.endsAt)} (exclusive)`);
+    lines.push(`- Inventory relics: ${inline(result.inventory.relics.map(relic => `${relic.name} (${relic.costAya} Aya)`).join(", "))}`);
+    lines.push(`- Relic ID export: ${inline(result.inventory.exportUrls.RelicArcane_en)}`);
+  }
+  if (result.pageWarning) lines.push(`- Auxiliary page warning: ${inline(result.pageWarning)}`);
   lines.push("", "This PR does not publish the rotation automatically.");
   lines.push("Human review is required before changing it to published.");
   return `${lines.join("\n")}\n`;
@@ -1614,12 +1688,14 @@ async function completeOfficialCandidate({
     ? official
     : { ...official, ...await fetchOfficialRotationData({ fetchImpl, decompress }) };
   const dropRelics = parseDropTables(officialData.dropTablesHtml, { minimumRelics });
-  const selection = selectRelicSet(dropRelics, lineup.items);
+  const selection = selectRelicSet(dropRelics, lineup.items, lineup.inventoryRelics.map(relic => relic.name));
+  validateInventoryRewards(selection, lineup, officialData.relicExport);
   const recipes = parseRecipes(officialData.recipesText, { minimumRecipes });
   const requirements = resolveRecipeRequirements(recipes, lineup.items, selection.expectedByItem, {
     recipeExceptions,
     recipeUrl: officialData.recipeUrl
   });
+  invariant(lineup.startsAt === announcement.startsAt, "World State activation differs from the official announcement; human review is required.");
   const usedRecipeExceptions = recipeExceptionProvenance(requirements);
   const rarityWarnings = rarityWarningsFor(selection.relics);
   const commonResult = {
@@ -1634,12 +1710,14 @@ async function completeOfficialCandidate({
     recipeExceptions: usedRecipeExceptions,
     rarityWarnings,
     upcoming,
+    inventory: lineup.inventoryEvidence,
+    pageWarning: official.pageWarning || null,
     changedFiles: []
   };
 
   if (published) {
     comparePublishedFacts({ rotation: published, primeData, relicData, lineup, selectedRelics: selection.relics, requirements, announcement });
-    const result = { ...commonResult, status: "no-change (official page still matches the published rotation)", publicationStatus: "published", candidate: null };
+    const result = { ...commonResult, status: "no-change (official inventory matches the published rotation)", publicationStatus: "published", candidate: null };
     result.summary = markdownSummary(result);
     return result;
   }
@@ -1736,16 +1814,25 @@ export async function runNearRotationWatcher({
   validateRotationData(rotationData, primeData, relicData);
   validateAnnouncementCandidates(candidateData, rotationData);
   const candidate = candidateData.candidates.find((entry) => entry.id === selection.candidate.id);
-  invariant(candidate?.status === "announced", `Near-rotation candidate ${selection.candidate.id} changed before official page evaluation.`);
+  invariant(candidate?.status === "announced", `Near-rotation candidate ${selection.candidate.id} changed before official inventory evaluation.`);
 
   const discoveredAt = new Date(now).toISOString();
-  const pageInputs = await fetchOfficialRotationPages({ fetchImpl });
-  const lineup = parsePrimeResurgencePages(pageInputs.englishHtml, pageInputs.chineseHtml);
+  const requested = [];
+  const trackedFetch = (url, options) => { requested.push(url); return fetchImpl(url, options); };
+  const worldStateText = await fetchWorldState(trackedFetch);
+  const trader = parsePrimeVaultTrader(JSON.parse(worldStateText), discoveredAt);
+  if (!trader.active || Date.parse(trader.startsAt) < Date.parse(candidate.effectiveAt)) {
+    return nearWatcherResult({ ...selection, reason: "rotation-inventory-pending" }, { officialRotationChanged: false, externalRequests: requested.length });
+  }
+  const pageInputs = await fetchInventoryInputs({ fetchImpl: trackedFetch, decompress, worldStateText });
+  const lineup = inventoryLineup(pageInputs, discoveredAt);
+  pageInputs.pageWarning = checkAuxiliaryPage(pageInputs, lineup, rotationData, primeData);
+
   if (pageMatchesPublishedLineup(lineup, rotationData, primeData)) {
     return nearWatcherResult(selection, {
       status: "NO_OP",
       officialRotationChanged: false,
-      externalRequests: 2,
+      externalRequests: requested.length,
       candidate
     });
   }
@@ -1762,7 +1849,7 @@ export async function runNearRotationWatcher({
     const result = nearWatcherResult(selection, {
       status: "CONFLICT",
       officialRotationChanged: true,
-      externalRequests: 2,
+      externalRequests: requested.length,
       candidate: conflicted
     });
     result.candidateStage = "conflict";
@@ -1803,7 +1890,7 @@ export async function runNearRotationWatcher({
     eligible: true,
     reason: null,
     officialRotationChanged: true,
-    externalRequests: 5
+    externalRequests: requested.length
   };
   result.summary = markdownSummary(result);
   return result;
@@ -1845,7 +1932,7 @@ export async function runPrimeResurgenceSync({
     return result;
   };
 
-  let official = inputs || await fetchOfficialAnnouncementInputs({ fetchImpl });
+  let official = inputs || { announcementText: await fetchResource(fetchImpl, OFFICIAL_SOURCES.announcementFeed, { finalHosts: ["public.api.bsky.app"], maximumBytes: 5_000_000 }) };
   const announcements = parseOfficialAnnouncements(JSON.parse(official.announcementText));
   const announcedCandidates = upsertAnnouncementCandidates(candidateData, announcements, rotationData, discoveredAt);
   const activeAnnouncements = announcedCandidates.candidates.filter((candidate) => candidate.status === "announced");
@@ -1861,7 +1948,9 @@ export async function runPrimeResurgenceSync({
       });
     }
   }
-  const lineup = parsePrimeResurgencePages(official.englishHtml, official.chineseHtml);
+  if (!inputs) official = { ...official, ...await fetchInventoryInputs({ fetchImpl, decompress }) };
+  const lineup = inventoryLineup(official, discoveredAt);
+  const pageWarning = checkAuxiliaryPage(official, lineup, rotationData, primeData);
   const officialPageMatchesPublished = pageMatchesPublishedLineup(lineup, rotationData, primeData);
   const matchedCandidate = candidateForLineup(announcedCandidates, lineup);
 
@@ -1877,7 +1966,8 @@ export async function runPrimeResurgenceSync({
   if (officialPageMatchesPublished && matchedCandidate?.status === "announced") {
     return await writeCandidateFiles(announcedCandidates, {
       candidateStage: "announced",
-      status: "announcement candidate recorded; official rotation page confirmation is pending",
+      status: "announcement candidate recorded; World State rotation inventory is pending",
+      catalogPreparation: prepareAnnouncementCatalog(matchedCandidate, official),
       candidate: matchedCandidate,
       changedFiles: []
     });
@@ -1887,7 +1977,8 @@ export async function runPrimeResurgenceSync({
     const candidate = announcedCandidates.candidates.find((entry) => entry.status === "announced");
     return await writeCandidateFiles(announcedCandidates, {
       candidateStage: "announced",
-      status: "announcement candidate recorded; official rotation page confirmation is pending",
+      status: "announcement candidate recorded; World State rotation inventory is pending",
+      catalogPreparation: prepareAnnouncementCatalog(candidate, official),
       candidate,
       changedFiles: []
     });
@@ -1896,7 +1987,7 @@ export async function runPrimeResurgenceSync({
   if (!officialPageMatchesPublished && !matchedCandidate) {
     const pending = announcedCandidates.candidates.filter((candidate) => candidate.status === "announced" && candidate.effectiveAt);
     if (pending.length) {
-      invariant(pending.length === 1, `Official rotation page differs while ${pending.length} announced candidates are pending; refusing to choose a conflict target.`);
+      invariant(pending.length === 1, `Official inventory differs while ${pending.length} announced candidates are pending; refusing to choose a conflict target.`);
       const conflictedCandidates = recordAnnouncementConflict(announcedCandidates, pending[0], lineup, discoveredAt);
       const candidate = conflictedCandidates.candidates.find((entry) => entry.id === pending[0].id);
       return await writeCandidateFiles(conflictedCandidates, {
@@ -1908,6 +1999,7 @@ export async function runPrimeResurgenceSync({
     }
   }
 
+  official.pageWarning = pageWarning;
   const { announcement, published } = announcementForLineup(lineup, announcements, rotationData);
   const upcoming = upcomingAnnouncement(announcements, announcement);
   return await completeOfficialCandidate({

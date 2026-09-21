@@ -1,0 +1,343 @@
+{
+  "worldStateText": "{\"PrimeVaultTraders\":[{\"Activation\":{\"$date\":{\"$numberLong\":\"1788458400000\"}},\"Expiry\":{\"$date\":{\"$numberLong\":\"1790877600000\"}},\"Manifest\":[{\"ItemType\":\"/Lotus/Types/StoreItems/Packages/MegaPrimeVault/MPVBansheePrimeSinglePack\",\"PrimePrice\":6},{\"ItemType\":\"/Lotus/Types/StoreItems/Packages/MegaPrimeVault/MPVBansheeMiragePrimeDualPack\",\"PrimePrice\":10},{\"ItemType\":\"/Lotus/Types/StoreItems/Packages/MegaPrimeVault/MPVMiragePrimeSinglePack\",\"PrimePrice\":6},{\"ItemType\":\"/Lotus/StoreItems/Powersuits/Banshee/BansheePrime\",\"PrimePrice\":3},{\"ItemType\":\"/Lotus/StoreItems/Upgrades/Skins/Scarves/PrimeScarfF\",\"PrimePrice\":2},{\"ItemType\":\"/Lotus/Types/StoreItems/Packages/MegaPrimeVault/MPVIctusPrimeSentAccessories\",\"PrimePrice\":1},{\"ItemType\":\"/Lotus/StoreItems/Types/Sentinels/SentinelPowersuits/PrimeHeliosPowerSuit\",\"PrimePrice\":2},{\"ItemType\":\"/Lotus/StoreItems/Weapons/Tenno/Pistols/AllNew1hSG/AllNew1hSG\",\"PrimePrice\":2},{\"ItemType\":\"/Lotus/StoreItems/Powersuits/Harlequin/MiragePrime\",\"PrimePrice\":3},{\"ItemType\":\"/Lotus/Types/StoreItems/Packages/MegaPrimeVault/MPVAtavistPrimeArmorSet\",\"PrimePrice\":2},{\"ItemType\":\"/Lotus/StoreItems/Upgrades/Skins/Scarves/PrimeScarfG\",\"PrimePrice\":2},{\"ItemType\":\"/Lotus/StoreItems/Weapons/Tenno/Melee/PrimeKogake/KogakePrimeKnuckles\",\"PrimePrice\":2},{\"ItemType\":\"/Lotus/StoreItems/Weapons/Tenno/Pistols/PrimeAkbolto/PrimeAkBoltoWeapon\",\"PrimePrice\":2},{\"ItemType\":\"/Lotus/StoreItems/Types/Items/ShipDecos/BansheePrimeBobbleHead\",\"PrimePrice\":1},{\"ItemType\":\"/Lotus/StoreItems/Types/Items/ShipDecos/MiragePrimeBobbleHead\",\"PrimePrice\":1},{\"ItemType\":\"/Lotus/StoreItems/Types/Game/Projections/T1VoidProjectionBansheeMirageVaultABronze\",\"RegularPrice\":1},{\"ItemType\":\"/Lotus/StoreItems/Types/Game/Projections/T1VoidProjectionBansheeMirageVaultBBronze\",\"RegularPrice\":1},{\"ItemType\":\"/Lotus/StoreItems/Types/Game/Projections/T2VoidProjectionBansheeMirageVaultABronze\",\"RegularPrice\":1},{\"ItemType\":\"/Lotus/StoreItems/Types/Game/Projections/T3VoidProjectionBansheeMirageVaultABronze\",\"RegularPrice\":1},{\"ItemType\":\"/Lotus/StoreItems/Types/Game/Projections/T4VoidProjectionBansheeMirageVaultABronze\",\"RegularPrice\":1},{\"ItemType\":\"/Lotus/StoreItems/Types/Game/Projections/T4VoidProjectionBansheeMirageVaultBBronze\",\"RegularPrice\":1}]}]}",
+  "equipmentEn": [
+    {
+      "uniqueName": "/Lotus/Powersuits/Harlequin/MiragePrime",
+      "name": "Mirage Prime",
+      "productCategory": "Suits"
+    },
+    {
+      "uniqueName": "/Lotus/Powersuits/Banshee/BansheePrime",
+      "name": "Banshee Prime",
+      "productCategory": "Suits"
+    },
+    {
+      "uniqueName": "/Lotus/Weapons/Tenno/Pistols/PrimeAkbolto/PrimeAkBoltoWeapon",
+      "name": "Akbolto Prime",
+      "productCategory": "Pistols"
+    },
+    {
+      "uniqueName": "/Lotus/Weapons/Tenno/Pistols/AllNew1hSG/AllNew1hSG",
+      "name": "Euphona Prime",
+      "productCategory": "Pistols"
+    },
+    {
+      "uniqueName": "/Lotus/Weapons/Tenno/Melee/PrimeKogake/KogakePrimeKnuckles",
+      "name": "Kogake Prime",
+      "productCategory": "Melee"
+    },
+    {
+      "uniqueName": "/Lotus/Types/Sentinels/SentinelPowersuits/PrimeHeliosPowerSuit",
+      "name": "Helios Prime",
+      "productCategory": "Sentinels"
+    }
+  ],
+  "equipmentZh": [
+    {
+      "uniqueName": "/Lotus/Powersuits/Harlequin/MiragePrime",
+      "name": "Mirage Prime",
+      "productCategory": "Suits"
+    },
+    {
+      "uniqueName": "/Lotus/Powersuits/Banshee/BansheePrime",
+      "name": "Banshee Prime",
+      "productCategory": "Suits"
+    },
+    {
+      "uniqueName": "/Lotus/Weapons/Tenno/Pistols/PrimeAkbolto/PrimeAkBoltoWeapon",
+      "name": "螺钉双枪 Prime",
+      "productCategory": "Pistols"
+    },
+    {
+      "uniqueName": "/Lotus/Weapons/Tenno/Pistols/AllNew1hSG/AllNew1hSG",
+      "name": "悦音 Prime",
+      "productCategory": "Pistols"
+    },
+    {
+      "uniqueName": "/Lotus/Weapons/Tenno/Melee/PrimeKogake/KogakePrimeKnuckles",
+      "name": "科加基 Prime",
+      "productCategory": "Melee"
+    },
+    {
+      "uniqueName": "/Lotus/Types/Sentinels/SentinelPowersuits/PrimeHeliosPowerSuit",
+      "name": "赫利俄斯 Prime",
+      "productCategory": "Sentinels"
+    }
+  ],
+  "relicExport": [
+    {
+      "uniqueName": "/Lotus/Types/Game/Projections/T4VoidProjectionBansheeMirageVaultBBronze",
+      "name": "Axi A12 Relic",
+      "codexSecret": false,
+      "description": "An artifact containing Orokin secrets. It can only be opened through the power of the Void.",
+      "relicRewards": [
+        {
+          "rewardName": "/Lotus/StoreItems/Types/Recipes/Weapons/WeaponParts/AkboltoPrimeReceiver",
+          "rarity": "RARE",
+          "tier": 0,
+          "itemCount": 1
+        },
+        {
+          "rewardName": "/Lotus/StoreItems/Types/Recipes/Weapons/WeaponParts/PrimeHeliosSystems",
+          "rarity": "UNCOMMON",
+          "tier": 0,
+          "itemCount": 1
+        },
+        {
+          "rewardName": "/Lotus/StoreItems/Types/Recipes/WarframeRecipes/BansheePrimeBlueprint",
+          "rarity": "UNCOMMON",
+          "tier": 0,
+          "itemCount": 1
+        },
+        {
+          "rewardName": "/Lotus/StoreItems/Types/Recipes/Components/FormaBlueprint",
+          "rarity": "COMMON",
+          "tier": 0,
+          "itemCount": 1
+        },
+        {
+          "rewardName": "/Lotus/StoreItems/Types/Recipes/WarframeRecipes/MiragePrimeChassisBlueprint",
+          "rarity": "COMMON",
+          "tier": 0,
+          "itemCount": 1
+        },
+        {
+          "rewardName": "/Lotus/StoreItems/Types/Recipes/Weapons/WeaponParts/KogakePrimeBoot",
+          "rarity": "COMMON",
+          "tier": 0,
+          "itemCount": 1
+        }
+      ]
+    },
+    {
+      "uniqueName": "/Lotus/Types/Game/Projections/T4VoidProjectionBansheeMirageVaultABronze",
+      "name": "Axi H5 Relic",
+      "codexSecret": false,
+      "description": "An artifact containing Orokin secrets. It can only be opened through the power of the Void.",
+      "relicRewards": [
+        {
+          "rewardName": "/Lotus/StoreItems/Types/Recipes/Weapons/WeaponParts/PrimeHeliosCerebrum",
+          "rarity": "RARE",
+          "tier": 0,
+          "itemCount": 1
+        },
+        {
+          "rewardName": "/Lotus/StoreItems/Types/Recipes/WarframeRecipes/MiragePrimeSystemsBlueprint",
+          "rarity": "UNCOMMON",
+          "tier": 0,
+          "itemCount": 1
+        },
+        {
+          "rewardName": "/Lotus/StoreItems/Types/Recipes/Components/FormaBlueprint",
+          "rarity": "UNCOMMON",
+          "tier": 0,
+          "itemCount": 2
+        },
+        {
+          "rewardName": "/Lotus/StoreItems/Types/Recipes/WarframeRecipes/BansheePrimeHelmetBlueprint",
+          "rarity": "COMMON",
+          "tier": 0,
+          "itemCount": 1
+        },
+        {
+          "rewardName": "/Lotus/StoreItems/Types/Recipes/Weapons/Prime1HShotgunBlueprint",
+          "rarity": "COMMON",
+          "tier": 0,
+          "itemCount": 1
+        },
+        {
+          "rewardName": "/Lotus/StoreItems/Types/Recipes/Weapons/AkboltoPrimeBlueprint",
+          "rarity": "COMMON",
+          "tier": 0,
+          "itemCount": 1
+        }
+      ]
+    },
+    {
+      "uniqueName": "/Lotus/Types/Game/Projections/T3VoidProjectionBansheeMirageVaultABronze",
+      "name": "Neo B6 Relic",
+      "codexSecret": false,
+      "description": "An artifact containing Orokin secrets. It can only be opened through the power of the Void.",
+      "relicRewards": [
+        {
+          "rewardName": "/Lotus/StoreItems/Types/Recipes/WarframeRecipes/BansheePrimeChassisBlueprint",
+          "rarity": "RARE",
+          "tier": 0,
+          "itemCount": 1
+        },
+        {
+          "rewardName": "/Lotus/StoreItems/Types/Recipes/Weapons/KogakePrimeBlueprint",
+          "rarity": "UNCOMMON",
+          "tier": 0,
+          "itemCount": 1
+        },
+        {
+          "rewardName": "/Lotus/StoreItems/Types/Recipes/Weapons/WeaponParts/AkboltoPrimeLink",
+          "rarity": "UNCOMMON",
+          "tier": 0,
+          "itemCount": 1
+        },
+        {
+          "rewardName": "/Lotus/StoreItems/Types/Recipes/Weapons/Prime1HShotgunBlueprint",
+          "rarity": "COMMON",
+          "tier": 0,
+          "itemCount": 1
+        },
+        {
+          "rewardName": "/Lotus/StoreItems/Types/Recipes/WarframeRecipes/MiragePrimeHelmetBlueprint",
+          "rarity": "COMMON",
+          "tier": 0,
+          "itemCount": 1
+        },
+        {
+          "rewardName": "/Lotus/StoreItems/Types/Recipes/Components/FormaBlueprint",
+          "rarity": "COMMON",
+          "tier": 0,
+          "itemCount": 1
+        }
+      ]
+    },
+    {
+      "uniqueName": "/Lotus/Types/Game/Projections/T2VoidProjectionBansheeMirageVaultABronze",
+      "name": "Meso E5 Relic",
+      "codexSecret": false,
+      "description": "An artifact containing Orokin secrets. It can only be opened through the power of the Void.",
+      "relicRewards": [
+        {
+          "rewardName": "/Lotus/StoreItems/Types/Recipes/Weapons/WeaponParts/Prime1HShotgunReceiver",
+          "rarity": "RARE",
+          "tier": 0,
+          "itemCount": 1
+        },
+        {
+          "rewardName": "/Lotus/StoreItems/Types/Recipes/WarframeRecipes/BansheePrimeBlueprint",
+          "rarity": "UNCOMMON",
+          "tier": 0,
+          "itemCount": 1
+        },
+        {
+          "rewardName": "/Lotus/StoreItems/Types/Recipes/SentinelRecipes/PrimeHeliosSentinelBlueprint",
+          "rarity": "UNCOMMON",
+          "tier": 0,
+          "itemCount": 1
+        },
+        {
+          "rewardName": "/Lotus/StoreItems/Types/Recipes/WarframeRecipes/MiragePrimeHelmetBlueprint",
+          "rarity": "COMMON",
+          "tier": 0,
+          "itemCount": 1
+        },
+        {
+          "rewardName": "/Lotus/StoreItems/Types/Recipes/Components/FormaBlueprint",
+          "rarity": "COMMON",
+          "tier": 0,
+          "itemCount": 1
+        },
+        {
+          "rewardName": "/Lotus/StoreItems/Types/Recipes/Weapons/WeaponParts/PrimeHeliosCarapace",
+          "rarity": "COMMON",
+          "tier": 0,
+          "itemCount": 1
+        }
+      ]
+    },
+    {
+      "uniqueName": "/Lotus/Types/Game/Projections/T1VoidProjectionBansheeMirageVaultBBronze",
+      "name": "Lith M7 Relic",
+      "codexSecret": false,
+      "description": "An artifact containing Orokin secrets. It can only be opened through the power of the Void.",
+      "relicRewards": [
+        {
+          "rewardName": "/Lotus/StoreItems/Types/Recipes/WarframeRecipes/MiragePrimeBlueprint",
+          "rarity": "RARE",
+          "tier": 0,
+          "itemCount": 1
+        },
+        {
+          "rewardName": "/Lotus/StoreItems/Types/Recipes/Weapons/WeaponParts/Prime1HShotgunBarrel",
+          "rarity": "UNCOMMON",
+          "tier": 0,
+          "itemCount": 1
+        },
+        {
+          "rewardName": "/Lotus/StoreItems/Types/Recipes/Components/FormaBlueprint",
+          "rarity": "UNCOMMON",
+          "tier": 0,
+          "itemCount": 2
+        },
+        {
+          "rewardName": "/Lotus/StoreItems/Types/Recipes/Weapons/WeaponParts/KogakePrimeBoot",
+          "rarity": "COMMON",
+          "tier": 0,
+          "itemCount": 1
+        },
+        {
+          "rewardName": "/Lotus/StoreItems/Types/Recipes/Weapons/AkboltoPrimeBlueprint",
+          "rarity": "COMMON",
+          "tier": 0,
+          "itemCount": 1
+        },
+        {
+          "rewardName": "/Lotus/StoreItems/Types/Recipes/WarframeRecipes/BansheePrimeHelmetBlueprint",
+          "rarity": "COMMON",
+          "tier": 0,
+          "itemCount": 1
+        }
+      ]
+    },
+    {
+      "uniqueName": "/Lotus/Types/Game/Projections/T1VoidProjectionBansheeMirageVaultABronze",
+      "name": "Lith K5 Relic",
+      "codexSecret": false,
+      "description": "An artifact containing Orokin secrets. It can only be opened through the power of the Void.",
+      "relicRewards": [
+        {
+          "rewardName": "/Lotus/StoreItems/Types/Recipes/Weapons/WeaponParts/KogakePrimeGauntlet",
+          "rarity": "RARE",
+          "tier": 0,
+          "itemCount": 1
+        },
+        {
+          "rewardName": "/Lotus/StoreItems/Types/Recipes/Weapons/WeaponParts/AkboltoPrimeBarrel",
+          "rarity": "UNCOMMON",
+          "tier": 0,
+          "itemCount": 1
+        },
+        {
+          "rewardName": "/Lotus/StoreItems/Types/Recipes/WarframeRecipes/BansheePrimeSystemsBlueprint",
+          "rarity": "UNCOMMON",
+          "tier": 0,
+          "itemCount": 1
+        },
+        {
+          "rewardName": "/Lotus/StoreItems/Types/Recipes/WarframeRecipes/MiragePrimeChassisBlueprint",
+          "rarity": "COMMON",
+          "tier": 0,
+          "itemCount": 1
+        },
+        {
+          "rewardName": "/Lotus/StoreItems/Types/Recipes/Components/FormaBlueprint",
+          "rarity": "COMMON",
+          "tier": 0,
+          "itemCount": 1
+        },
+        {
+          "rewardName": "/Lotus/StoreItems/Types/Recipes/Weapons/WeaponParts/PrimeHeliosCarapace",
+          "rarity": "COMMON",
+          "tier": 0,
+          "itemCount": 1
+        }
+      ]
+    }
+  ],
+  "exportUrls": {
+    "Recipes_en": "https://content.warframe.com/PublicExport/Manifest/ExportRecipes_en.json!00_fixture",
+    "RelicArcane_en": "https://content.warframe.com/PublicExport/Manifest/ExportRelicArcane_en.json!00_fixture",
+    "Warframes_en": "https://content.warframe.com/PublicExport/Manifest/ExportWarframes_en.json!00_fixture",
+    "Weapons_en": "https://content.warframe.com/PublicExport/Manifest/ExportWeapons_en.json!00_fixture",
+    "Sentinels_en": "https://content.warframe.com/PublicExport/Manifest/ExportSentinels_en.json!00_fixture",
+    "Warframes_zh": "https://content.warframe.com/PublicExport/Manifest/ExportWarframes_zh.json!00_fixture",
+    "Weapons_zh": "https://content.warframe.com/PublicExport/Manifest/ExportWeapons_zh.json!00_fixture",
+    "Sentinels_zh": "https://content.warframe.com/PublicExport/Manifest/ExportSentinels_zh.json!00_fixture"
+  }
+}
