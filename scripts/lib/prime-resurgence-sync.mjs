@@ -362,7 +362,10 @@ function etLocalToIso(year, monthIndex, day, hour, minute) {
 
 export function parseAnnouncementText(text, createdAt) {
   const primeName = "[A-Z][A-Za-z0-9'.-]*(?: (?:&|[A-Z][A-Za-z0-9'.-]*)){0,3} Prime";
-  const pattern = new RegExp(`(${primeName})\\s+(?:and|&)\\s+(${primeName}) (?:return with the next Prime Resurgence rotation|enter Prime Resurgence) on (January|February|March|April|May|June|July|August|September|October|November|December) (\\d{1,2})(?: at (\\d{1,2})(?::(\\d{2}))? ([ap])\\.m\\. ET)?\\.`, "g");
+  const rotationPredicate = "(?:return|arrive) with the next Prime Resurgence rotation";
+  const directPredicate = "enter Prime Resurgence";
+  const predicate = `(?:${rotationPredicate}|${directPredicate})`;
+  const pattern = new RegExp(`(${primeName})\\s+(?:and|&)\\s+(${primeName}) ${predicate} on (January|February|March|April|May|June|July|August|September|October|November|December) (\\d{1,2})(?: at (\\d{1,2})(?::(\\d{2}))? ([ap])\\.m\\. ET)?\\.`, "g");
   const matches = [...normalizedText(text).matchAll(pattern)];
   if (!matches.length) return null;
   invariant(matches.length === 1, `Expected one Prime Resurgence announcement in a post; found ${matches.length}.`);
@@ -477,7 +480,7 @@ function relicSort(left, right) {
   return (ERA_ORDER.get(leftEra) - ERA_ORDER.get(rightEra)) || leftCode.localeCompare(rightCode, "en", { numeric: true });
 }
 
-export function selectRelicSet(dropRelics, lineupItems, inventoryRelicNames) {
+export function selectRelicSet(dropRelics, lineupItems, inventoryRelicNames, { requireCompleteItems = true } = {}) {
   invariant(Array.isArray(inventoryRelicNames) && inventoryRelicNames.length > 0, "An explicit official relic selection is required.");
   unique(inventoryRelicNames, "Duplicate inventory relic name");
   unique(dropRelics.map(relic => relic.name), "Duplicate Intact relic");
@@ -496,7 +499,7 @@ export function selectRelicSet(dropRelics, lineupItems, inventoryRelicNames) {
     parts.set(reward.partId, reward.partName);
     expectedByItem.set(reward.itemId, parts);
   }
-  for (const item of lineupItems) {
+  if (requireCompleteItems) for (const item of lineupItems) {
     const parts = expectedByItem.get(slugify(item.name));
     invariant(parts && parts.has("blueprint") && parts.size >= 3 && parts.size <= 5, `Incomplete Prime part catalog for ${item.name}.`);
   }
@@ -650,6 +653,42 @@ export function resolveRecipeRequirements(recipes, lineupItems, expectedByItem, 
     });
   }
   return requirements;
+}
+
+// Cross-check every reward, including incidental evergreen items, before the
+// featured subset is converted into planner targets.
+export function validateVaultRewardCatalog(lineup, dropRelics, official) {
+  invariant(lineup?.previewEvidence && Array.isArray(lineup.rewardItems), "Vault reward catalog is missing.");
+  const raw = selectRelicSet(dropRelics, lineup.rewardItems, lineup.inventoryRelics.map(relic => relic.name), { requireCompleteItems: false });
+  validateInventoryRewards(raw, { ...lineup, items: lineup.rewardItems }, official.relicExport);
+  const recipes = parseRecipes(official.recipesText);
+  for (const item of lineup.rewardItems) {
+    const prefixes = itemInternalPrefixes(item.name);
+    const mainRecipes = recipes.filter(recipe => prefixes.some(prefix => normalizedInternal(recipe?.uniqueName) === `${prefix}blueprint`));
+    invariant(mainRecipes.length <= 1, `Expected at most one main Public Export recipe for ${item.name}; found ${mainRecipes.length}.`);
+    if (!mainRecipes.length) continue; // Featured items still require a recipe or an explicit curated exception.
+    const recipe = mainRecipes[0];
+    invariant(recipe.consumeOnUse === true && recipe.num === 1 && Array.isArray(recipe.ingredients), `Main recipe is malformed for ${item.name}.`);
+    const selectedParts = raw.expectedByItem.get(slugify(item.name));
+    const recipeParts = new Set();
+    for (const ingredient of recipe.ingredients) {
+      let partId = internalPartId(item.name, ingredient?.ItemType);
+      if (!partId) {
+        invariant(!normalizedInternal(ingredient?.ItemType).includes("prime"), `Unrecognized Prime recipe ingredient for ${item.name}: ${ingredient?.ItemType || "missing"}`);
+        continue;
+      }
+      if (partId === "handle" && selectedParts?.has("hilt") && !selectedParts.has("handle")) partId = "hilt";
+      invariant(!recipeParts.has(partId), `Duplicate recipe ingredient for ${item.name}/${partId}.`);
+      safeRequiredQuantity(ingredient.ItemCount, `${item.name}/${partId}`);
+      invariant(dropRelics.some(relic => relic.rewards.some(reward => targetReward(reward, [item])?.partId === partId)),
+        `Recipe ingredient for ${item.name}/${partId} is absent from official Drop Tables.`);
+      recipeParts.add(partId);
+    }
+    for (const partId of selectedParts?.keys() || []) {
+      if (partId !== "blueprint") invariant(recipeParts.has(partId), `Unexpected selected relic part for ${item.name}: ${partId}.`);
+    }
+  }
+  return lineup;
 }
 
 export function parsePublicExportIndex(text) {
@@ -1607,6 +1646,9 @@ function markdownSummary(result) {
   lines.push(`- Computed required parts: ${inline(result.totalRequiredParts)}`);
   lines.push(`- Publication status: ${inline(result.publicationStatus)}`);
   lines.push(`- Public Export recipe coverage: ${inline(result.publicExportRecipeItems)}/${inline(result.itemCount)} items`);
+  if (result.vaultExport?.incidentalItemNames?.length) {
+    lines.push(`- Incidental Prime rewards outside the featured lineup: ${inline(result.vaultExport.incidentalItemNames.join(", "))}`);
+  }
   if (result.recipeExceptions.length) {
     lines.push(`- Curated/manual recipe exceptions: ${inline(result.recipeExceptions.map((entry) => `${entry.itemId} (sourceUrl: null; Public Export status: missing)`).join(", "))}`);
   } else {
@@ -2001,7 +2043,9 @@ export async function runPrimeResurgenceSync({
   // group. The current trader/page may still show the previous rotation.
   const futureCandidate = activeAnnouncements.find(candidate => candidate.effectiveAt && Date.parse(candidate.effectiveAt) > Date.parse(discoveredAt));
   if (futureCandidate) {
-    const preview = lineupFromVaultExport(futureCandidate, official, parseDropTables(official.dropTablesHtml));
+    const dropRelics = parseDropTables(official.dropTablesHtml);
+    const rawPreview = lineupFromVaultExport(futureCandidate, official, dropRelics);
+    const preview = rawPreview && validateVaultRewardCatalog(rawPreview, dropRelics, official);
     if (preview) {
       official.pageWarning = checkAuxiliaryPage(official, preview, rotationData, primeData);
       return await completeOfficialCandidate({

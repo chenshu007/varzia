@@ -1,5 +1,14 @@
 // Pair-specific Public Export groups can support prelaunch preparation.
 // Keep this evidence distinct from an observed, priced sale inventory.
+// Prime Access and Prime Vault announcements establish equipment ownership;
+// relic rewards also contain evergreen items that do not belong to the pair.
+const FEATURED_EQUIPMENT = Object.freeze({
+  "Banshee Prime": { items: ["Euphona Prime", "Helios Prime"], source: "https://www.warframe.com/en/news/banshee-ve-mirage-prime-vault" },
+  "Mirage Prime": { items: ["Akbolto Prime", "Kogake Prime"], source: "https://www.warframe.com/en/news/banshee-ve-mirage-prime-vault" },
+  "Ivara Prime": { items: ["Aksomati Prime", "Baza Prime"], source: "https://www.warframe.com/en/news/-549" },
+  "Protea Prime": { items: ["Okina Prime", "Velox Prime"], source: "https://www.warframe.com/en/news/protea-prime-access" }
+});
+
 export function vaultGroupsFor(primeWarframes) {
   const names = primeWarframes.map(name => name.replace(/ Prime$/, "").replaceAll(" ", ""));
   if (names.length !== 2 || names.some(name => !/^[A-Za-z0-9]+$/.test(name))) throw new Error("Unsupported Vault group names.");
@@ -38,7 +47,15 @@ export function lineupFromVaultExport(candidate, official, dropRelics) {
   }
   requireValue(new Set(relics.map(relic => relic.name)).size === relics.length, "Duplicate pair-specific Vault relic name.");
   const types = { Suits: "warframe", LongGuns: "primary", Pistols: "secondary", Melee: "melee", Sentinels: "companion" };
-  const items = [...itemNames].sort().map(name => {
+  const featuredSources = candidate.primeWarframes.map(name => {
+    const record = FEATURED_EQUIPMENT[name];
+    requireValue(record, `Missing official featured equipment ownership for ${name}.`);
+    return { warframe: name, url: record.source };
+  });
+  const featuredNames = new Set(candidate.primeWarframes.flatMap(name => [name, ...FEATURED_EQUIPMENT[name].items]));
+  requireValue(featuredNames.size === 6, "Featured Prime equipment ownership is ambiguous.");
+  requireValue([...featuredNames].every(name => itemNames.has(name)), "Featured Prime equipment is missing from the pair-specific Vault relic rewards.");
+  const rewardItems = [...itemNames].sort().map(name => {
     const matches = official.equipmentEn.filter(item => item.name === name && types[item.productCategory]);
     requireValue(matches.length === 1, `Missing or ambiguous pair-specific equipment export: ${name}.`);
     const item = matches[0];
@@ -46,10 +63,12 @@ export function lineupFromVaultExport(candidate, official, dropRelics) {
     requireValue(localized.length === 1 && localized[0].name, `Missing or ambiguous pair-specific Chinese equipment: ${name}.`);
     return { name, chineseName: localized[0].name, type: types[item.productCategory], uniqueName: item.uniqueName };
   });
+  const items = rewardItems.filter(item => featuredNames.has(item.name));
+  const incidentalItemNames = rewardItems.filter(item => !featuredNames.has(item.name)).map(item => item.name);
   const warframes = items.filter(item => item.type === "warframe");
   requireValue(JSON.stringify(warframes.map(item => item.name).sort()) === JSON.stringify([...candidate.primeWarframes].sort()), "Pair-specific Vault rewards disagree with the announced Warframes.");
   return {
-    items, warframes, startsAt: candidate.effectiveAt, inventoryRelics: relics,
+    items, rewardItems, warframes, startsAt: candidate.effectiveAt, inventoryRelics: relics,
     previewEvidence: {
       type: "digital-extremes-public-export-vault-group",
       url: official.exportUrls.RelicArcane_en,
@@ -59,7 +78,9 @@ export function lineupFromVaultExport(candidate, official, dropRelics) {
       relics,
       exportUrls: official.exportUrls,
       selectionBasis: "announced-pair-specific-vault-group",
-      priceBasis: "planner-preset"
+      priceBasis: "planner-preset",
+      featuredSources,
+      incidentalItemNames
     }
   };
 }

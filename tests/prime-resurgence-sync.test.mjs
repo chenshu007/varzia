@@ -23,6 +23,7 @@ import {
   SYNC_MUTABLE_DATA_PATHS,
   selectNearRotationCandidate,
   selectRelicSet,
+  validateVaultRewardCatalog,
   writeAtomically
 } from "../scripts/lib/prime-resurgence-sync.mjs";
 import { validateAnnouncementCandidates, validateRotationData } from "../js/data-validation.js";
@@ -612,6 +613,83 @@ test("Ivara/Protea 新公告句式生成 pending candidate，保留生产数据�
   assert.equal(parseAnnouncementText(text.replace("Ivara Prime and Protea Prime enter", "Ivara Prime enters"), createdAt), null);
   entry.post.author.did = "did:plc:untrusted";
   assert.throws(() => parseOfficialAnnouncements({ feed: [entry] }), /author DID changed/);
+});
+
+test("官方 arrive 句式保留两名 Prime、轮换语境和精确日期", () => {
+  const text = "Protea Prime and Ivara Prime arrive with the next Prime Resurgence rotation on October 1 at 2 p.m. ET.";
+  const parsed = parseAnnouncementText(text, "2026-09-24T18:00:19.05131294Z");
+  assert.deepEqual(parsed?.warframes, ["Protea Prime", "Ivara Prime"]);
+  assert.equal(parsed?.startsAt, "2026-10-01T18:00:00Z");
+  assert.equal(parseAnnouncementText("Protea Prime and Ivara Prime arrive on October 1 at 2 p.m. ET.", "2026-09-24T18:00:19Z"), null);
+});
+
+test("公告 grammar 拒绝 Prime Access、缺日期、单个 Prime 和无轮换语境", () => {
+  const createdAt = "2026-09-24T18:00:19Z";
+  for (const text of [
+    "Protea Prime and Ivara Prime arrive with the next Prime Access rotation on October 1 at 2 p.m. ET.",
+    "Protea Prime and Ivara Prime arrive with the next Prime Resurgence rotation.",
+    "Protea Prime arrives with the next Prime Resurgence rotation on October 1 at 2 p.m. ET.",
+    "Protea Prime and Ivara Prime arrive on October 1 at 2 p.m. ET."
+  ]) assert.equal(parseAnnouncementText(text, createdAt), null);
+  assert.throws(() => parseAnnouncementText("Protea Prime and Protea Prime arrive with the next Prime Resurgence rotation on October 1 at 2 p.m. ET.", createdAt), /repeats the same Prime Warframe/);
+});
+
+test("多个官方公告按生效日期确定顺序，无关宣传文案被忽略", async () => {
+  const payload = JSON.parse(await fixture("prime-resurgence-announcements.json"));
+  const oldEntry = payload.feed.find((entry) => !entry.reason);
+  const nextEntry = structuredClone(oldEntry);
+  nextEntry.post.record.text = "Ivara Prime and Protea Prime enter Prime Resurgence on October 1 at 2 p.m. ET.";
+  nextEntry.post.record.createdAt = "2026-09-17T18:00:20.412666127Z";
+  nextEntry.post.uri = "at://did:plc:24m2xjetjmjfdbgo752skciu/app.bsky.feed.post/3mvqabe4v5m2w";
+  const unrelated = structuredClone(oldEntry);
+  unrelated.post.record.text = "Get ready for Prime Resurgence this weekend.";
+  unrelated.post.uri = "at://did:plc:24m2xjetjmjfdbgo752skciu/app.bsky.feed.post/3mabcdef1234";
+  const announcements = parseOfficialAnnouncements({ feed: [nextEntry, unrelated, oldEntry] });
+  assert.deepEqual(announcements.map((announcement) => announcement.warframes), [
+    ["Banshee Prime", "Mirage Prime"],
+    ["Ivara Prime", "Protea Prime"]
+  ]);
+  assert.deepEqual(announcements.map((announcement) => announcement.startsAt), [
+    "2026-09-03T18:00:00Z", "2026-10-01T18:00:00Z"
+  ]);
+});
+
+test("官方 featured 归属只选六件装备，Braton/Burston 附带奖励仍逐项校验", async () => {
+  const evidence = JSON.parse(await fixture("prime-resurgence-braton-official.json"));
+  const official = {
+    relicExport: evidence.relicExport, recipesText: evidence.recipesText,
+    equipmentEn: evidence.equipmentEn, equipmentZh: evidence.equipmentZh,
+    exportUrls: evidence.lineup.previewEvidence.exportUrls
+  };
+  const candidate = { primeWarframes: ["Ivara Prime", "Protea Prime"], effectiveAt: "2026-10-01T18:00:00Z" };
+  const lineup = lineupFromVaultExport(candidate, official, evidence.dropRelics);
+  assert.deepEqual(lineup.items.map(item => item.name), [
+    "Aksomati Prime", "Baza Prime", "Ivara Prime", "Okina Prime", "Protea Prime", "Velox Prime"
+  ]);
+  assert.deepEqual(lineup.previewEvidence.incidentalItemNames, ["Braton Prime", "Burston Prime"]);
+  assert.deepEqual(lineup.rewardItems.map(item => item.name), evidence.lineup.items.map(item => item.name));
+  validateVaultRewardCatalog(lineup, evidence.dropRelics, official);
+  const selection = selectRelicSet(evidence.dropRelics, lineup.items, lineup.inventoryRelics.map(relic => relic.name));
+  assert.equal(resolveRecipeRequirements(parseRecipes(official.recipesText), lineup.items, selection.expectedByItem).size, 6);
+
+  const complete = structuredClone(evidence);
+  const relic = complete.dropRelics.find((entry) => entry.name === "Neo O4");
+  relic.rewards.find((reward) => reward.name === "Forma Blueprint").name = "Braton Prime Stock";
+  const exported = complete.relicExport.find((entry) => entry.name === "Neo O4 Relic");
+  exported.relicRewards.find((reward) => reward.rewardName.endsWith("FormaBlueprint")).rewardName = "/Lotus/Types/Recipes/Weapons/WeaponParts/BratonPrimeStock";
+  const completeOfficial = { ...official, relicExport: complete.relicExport };
+  const completeLineup = lineupFromVaultExport(candidate, completeOfficial, complete.dropRelics);
+  validateVaultRewardCatalog(completeLineup, complete.dropRelics, completeOfficial);
+  assert.deepEqual(completeLineup.previewEvidence.incidentalItemNames, ["Braton Prime", "Burston Prime"]);
+
+  const invalid = structuredClone(evidence);
+  const invalidRecipes = JSON.parse(invalid.recipesText);
+  invalidRecipes.ExportRecipes.find((entry) => entry.uniqueName.endsWith("BratonPrimeBlueprint")).ingredients.find((ingredient) => ingredient.ItemType.endsWith("BratonPrimeStock")).ItemType = "/Lotus/Types/Recipes/Weapons/WeaponParts/BratonPrimeAntenna";
+  assert.throws(() => validateVaultRewardCatalog(lineup, invalid.dropRelics, { ...official, recipesText: JSON.stringify(invalidRecipes) }), /absent from official Drop Tables/);
+
+  const inconsistent = structuredClone(evidence);
+  inconsistent.relicExport.find((entry) => entry.name === "Neo P11 Relic").relicRewards.find((reward) => reward.rewardName.endsWith("BratonPrimeReceiver")).rarity = "RARE";
+  assert.throws(() => validateVaultRewardCatalog(lineup, inconsistent.dropRelics, { ...official, relicExport: inconsistent.relicExport }), /Public Export rewards disagree with official Drop Tables/);
 });
 
 test("ET 时间使用 America/New_York 正确处理 EDT 和 EST", () => {

@@ -1,0 +1,835 @@
+{
+  "capturedAt": "2026-09-26T03:50:49.223Z",
+  "sourceUrls": {
+    "dropTables": "https://www.warframe.com/droptables",
+    "relicExport": "https://content.warframe.com/PublicExport/Manifest/ExportRelicArcane_en.json!00_yfpUexy9C05OPU7UR+f6pA",
+    "recipes": "https://content.warframe.com/PublicExport/Manifest/ExportRecipes_en.json!00_oac+LCAtIyqDxZF8Qe1ZZA"
+  },
+  "lineup": {
+    "items": [
+      {
+        "name": "Aksomati Prime",
+        "chineseName": "轻灵月神双枪 Prime",
+        "type": "secondary",
+        "uniqueName": "/Lotus/Weapons/Tenno/Pistols/PrimeAksomati/PrimeAksomati"
+      },
+      {
+        "name": "Baza Prime",
+        "chineseName": "苍鹰 Prime",
+        "type": "primary",
+        "uniqueName": "/Lotus/Weapons/Tenno/LongGuns/PrimeBaza/PrimeBazaGun"
+      },
+      {
+        "name": "Braton Prime",
+        "chineseName": "布莱顿 Prime",
+        "type": "primary",
+        "uniqueName": "/Lotus/Weapons/Tenno/Rifle/BratonPrime"
+      },
+      {
+        "name": "Burston Prime",
+        "chineseName": "伯斯顿 Prime",
+        "type": "primary",
+        "uniqueName": "/Lotus/Weapons/Tenno/LongGuns/PrimeBurston/PrimeBurston"
+      },
+      {
+        "name": "Ivara Prime",
+        "chineseName": "Ivara Prime",
+        "type": "warframe",
+        "uniqueName": "/Lotus/Powersuits/Ranger/IvaraPrime"
+      },
+      {
+        "name": "Okina Prime",
+        "chineseName": "翁 Prime",
+        "type": "melee",
+        "uniqueName": "/Lotus/Weapons/Tenno/Melee/Swords/PrimeOkina/PrimeOkina"
+      },
+      {
+        "name": "Protea Prime",
+        "chineseName": "Protea Prime",
+        "type": "warframe",
+        "uniqueName": "/Lotus/Powersuits/Odalisk/ProteaPrime"
+      },
+      {
+        "name": "Velox Prime",
+        "chineseName": "逐电 Prime",
+        "type": "secondary",
+        "uniqueName": "/Lotus/Weapons/Tenno/Pistols/PrimeVelox/PrimeVeloxPistol"
+      }
+    ],
+    "warframes": [
+      {
+        "name": "Ivara Prime",
+        "chineseName": "Ivara Prime",
+        "type": "warframe",
+        "uniqueName": "/Lotus/Powersuits/Ranger/IvaraPrime"
+      },
+      {
+        "name": "Protea Prime",
+        "chineseName": "Protea Prime",
+        "type": "warframe",
+        "uniqueName": "/Lotus/Powersuits/Odalisk/ProteaPrime"
+      }
+    ],
+    "startsAt": "2026-10-01T18:00:00Z",
+    "inventoryRelics": [
+      {
+        "itemType": "/Lotus/StoreItems/Types/Game/Projections/T4VoidProjectionProteaIvaraVaultABronze",
+        "name": "Axi A23",
+        "costAya": 1
+      },
+      {
+        "itemType": "/Lotus/StoreItems/Types/Game/Projections/T3VoidProjectionProteaIvaraVaultBBronze",
+        "name": "Neo O4",
+        "costAya": 1
+      },
+      {
+        "itemType": "/Lotus/StoreItems/Types/Game/Projections/T3VoidProjectionProteaIvaraVaultABronze",
+        "name": "Neo P11",
+        "costAya": 1
+      },
+      {
+        "itemType": "/Lotus/StoreItems/Types/Game/Projections/T2VoidProjectionProteaIvaraVaultBBronze",
+        "name": "Meso V16",
+        "costAya": 1
+      },
+      {
+        "itemType": "/Lotus/StoreItems/Types/Game/Projections/T2VoidProjectionProteaIvaraVaultABronze",
+        "name": "Meso I3",
+        "costAya": 1
+      },
+      {
+        "itemType": "/Lotus/StoreItems/Types/Game/Projections/T1VoidProjectionProteaIvaraVaultABronze",
+        "name": "Lith B12",
+        "costAya": 1
+      }
+    ],
+    "previewEvidence": {
+      "type": "digital-extremes-public-export-vault-group",
+      "url": "https://content.warframe.com/PublicExport/Manifest/ExportRelicArcane_en.json!00_yfpUexy9C05OPU7UR+f6pA",
+      "group": "ProteaIvaraVault",
+      "startsAt": "2026-10-01T18:00:00Z",
+      "rawPrimeWarframes": [
+        "Ivara Prime",
+        "Protea Prime"
+      ],
+      "relics": [
+        {
+          "itemType": "/Lotus/StoreItems/Types/Game/Projections/T4VoidProjectionProteaIvaraVaultABronze",
+          "name": "Axi A23",
+          "costAya": 1
+        },
+        {
+          "itemType": "/Lotus/StoreItems/Types/Game/Projections/T3VoidProjectionProteaIvaraVaultBBronze",
+          "name": "Neo O4",
+          "costAya": 1
+        },
+        {
+          "itemType": "/Lotus/StoreItems/Types/Game/Projections/T3VoidProjectionProteaIvaraVaultABronze",
+          "name": "Neo P11",
+          "costAya": 1
+        },
+        {
+          "itemType": "/Lotus/StoreItems/Types/Game/Projections/T2VoidProjectionProteaIvaraVaultBBronze",
+          "name": "Meso V16",
+          "costAya": 1
+        },
+        {
+          "itemType": "/Lotus/StoreItems/Types/Game/Projections/T2VoidProjectionProteaIvaraVaultABronze",
+          "name": "Meso I3",
+          "costAya": 1
+        },
+        {
+          "itemType": "/Lotus/StoreItems/Types/Game/Projections/T1VoidProjectionProteaIvaraVaultABronze",
+          "name": "Lith B12",
+          "costAya": 1
+        }
+      ],
+      "exportUrls": {
+        "Recipes_en": "https://content.warframe.com/PublicExport/Manifest/ExportRecipes_en.json!00_oac+LCAtIyqDxZF8Qe1ZZA",
+        "RelicArcane_en": "https://content.warframe.com/PublicExport/Manifest/ExportRelicArcane_en.json!00_yfpUexy9C05OPU7UR+f6pA",
+        "Warframes_en": "https://content.warframe.com/PublicExport/Manifest/ExportWarframes_en.json!00_4rhgqA3Tmgk8H641FaFbBQ",
+        "Weapons_en": "https://content.warframe.com/PublicExport/Manifest/ExportWeapons_en.json!00_t-UvcWpyJhaLfoxK-1-S9A",
+        "Sentinels_en": "https://content.warframe.com/PublicExport/Manifest/ExportSentinels_en.json!00_8iGr2T9MTskXt5zeKEVNmQ",
+        "Warframes_zh": "https://content.warframe.com/PublicExport/Manifest/ExportWarframes_zh.json!00_cKcs6HhjvhYKM0WJ55qG7g",
+        "Weapons_zh": "https://content.warframe.com/PublicExport/Manifest/ExportWeapons_zh.json!00_-Fr5Ezvw6mXpKZ8YF5aNyQ",
+        "Sentinels_zh": "https://content.warframe.com/PublicExport/Manifest/ExportSentinels_zh.json!00_9XVxUBzLu5VzVKtKO8rVFg"
+      },
+      "selectionBasis": "announced-pair-specific-vault-group",
+      "priceBasis": "planner-preset"
+    }
+  },
+  "dropRelics": [
+    {
+      "name": "Axi A23",
+      "rewards": [
+        {
+          "name": "Aksomati Prime Link",
+          "probability": 2,
+          "rarity": "rare",
+          "sourceRarity": "rare",
+          "rarityDisagreement": false
+        },
+        {
+          "name": "Protea Prime Neuroptics Blueprint",
+          "probability": 11,
+          "rarity": "uncommon",
+          "sourceRarity": "uncommon",
+          "rarityDisagreement": false
+        },
+        {
+          "name": "Burston Prime Barrel",
+          "probability": 11,
+          "rarity": "uncommon",
+          "sourceRarity": "uncommon",
+          "rarityDisagreement": false
+        },
+        {
+          "name": "Burston Prime Stock",
+          "probability": 25.33,
+          "rarity": "common",
+          "sourceRarity": "uncommon",
+          "rarityDisagreement": true
+        },
+        {
+          "name": "Velox Prime Receiver",
+          "probability": 25.33,
+          "rarity": "common",
+          "sourceRarity": "uncommon",
+          "rarityDisagreement": true
+        },
+        {
+          "name": "Forma Blueprint",
+          "probability": 25.33,
+          "rarity": "common",
+          "sourceRarity": "uncommon",
+          "rarityDisagreement": true
+        }
+      ]
+    },
+    {
+      "name": "Lith B12",
+      "rewards": [
+        {
+          "name": "Baza Prime Stock",
+          "probability": 2,
+          "rarity": "rare",
+          "sourceRarity": "rare",
+          "rarityDisagreement": false
+        },
+        {
+          "name": "Ivara Prime Blueprint",
+          "probability": 11,
+          "rarity": "uncommon",
+          "sourceRarity": "uncommon",
+          "rarityDisagreement": false
+        },
+        {
+          "name": "Velox Prime Blueprint",
+          "probability": 11,
+          "rarity": "uncommon",
+          "sourceRarity": "uncommon",
+          "rarityDisagreement": false
+        },
+        {
+          "name": "Aksomati Prime Receiver",
+          "probability": 25.33,
+          "rarity": "common",
+          "sourceRarity": "uncommon",
+          "rarityDisagreement": true
+        },
+        {
+          "name": "Braton Prime Barrel",
+          "probability": 25.33,
+          "rarity": "common",
+          "sourceRarity": "uncommon",
+          "rarityDisagreement": true
+        },
+        {
+          "name": "Forma Blueprint",
+          "probability": 25.33,
+          "rarity": "common",
+          "sourceRarity": "uncommon",
+          "rarityDisagreement": true
+        }
+      ]
+    },
+    {
+      "name": "Meso I3",
+      "rewards": [
+        {
+          "name": "Ivara Prime Chassis Blueprint",
+          "probability": 2,
+          "rarity": "rare",
+          "sourceRarity": "rare",
+          "rarityDisagreement": false
+        },
+        {
+          "name": "Baza Prime Blueprint",
+          "probability": 11,
+          "rarity": "uncommon",
+          "sourceRarity": "uncommon",
+          "rarityDisagreement": false
+        },
+        {
+          "name": "Protea Prime Systems Blueprint",
+          "probability": 11,
+          "rarity": "uncommon",
+          "sourceRarity": "uncommon",
+          "rarityDisagreement": false
+        },
+        {
+          "name": "Aksomati Prime Blueprint",
+          "probability": 25.33,
+          "rarity": "common",
+          "sourceRarity": "uncommon",
+          "rarityDisagreement": true
+        },
+        {
+          "name": "Burston Prime Blueprint",
+          "probability": 25.33,
+          "rarity": "common",
+          "sourceRarity": "uncommon",
+          "rarityDisagreement": true
+        },
+        {
+          "name": "Forma Blueprint",
+          "probability": 25.33,
+          "rarity": "common",
+          "sourceRarity": "uncommon",
+          "rarityDisagreement": true
+        }
+      ]
+    },
+    {
+      "name": "Meso V16",
+      "rewards": [
+        {
+          "name": "Velox Prime Barrel",
+          "probability": 2,
+          "rarity": "rare",
+          "sourceRarity": "rare",
+          "rarityDisagreement": false
+        },
+        {
+          "name": "Ivara Prime Systems Blueprint",
+          "probability": 11,
+          "rarity": "uncommon",
+          "sourceRarity": "uncommon",
+          "rarityDisagreement": false
+        },
+        {
+          "name": "Okina Prime Handle",
+          "probability": 11,
+          "rarity": "uncommon",
+          "sourceRarity": "uncommon",
+          "rarityDisagreement": false
+        },
+        {
+          "name": "Baza Prime Receiver",
+          "probability": 25.33,
+          "rarity": "common",
+          "sourceRarity": "uncommon",
+          "rarityDisagreement": true
+        },
+        {
+          "name": "Burston Prime Stock",
+          "probability": 25.33,
+          "rarity": "common",
+          "sourceRarity": "uncommon",
+          "rarityDisagreement": true
+        },
+        {
+          "name": "Forma Blueprint",
+          "probability": 25.33,
+          "rarity": "common",
+          "sourceRarity": "uncommon",
+          "rarityDisagreement": true
+        }
+      ]
+    },
+    {
+      "name": "Neo O4",
+      "rewards": [
+        {
+          "name": "Okina Prime Blueprint",
+          "probability": 2,
+          "rarity": "rare",
+          "sourceRarity": "rare",
+          "rarityDisagreement": false
+        },
+        {
+          "name": "Baza Prime Barrel",
+          "probability": 11,
+          "rarity": "uncommon",
+          "sourceRarity": "uncommon",
+          "rarityDisagreement": false
+        },
+        {
+          "name": "Braton Prime Blueprint",
+          "probability": 11,
+          "rarity": "uncommon",
+          "sourceRarity": "uncommon",
+          "rarityDisagreement": false
+        },
+        {
+          "name": "Ivara Prime Neuroptics Blueprint",
+          "probability": 25.33,
+          "rarity": "common",
+          "sourceRarity": "uncommon",
+          "rarityDisagreement": true
+        },
+        {
+          "name": "Protea Prime Blueprint",
+          "probability": 25.33,
+          "rarity": "common",
+          "sourceRarity": "uncommon",
+          "rarityDisagreement": true
+        },
+        {
+          "name": "Forma Blueprint",
+          "probability": 25.33,
+          "rarity": "common",
+          "sourceRarity": "uncommon",
+          "rarityDisagreement": true
+        }
+      ]
+    },
+    {
+      "name": "Neo P11",
+      "rewards": [
+        {
+          "name": "Protea Prime Chassis Blueprint",
+          "probability": 2,
+          "rarity": "rare",
+          "sourceRarity": "rare",
+          "rarityDisagreement": false
+        },
+        {
+          "name": "Aksomati Prime Barrel",
+          "probability": 11,
+          "rarity": "uncommon",
+          "sourceRarity": "uncommon",
+          "rarityDisagreement": false
+        },
+        {
+          "name": "Braton Prime Receiver",
+          "probability": 11,
+          "rarity": "uncommon",
+          "sourceRarity": "uncommon",
+          "rarityDisagreement": false
+        },
+        {
+          "name": "Okina Prime Blade",
+          "probability": 25.33,
+          "rarity": "common",
+          "sourceRarity": "uncommon",
+          "rarityDisagreement": true
+        },
+        {
+          "name": "Burston Prime Receiver",
+          "probability": 25.33,
+          "rarity": "common",
+          "sourceRarity": "uncommon",
+          "rarityDisagreement": true
+        },
+        {
+          "name": "Forma Blueprint",
+          "probability": 25.33,
+          "rarity": "common",
+          "sourceRarity": "uncommon",
+          "rarityDisagreement": true
+        }
+      ]
+    },
+    {
+      "name": "Axi A1",
+      "rewards": [
+        {
+          "name": "Akstiletto Prime Barrel",
+          "probability": 11,
+          "rarity": "uncommon",
+          "sourceRarity": "uncommon",
+          "rarityDisagreement": false
+        },
+        {
+          "name": "Trinity Prime Systems Blueprint",
+          "probability": 25.33,
+          "rarity": "common",
+          "sourceRarity": "uncommon",
+          "rarityDisagreement": true
+        },
+        {
+          "name": "Fragor Prime Head",
+          "probability": 25.33,
+          "rarity": "common",
+          "sourceRarity": "uncommon",
+          "rarityDisagreement": true
+        },
+        {
+          "name": "Dual Kamas Prime Handle",
+          "probability": 11,
+          "rarity": "uncommon",
+          "sourceRarity": "uncommon",
+          "rarityDisagreement": false
+        },
+        {
+          "name": "Braton Prime Stock",
+          "probability": 25.33,
+          "rarity": "common",
+          "sourceRarity": "uncommon",
+          "rarityDisagreement": true
+        },
+        {
+          "name": "Nikana Prime Blueprint",
+          "probability": 2,
+          "rarity": "rare",
+          "sourceRarity": "rare",
+          "rarityDisagreement": false
+        }
+      ]
+    }
+  ],
+  "relicExport": [
+    {
+      "uniqueName": "/Lotus/Types/Game/Projections/T4VoidProjectionProteaIvaraVaultABronze",
+      "name": "Axi A23 Relic",
+      "codexSecret": false,
+      "description": "An artifact containing Orokin secrets. It can only be opened through the power of the Void.",
+      "relicRewards": [
+        {
+          "rewardName": "/Lotus/StoreItems/Types/Recipes/Weapons/WeaponParts/AksomatiPrimeLink",
+          "rarity": "RARE",
+          "tier": 0,
+          "itemCount": 1
+        },
+        {
+          "rewardName": "/Lotus/StoreItems/Types/Recipes/WarframeRecipes/ProteaPrimeHelmetBlueprint",
+          "rarity": "UNCOMMON",
+          "tier": 0,
+          "itemCount": 1
+        },
+        {
+          "rewardName": "/Lotus/StoreItems/Types/Recipes/Weapons/WeaponParts/BurstonPrimeBarrel",
+          "rarity": "UNCOMMON",
+          "tier": 0,
+          "itemCount": 1
+        },
+        {
+          "rewardName": "/Lotus/StoreItems/Types/Recipes/Weapons/WeaponParts/BurstonPrimeStock",
+          "rarity": "COMMON",
+          "tier": 0,
+          "itemCount": 1
+        },
+        {
+          "rewardName": "/Lotus/StoreItems/Types/Recipes/Weapons/WeaponParts/VeloxPrimeReceiver",
+          "rarity": "COMMON",
+          "tier": 0,
+          "itemCount": 1
+        },
+        {
+          "rewardName": "/Lotus/StoreItems/Types/Recipes/Components/FormaBlueprint",
+          "rarity": "COMMON",
+          "tier": 0,
+          "itemCount": 1
+        }
+      ]
+    },
+    {
+      "uniqueName": "/Lotus/Types/Game/Projections/T3VoidProjectionProteaIvaraVaultBBronze",
+      "name": "Neo O4 Relic",
+      "codexSecret": false,
+      "description": "An artifact containing Orokin secrets. It can only be opened through the power of the Void.",
+      "relicRewards": [
+        {
+          "rewardName": "/Lotus/StoreItems/Types/Recipes/Weapons/OkinaPrimeBlueprint",
+          "rarity": "RARE",
+          "tier": 0,
+          "itemCount": 1
+        },
+        {
+          "rewardName": "/Lotus/StoreItems/Types/Recipes/Weapons/WeaponParts/BazaPrimeBarrel",
+          "rarity": "UNCOMMON",
+          "tier": 0,
+          "itemCount": 1
+        },
+        {
+          "rewardName": "/Lotus/StoreItems/Types/Recipes/Weapons/BratonPrimeBlueprint",
+          "rarity": "UNCOMMON",
+          "tier": 0,
+          "itemCount": 1
+        },
+        {
+          "rewardName": "/Lotus/StoreItems/Types/Recipes/WarframeRecipes/IvaraPrimeHelmetBlueprint",
+          "rarity": "COMMON",
+          "tier": 0,
+          "itemCount": 1
+        },
+        {
+          "rewardName": "/Lotus/StoreItems/Types/Recipes/WarframeRecipes/ProteaPrimeBlueprint",
+          "rarity": "COMMON",
+          "tier": 0,
+          "itemCount": 1
+        },
+        {
+          "rewardName": "/Lotus/StoreItems/Types/Recipes/Components/FormaBlueprint",
+          "rarity": "COMMON",
+          "tier": 0,
+          "itemCount": 1
+        }
+      ]
+    },
+    {
+      "uniqueName": "/Lotus/Types/Game/Projections/T3VoidProjectionProteaIvaraVaultABronze",
+      "name": "Neo P11 Relic",
+      "codexSecret": false,
+      "description": "An artifact containing Orokin secrets. It can only be opened through the power of the Void.",
+      "relicRewards": [
+        {
+          "rewardName": "/Lotus/StoreItems/Types/Recipes/WarframeRecipes/ProteaPrimeChassisBlueprint",
+          "rarity": "RARE",
+          "tier": 0,
+          "itemCount": 1
+        },
+        {
+          "rewardName": "/Lotus/StoreItems/Types/Recipes/Weapons/WeaponParts/AksomatiPrimeBarrel",
+          "rarity": "UNCOMMON",
+          "tier": 0,
+          "itemCount": 1
+        },
+        {
+          "rewardName": "/Lotus/StoreItems/Types/Recipes/Weapons/WeaponParts/BratonPrimeReceiver",
+          "rarity": "UNCOMMON",
+          "tier": 0,
+          "itemCount": 1
+        },
+        {
+          "rewardName": "/Lotus/StoreItems/Types/Recipes/Weapons/WeaponParts/OkinaPrimeBlade",
+          "rarity": "COMMON",
+          "tier": 0,
+          "itemCount": 1
+        },
+        {
+          "rewardName": "/Lotus/StoreItems/Types/Recipes/Weapons/WeaponParts/BurstonPrimeReceiver",
+          "rarity": "COMMON",
+          "tier": 0,
+          "itemCount": 1
+        },
+        {
+          "rewardName": "/Lotus/StoreItems/Types/Recipes/Components/FormaBlueprint",
+          "rarity": "COMMON",
+          "tier": 0,
+          "itemCount": 1
+        }
+      ]
+    },
+    {
+      "uniqueName": "/Lotus/Types/Game/Projections/T2VoidProjectionProteaIvaraVaultBBronze",
+      "name": "Meso V16 Relic",
+      "codexSecret": false,
+      "description": "An artifact containing Orokin secrets. It can only be opened through the power of the Void.",
+      "relicRewards": [
+        {
+          "rewardName": "/Lotus/StoreItems/Types/Recipes/Weapons/WeaponParts/VeloxPrimeBarrel",
+          "rarity": "RARE",
+          "tier": 0,
+          "itemCount": 1
+        },
+        {
+          "rewardName": "/Lotus/StoreItems/Types/Recipes/WarframeRecipes/IvaraPrimeSystemsBlueprint",
+          "rarity": "UNCOMMON",
+          "tier": 0,
+          "itemCount": 1
+        },
+        {
+          "rewardName": "/Lotus/StoreItems/Types/Recipes/Weapons/WeaponParts/OkinaPrimeHandle",
+          "rarity": "UNCOMMON",
+          "tier": 0,
+          "itemCount": 1
+        },
+        {
+          "rewardName": "/Lotus/StoreItems/Types/Recipes/Weapons/WeaponParts/BazaPrimeReceiver",
+          "rarity": "COMMON",
+          "tier": 0,
+          "itemCount": 1
+        },
+        {
+          "rewardName": "/Lotus/StoreItems/Types/Recipes/Weapons/WeaponParts/BurstonPrimeStock",
+          "rarity": "COMMON",
+          "tier": 0,
+          "itemCount": 1
+        },
+        {
+          "rewardName": "/Lotus/StoreItems/Types/Recipes/Components/FormaBlueprint",
+          "rarity": "COMMON",
+          "tier": 0,
+          "itemCount": 1
+        }
+      ]
+    },
+    {
+      "uniqueName": "/Lotus/Types/Game/Projections/T2VoidProjectionProteaIvaraVaultABronze",
+      "name": "Meso I3 Relic",
+      "codexSecret": false,
+      "description": "An artifact containing Orokin secrets. It can only be opened through the power of the Void.",
+      "relicRewards": [
+        {
+          "rewardName": "/Lotus/StoreItems/Types/Recipes/WarframeRecipes/IvaraPrimeChassisBlueprint",
+          "rarity": "RARE",
+          "tier": 0,
+          "itemCount": 1
+        },
+        {
+          "rewardName": "/Lotus/StoreItems/Types/Recipes/Weapons/BazaPrimeBlueprint",
+          "rarity": "UNCOMMON",
+          "tier": 0,
+          "itemCount": 1
+        },
+        {
+          "rewardName": "/Lotus/StoreItems/Types/Recipes/WarframeRecipes/ProteaPrimeSystemsBlueprint",
+          "rarity": "UNCOMMON",
+          "tier": 0,
+          "itemCount": 1
+        },
+        {
+          "rewardName": "/Lotus/StoreItems/Types/Recipes/Weapons/AksomatiPrimeBlueprint",
+          "rarity": "COMMON",
+          "tier": 0,
+          "itemCount": 1
+        },
+        {
+          "rewardName": "/Lotus/StoreItems/Types/Recipes/Weapons/BurstonPrimeBlueprint",
+          "rarity": "COMMON",
+          "tier": 0,
+          "itemCount": 1
+        },
+        {
+          "rewardName": "/Lotus/StoreItems/Types/Recipes/Components/FormaBlueprint",
+          "rarity": "COMMON",
+          "tier": 0,
+          "itemCount": 1
+        }
+      ]
+    },
+    {
+      "uniqueName": "/Lotus/Types/Game/Projections/T1VoidProjectionProteaIvaraVaultABronze",
+      "name": "Lith B12 Relic",
+      "codexSecret": false,
+      "description": "An artifact containing Orokin secrets. It can only be opened through the power of the Void.",
+      "relicRewards": [
+        {
+          "rewardName": "/Lotus/StoreItems/Types/Recipes/Weapons/WeaponParts/BazaPrimeStock",
+          "rarity": "RARE",
+          "tier": 0,
+          "itemCount": 1
+        },
+        {
+          "rewardName": "/Lotus/StoreItems/Types/Recipes/WarframeRecipes/IvaraPrimeBlueprint",
+          "rarity": "UNCOMMON",
+          "tier": 0,
+          "itemCount": 1
+        },
+        {
+          "rewardName": "/Lotus/StoreItems/Types/Recipes/Weapons/VeloxPrimeBlueprint",
+          "rarity": "UNCOMMON",
+          "tier": 0,
+          "itemCount": 1
+        },
+        {
+          "rewardName": "/Lotus/StoreItems/Types/Recipes/Weapons/WeaponParts/AksomatiPrimeReceiver",
+          "rarity": "COMMON",
+          "tier": 0,
+          "itemCount": 1
+        },
+        {
+          "rewardName": "/Lotus/StoreItems/Types/Recipes/Weapons/WeaponParts/BratonPrimeBarrel",
+          "rarity": "COMMON",
+          "tier": 0,
+          "itemCount": 1
+        },
+        {
+          "rewardName": "/Lotus/StoreItems/Types/Recipes/Components/FormaBlueprint",
+          "rarity": "COMMON",
+          "tier": 0,
+          "itemCount": 1
+        }
+      ]
+    }
+  ],
+  "recipesText": "{\"ExportRecipes\":[{\"uniqueName\":\"/Lotus/Types/Recipes/WarframeRecipes/IvaraPrimeBlueprint\",\"resultType\":\"/Lotus/Powersuits/Ranger/IvaraPrime\",\"buildPrice\":25000,\"buildTime\":259200,\"skipBuildTimePrice\":50,\"consumeOnUse\":true,\"num\":1,\"codexSecret\":false,\"primeSellingPrice\":45,\"ingredients\":[{\"ItemType\":\"/Lotus/Types/Recipes/WarframeRecipes/IvaraPrimeHelmetComponent\",\"ItemCount\":1,\"ProductCategory\":\"MiscItems\"},{\"ItemType\":\"/Lotus/Types/Recipes/WarframeRecipes/IvaraPrimeChassisComponent\",\"ItemCount\":1,\"ProductCategory\":\"MiscItems\"},{\"ItemType\":\"/Lotus/Types/Recipes/WarframeRecipes/IvaraPrimeSystemsComponent\",\"ItemCount\":1,\"ProductCategory\":\"MiscItems\"},{\"ItemType\":\"/Lotus/Types/Items/MiscItems/OrokinCell\",\"ItemCount\":5,\"ProductCategory\":\"MiscItems\"}],\"secretIngredients\":[]},{\"uniqueName\":\"/Lotus/Types/Recipes/WarframeRecipes/ProteaPrimeBlueprint\",\"resultType\":\"/Lotus/Powersuits/Odalisk/ProteaPrime\",\"buildPrice\":25000,\"buildTime\":259200,\"skipBuildTimePrice\":50,\"consumeOnUse\":true,\"num\":1,\"codexSecret\":false,\"primeSellingPrice\":15,\"ingredients\":[{\"ItemType\":\"/Lotus/Types/Recipes/WarframeRecipes/ProteaPrimeHelmetComponent\",\"ItemCount\":1,\"ProductCategory\":\"MiscItems\"},{\"ItemType\":\"/Lotus/Types/Recipes/WarframeRecipes/ProteaPrimeChassisComponent\",\"ItemCount\":1,\"ProductCategory\":\"MiscItems\"},{\"ItemType\":\"/Lotus/Types/Recipes/WarframeRecipes/ProteaPrimeSystemsComponent\",\"ItemCount\":1,\"ProductCategory\":\"MiscItems\"},{\"ItemType\":\"/Lotus/Types/Items/MiscItems/OrokinCell\",\"ItemCount\":5,\"ProductCategory\":\"MiscItems\"}],\"secretIngredients\":[]},{\"uniqueName\":\"/Lotus/Types/Recipes/Weapons/AksomatiPrimeBlueprint\",\"resultType\":\"/Lotus/Weapons/Tenno/Pistols/PrimeAksomati/PrimeAksomati\",\"buildPrice\":15000,\"buildTime\":43200,\"skipBuildTimePrice\":50,\"consumeOnUse\":true,\"num\":1,\"codexSecret\":false,\"primeSellingPrice\":15,\"ingredients\":[{\"ItemType\":\"/Lotus/Types/Recipes/Weapons/WeaponParts/AksomatiPrimeLink\",\"ItemCount\":1,\"ProductCategory\":\"MiscItems\"},{\"ItemType\":\"/Lotus/Types/Recipes/Weapons/WeaponParts/AksomatiPrimeBarrel\",\"ItemCount\":2,\"ProductCategory\":\"MiscItems\"},{\"ItemType\":\"/Lotus/Types/Recipes/Weapons/WeaponParts/AksomatiPrimeReceiver\",\"ItemCount\":2,\"ProductCategory\":\"MiscItems\"}],\"secretIngredients\":[]},{\"uniqueName\":\"/Lotus/Types/Recipes/Weapons/BazaPrimeBlueprint\",\"resultType\":\"/Lotus/Weapons/Tenno/LongGuns/PrimeBaza/PrimeBazaGun\",\"buildPrice\":15000,\"buildTime\":43200,\"skipBuildTimePrice\":50,\"consumeOnUse\":true,\"num\":1,\"codexSecret\":false,\"primeSellingPrice\":65,\"ingredients\":[{\"ItemType\":\"/Lotus/Types/Recipes/Weapons/WeaponParts/BazaPrimeBarrel\",\"ItemCount\":1,\"ProductCategory\":\"MiscItems\"},{\"ItemType\":\"/Lotus/Types/Recipes/Weapons/WeaponParts/BazaPrimeReceiver\",\"ItemCount\":1,\"ProductCategory\":\"MiscItems\"},{\"ItemType\":\"/Lotus/Types/Recipes/Weapons/WeaponParts/BazaPrimeStock\",\"ItemCount\":1,\"ProductCategory\":\"MiscItems\"},{\"ItemType\":\"/Lotus/Types/Items/MiscItems/OrokinCell\",\"ItemCount\":10,\"ProductCategory\":\"MiscItems\"}],\"secretIngredients\":[]},{\"uniqueName\":\"/Lotus/Types/Recipes/Weapons/BratonPrimeBlueprint\",\"resultType\":\"/Lotus/Weapons/Tenno/Rifle/BratonPrime\",\"buildPrice\":15000,\"buildTime\":43200,\"skipBuildTimePrice\":50,\"consumeOnUse\":true,\"num\":1,\"codexSecret\":false,\"primeSellingPrice\":25,\"ingredients\":[{\"ItemType\":\"/Lotus/Types/Recipes/Weapons/WeaponParts/BratonPrimeBarrel\",\"ItemCount\":1,\"ProductCategory\":\"MiscItems\"},{\"ItemType\":\"/Lotus/Types/Recipes/Weapons/WeaponParts/BratonPrimeReceiver\",\"ItemCount\":1,\"ProductCategory\":\"MiscItems\"},{\"ItemType\":\"/Lotus/Types/Recipes/Weapons/WeaponParts/BratonPrimeStock\",\"ItemCount\":1,\"ProductCategory\":\"MiscItems\"},{\"ItemType\":\"/Lotus/Types/Items/MiscItems/OrokinCell\",\"ItemCount\":10,\"ProductCategory\":\"MiscItems\"}],\"secretIngredients\":[]},{\"uniqueName\":\"/Lotus/Types/Recipes/Weapons/BurstonPrimeBlueprint\",\"resultType\":\"/Lotus/Weapons/Tenno/LongGuns/PrimeBurston/PrimeBurston\",\"buildPrice\":15000,\"buildTime\":43200,\"skipBuildTimePrice\":50,\"consumeOnUse\":true,\"num\":1,\"codexSecret\":false,\"primeSellingPrice\":15,\"ingredients\":[{\"ItemType\":\"/Lotus/Types/Recipes/Weapons/WeaponParts/BurstonPrimeBarrel\",\"ItemCount\":1,\"ProductCategory\":\"MiscItems\"},{\"ItemType\":\"/Lotus/Types/Recipes/Weapons/WeaponParts/BurstonPrimeReceiver\",\"ItemCount\":1,\"ProductCategory\":\"MiscItems\"},{\"ItemType\":\"/Lotus/Types/Recipes/Weapons/WeaponParts/BurstonPrimeStock\",\"ItemCount\":1,\"ProductCategory\":\"MiscItems\"},{\"ItemType\":\"/Lotus/Types/Items/MiscItems/OrokinCell\",\"ItemCount\":10,\"ProductCategory\":\"MiscItems\"}],\"secretIngredients\":[]},{\"uniqueName\":\"/Lotus/Types/Recipes/Weapons/OkinaPrimeBlueprint\",\"resultType\":\"/Lotus/Weapons/Tenno/Melee/Swords/PrimeOkina/PrimeOkina\",\"buildPrice\":15000,\"buildTime\":43200,\"skipBuildTimePrice\":10,\"consumeOnUse\":true,\"num\":1,\"codexSecret\":false,\"primeSellingPrice\":100,\"ingredients\":[{\"ItemType\":\"/Lotus/Types/Recipes/Weapons/WeaponParts/OkinaPrimeHandle\",\"ItemCount\":2,\"ProductCategory\":\"MiscItems\"},{\"ItemType\":\"/Lotus/Types/Recipes/Weapons/WeaponParts/OkinaPrimeBlade\",\"ItemCount\":2,\"ProductCategory\":\"MiscItems\"},{\"ItemType\":\"/Lotus/Types/Items/MiscItems/OrokinCell\",\"ItemCount\":15,\"ProductCategory\":\"MiscItems\"}],\"secretIngredients\":[]},{\"uniqueName\":\"/Lotus/Types/Recipes/Weapons/VeloxPrimeBlueprint\",\"resultType\":\"/Lotus/Weapons/Tenno/Pistols/PrimeVelox/PrimeVeloxPistol\",\"buildPrice\":15000,\"buildTime\":43200,\"skipBuildTimePrice\":50,\"consumeOnUse\":true,\"num\":1,\"codexSecret\":false,\"primeSellingPrice\":45,\"ingredients\":[{\"ItemType\":\"/Lotus/Types/Recipes/Weapons/WeaponParts/VeloxPrimeBarrel\",\"ItemCount\":1,\"ProductCategory\":\"MiscItems\"},{\"ItemType\":\"/Lotus/Types/Recipes/Weapons/WeaponParts/VeloxPrimeReceiver\",\"ItemCount\":1,\"ProductCategory\":\"MiscItems\"},{\"ItemType\":\"/Lotus/Types/Items/MiscItems/OrokinCell\",\"ItemCount\":10,\"ProductCategory\":\"MiscItems\"}],\"secretIngredients\":[]}]}",
+  "equipmentEn": [
+    {
+      "name": "Aksomati Prime",
+      "uniqueName": "/Lotus/Weapons/Tenno/Pistols/PrimeAksomati/PrimeAksomati",
+      "productCategory": "Pistols"
+    },
+    {
+      "name": "Baza Prime",
+      "uniqueName": "/Lotus/Weapons/Tenno/LongGuns/PrimeBaza/PrimeBazaGun",
+      "productCategory": "LongGuns"
+    },
+    {
+      "name": "Braton Prime",
+      "uniqueName": "/Lotus/Weapons/Tenno/Rifle/BratonPrime",
+      "productCategory": "LongGuns"
+    },
+    {
+      "name": "Burston Prime",
+      "uniqueName": "/Lotus/Weapons/Tenno/LongGuns/PrimeBurston/PrimeBurston",
+      "productCategory": "LongGuns"
+    },
+    {
+      "name": "Ivara Prime",
+      "uniqueName": "/Lotus/Powersuits/Ranger/IvaraPrime",
+      "productCategory": "Suits"
+    },
+    {
+      "name": "Okina Prime",
+      "uniqueName": "/Lotus/Weapons/Tenno/Melee/Swords/PrimeOkina/PrimeOkina",
+      "productCategory": "Melee"
+    },
+    {
+      "name": "Protea Prime",
+      "uniqueName": "/Lotus/Powersuits/Odalisk/ProteaPrime",
+      "productCategory": "Suits"
+    },
+    {
+      "name": "Velox Prime",
+      "uniqueName": "/Lotus/Weapons/Tenno/Pistols/PrimeVelox/PrimeVeloxPistol",
+      "productCategory": "Pistols"
+    }
+  ],
+  "equipmentZh": [
+    {
+      "name": "轻灵月神双枪 Prime",
+      "uniqueName": "/Lotus/Weapons/Tenno/Pistols/PrimeAksomati/PrimeAksomati"
+    },
+    {
+      "name": "苍鹰 Prime",
+      "uniqueName": "/Lotus/Weapons/Tenno/LongGuns/PrimeBaza/PrimeBazaGun"
+    },
+    {
+      "name": "布莱顿 Prime",
+      "uniqueName": "/Lotus/Weapons/Tenno/Rifle/BratonPrime"
+    },
+    {
+      "name": "伯斯顿 Prime",
+      "uniqueName": "/Lotus/Weapons/Tenno/LongGuns/PrimeBurston/PrimeBurston"
+    },
+    {
+      "name": "Ivara Prime",
+      "uniqueName": "/Lotus/Powersuits/Ranger/IvaraPrime"
+    },
+    {
+      "name": "翁 Prime",
+      "uniqueName": "/Lotus/Weapons/Tenno/Melee/Swords/PrimeOkina/PrimeOkina"
+    },
+    {
+      "name": "Protea Prime",
+      "uniqueName": "/Lotus/Powersuits/Odalisk/ProteaPrime"
+    },
+    {
+      "name": "逐电 Prime",
+      "uniqueName": "/Lotus/Weapons/Tenno/Pistols/PrimeVelox/PrimeVeloxPistol"
+    }
+  ]
+}

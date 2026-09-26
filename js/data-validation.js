@@ -113,6 +113,16 @@ function requireVaultExportEvidence(record, label) {
     requireValue(typeof record.exportUrls?.[key] === "string" && record.exportUrls[key].startsWith(`https://content.warframe.com/PublicExport/Manifest/Export${key}.json!`), `Invalid Vault export URL: ${label} / ${key}`);
   }
   requireValue(record.url === record.exportUrls.RelicArcane_en, `Wrong Vault relic export URL: ${label}`);
+  if (record.featuredSources !== undefined || record.incidentalItemNames !== undefined) {
+    requireValue(Array.isArray(record.featuredSources) && record.featuredSources.length === 2, `Invalid featured equipment sources: ${label}`);
+    requireUnique(record.featuredSources.map(source => source?.warframe), `Duplicate featured Warframe source: ${label}`);
+    requireValue(record.featuredSources.every(source => record.rawPrimeWarframes.includes(source.warframe)
+      && typeof source.url === "string" && source.url.startsWith("https://www.warframe.com/")), `Invalid featured equipment source: ${label}`);
+    requireValue(Array.isArray(record.incidentalItemNames), `Invalid incidental Prime rewards: ${label}`);
+    requireUnique(record.incidentalItemNames, `Duplicate incidental Prime reward: ${label}`);
+    requireValue(record.incidentalItemNames.every(name => typeof name === "string" && /^[A-Za-z0-9 '&.-]+ Prime$/.test(name)
+      && !record.rawPrimeWarframes.includes(name)), `Invalid incidental Prime reward name: ${label}`);
+  }
 }
 
 function requireAnnouncementEvidence(evidence, label) {
