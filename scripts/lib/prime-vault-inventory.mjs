@@ -1,4 +1,5 @@
 export const WORLD_STATE_URL = "https://api.warframe.com/cdn/worldState.php";
+export const EQUIPMENT_TYPE_BY_CATEGORY = Object.freeze({ Suits: "warframe", LongGuns: "primary", Pistols: "secondary", Melee: "melee", Sentinels: "companion" });
 
 function requireValue(condition, message) {
   if (!condition) throw new Error(message);
@@ -55,7 +56,7 @@ export function lineupFromInventory(trader, { equipmentEn, equipmentZh, relicExp
   const english = indexed(equipmentEn, "English equipment export", selectedIds);
   const chinese = indexed(equipmentZh, "Chinese equipment export", selectedIds);
   const relics = indexed(relicExport, "relic export", selectedIds);
-  const typeByCategory = { Suits: "warframe", LongGuns: "primary", Pistols: "secondary", Melee: "melee", Sentinels: "companion" };
+  const typeByCategory = EQUIPMENT_TYPE_BY_CATEGORY;
   const items = [];
   const inventoryRelics = [];
   for (const entry of trader.manifest) {

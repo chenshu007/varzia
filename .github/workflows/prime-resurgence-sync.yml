@@ -49,11 +49,8 @@ jobs:
           --summary-file "$RUNNER_TEMP/prime-resurgence-summary.md"
           --pr-body-file "$RUNNER_TEMP/prime-resurgence-pr.md"
 
-      - name: Run repository tests
-        run: npm test
-
-      - name: Check patch formatting
-        run: git diff --check
+      - name: Verify repository
+        run: npm run verify
 
       - name: Package an allowlisted candidate artifact
         id: package
