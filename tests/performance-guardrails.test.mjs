@@ -69,6 +69,7 @@ test("browser app never falls back to synchronous Monte Carlo work", () => {
   const app = read("../js/app.js");
   const worker = read("../js/simulation-worker.js");
   assert.doesNotMatch(app, /simulateCurrentRotation|runOnMainThread/);
+  assert.doesNotMatch(read("../js/simulation-controller.js"), /simulateCurrentRotation|runOnMainThread/);
   assert.match(worker, /createSimulationTask/);
   assert.match(worker, /TRIALS_PER_CHUNK/);
   assert.match(worker, /progress/);

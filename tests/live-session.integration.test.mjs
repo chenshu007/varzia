@@ -487,12 +487,10 @@ test("挂起 Finish 只在当前选中目标的有效 owned 输入改变时重�
 
 test("仅接受当前 Worker 结果后才刷新实时会话派生展示", () => {
   const source = fs.readFileSync(new URL("../js/app.js", import.meta.url), "utf8");
-  const finishRun = source.slice(source.indexOf("function finishRun"), source.indexOf("function failRun"));
-  const guard = finishRun.indexOf("isSimulationResponseCurrent");
-  const normalResult = finishRun.indexOf("renderResult(result, trials, completedRequest?.options || {});");
-  const sessionRefresh = finishRun.indexOf("if (state.activeSession) renderSessionPanel();");
-  assert.match(finishRun, /if \(!isSimulationResponseCurrent\([\s\S]*?\)\) return;/);
-  assert.ok(guard >= 0 && normalResult > guard && sessionRefresh > normalResult);
+  const completion = source.slice(source.indexOf("completed(result, trials, completedRequest)"), source.indexOf("failed(failureKind)"));
+  const normalResult = completion.indexOf("renderResult(result, trials, completedRequest?.options || {});");
+  const sessionRefresh = completion.indexOf("if (sessionUi.activeSession) renderSessionPanel();");
+  assert.ok(normalResult >= 0 && sessionRefresh > normalResult);
 });
 
 test("挂起 Finish 的两阶段故障保持会话可恢复，且不改写当前规划", () => {

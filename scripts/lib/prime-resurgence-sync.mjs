@@ -1,20 +1,12 @@
+import { OFFICIAL_SOURCES, PrimeResurgenceSyncError, decompressLzma, fetchResource, fetchOfficialRotationPages, fetchOfficialRotationData, parsePublicExportIndex, fetchWorldState, invariant } from "./official-sources.mjs";
+export { OFFICIAL_SOURCES, PrimeResurgenceSyncError, decompressLzma, fetchResource, fetchOfficialRotationPages, fetchOfficialRotationData, parsePublicExportIndex } from "./official-sources.mjs";
 import { lineupFromVaultExport, vaultGroupsFor } from "./prime-vault-preview.mjs";
-import { WORLD_STATE_URL, parsePrimeVaultTrader, lineupFromInventory } from "./prime-vault-inventory.mjs";
-import { spawn } from "node:child_process";
+import { parsePrimeVaultTrader, lineupFromInventory } from "./prime-vault-inventory.mjs";
 import { open, readFile, rename, stat, unlink } from "node:fs/promises";
 import path from "node:path";
 import { validateAnnouncementCandidates, validateRotationData } from "../../js/data-validation.js";
 import { candidateIdFor as canonicalCandidateIdFor, normalizeOfficialTimestamp } from "../../js/prime-resurgence-candidate.js";
 import { publishedRotations, resolveRotationState } from "../../js/rotation-schedule.js";
-
-export const OFFICIAL_SOURCES = Object.freeze({
-  worldState: WORLD_STATE_URL,
-  rotationEn: "https://www.warframe.com/en/prime-resurgence",
-  rotationZh: "https://www.warframe.com/zh-hans/prime-resurgence",
-  announcementFeed: "https://public.api.bsky.app/xrpc/app.bsky.feed.getAuthorFeed?actor=warframe.com&limit=100&filter=posts_no_replies",
-  dropTables: "https://www.warframe.com/droptables",
-  publicExportIndex: "https://content.warframe.com/PublicExport/index_en.txt.lzma"
-});
 
 export const SYNC_DATA_PATHS = Object.freeze({
   rotation: "data/rotation.json",
@@ -75,17 +67,6 @@ const MONTH_INDEX = new Map([
   ["May", 4], ["June", 5], ["July", 6], ["August", 7],
   ["September", 8], ["October", 9], ["November", 10], ["December", 11]
 ]);
-
-export class PrimeResurgenceSyncError extends Error {
-  constructor(message) {
-    super(message);
-    this.name = "PrimeResurgenceSyncError";
-  }
-}
-
-function invariant(condition, message) {
-  if (!condition) throw new PrimeResurgenceSyncError(message);
-}
 
 function unique(values, label) {
   const seen = new Set();
@@ -689,52 +670,6 @@ export function validateVaultRewardCatalog(lineup, dropRelics, official) {
     }
   }
   return lineup;
-}
-
-export function parsePublicExportIndex(text) {
-  const matches = String(text || "").split(/\r?\n/).filter((line) => /^ExportRecipes_en\.json![A-Za-z0-9_+-]+$/.test(line));
-  invariant(matches.length === 1, `Expected one ExportRecipes_en.json manifest entry; found ${matches.length}.`);
-  return `https://content.warframe.com/PublicExport/Manifest/${matches[0]}`;
-}
-
-export async function decompressLzma(buffer, { timeoutMs = 10_000, maximumBytes = 2_000_000 } = {}) {
-  return await new Promise((resolve, reject) => {
-    const child = spawn("xz", ["--format=lzma", "--decompress", "--stdout"], { stdio: ["pipe", "pipe", "pipe"] });
-    const stdout = [];
-    const stderr = [];
-    let size = 0;
-    let terminalError = null;
-    let settled = false;
-    const finish = (callback, value) => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timeout);
-      callback(value);
-    };
-    const timeout = setTimeout(() => {
-      terminalError = new PrimeResurgenceSyncError(`Public Export index decompression exceeded ${timeoutMs}ms.`);
-      child.kill("SIGKILL");
-    }, timeoutMs);
-    child.stdout.on("data", (chunk) => {
-      size += chunk.length;
-      if (size > maximumBytes) {
-        terminalError = new PrimeResurgenceSyncError(`Public Export index decompressed size exceeds ${maximumBytes} bytes.`);
-        child.kill("SIGKILL");
-      }
-      else stdout.push(chunk);
-    });
-    child.stderr.on("data", (chunk) => stderr.push(chunk));
-    child.on("error", (error) => finish(reject, new PrimeResurgenceSyncError(`Unable to run xz: ${error.message}`)));
-    child.on("close", (code) => {
-      if (terminalError) finish(reject, terminalError);
-      else if (code !== 0) finish(reject, new PrimeResurgenceSyncError(`Public Export index decompression failed: ${Buffer.concat(stderr).toString("utf8").trim() || `xz exit ${code}`}`));
-      else finish(resolve, Buffer.concat(stdout).toString("utf8"));
-    });
-    child.stdin.on("error", (error) => {
-      if (!terminalError) terminalError = new PrimeResurgenceSyncError(`Unable to stream Public Export index to xz: ${error.message}`);
-    });
-    child.stdin.end(buffer);
-  });
 }
 
 function announcementForLineup(lineup, announcements, rotationData) {
@@ -1423,99 +1358,21 @@ export async function writeAtomically(files) {
   }
 }
 
-export async function fetchResource(fetchImpl, url, { binary = false, finalHosts, maximumBytes }) {
-  const response = await fetchImpl(url, {
-    redirect: "follow",
-    signal: AbortSignal.timeout(30_000),
-    headers: { Accept: binary ? "application/octet-stream,*/*;q=0.8" : "text/html,application/json;q=0.9,*/*;q=0.8", "User-Agent": "Varzia-Prime-Resurgence-Sync/1.0" }
-  });
-  invariant(response.ok, `Official source returned HTTP ${response.status}: ${url}`);
-  const finalUrl = new URL(response.url || url);
-  invariant(finalUrl.protocol === "https:" && finalHosts.includes(finalUrl.hostname), `Official source redirected to an unapproved host: ${finalUrl.hostname}`);
-  const declaredLength = Number(response.headers?.get?.("content-length"));
-  invariant(!Number.isFinite(declaredLength) || declaredLength <= maximumBytes, `Official source declared an unsafe size: ${url} (${declaredLength} bytes).`);
-  const chunks = [];
-  let size = 0;
-  if (response.body?.getReader) {
-    const reader = response.body.getReader();
-    try {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        size += value.byteLength;
-        invariant(size <= maximumBytes, `Official source size is unsafe: ${url} (more than ${maximumBytes} bytes).`);
-        chunks.push(Buffer.from(value));
-      }
-    } catch (error) {
-      await reader.cancel(error).catch(() => {});
-      throw error;
-    }
-  } else {
-    const fallback = Buffer.from(await response.arrayBuffer());
-    size = fallback.length;
-    chunks.push(fallback);
-  }
-  const buffer = Buffer.concat(chunks, size);
-  invariant(buffer.length > 0 && buffer.length <= maximumBytes, `Official source size is unsafe: ${url} (${buffer.length} bytes).`);
-  return binary ? buffer : buffer.toString("utf8");
-}
-
-export async function fetchOfficialRotationPages({ fetchImpl = globalThis.fetch } = {}) {
-  const [englishHtml, chineseHtml] = await Promise.all([
-    fetchResource(fetchImpl, OFFICIAL_SOURCES.rotationEn, { finalHosts: ["www.warframe.com"], maximumBytes: 1_000_000 }),
-    fetchResource(fetchImpl, OFFICIAL_SOURCES.rotationZh, { finalHosts: ["www.warframe.com"], maximumBytes: 1_000_000 })
-  ]);
-  return { englishHtml, chineseHtml };
-}
-
-export async function fetchOfficialRotationData({ fetchImpl = globalThis.fetch, decompress = decompressLzma } = {}) {
-  const content = (url, options = {}) => fetchResource(fetchImpl, url, { finalHosts: ["content.warframe.com"], maximumBytes: 20_000_000, ...options });
-  const [dropTablesHtml, ...indexes] = await Promise.all([
-    fetchResource(fetchImpl, OFFICIAL_SOURCES.dropTables, {
-      finalHosts: ["www.warframe.com", "warframe-web-assets.nyc3.cdn.digitaloceanspaces.com"], maximumBytes: 10_000_000
-    }),
-    ...["en", "zh"].map(async locale => decompress(await content(`https://content.warframe.com/PublicExport/index_${locale}.txt.lzma`, { binary: true, maximumBytes: 1_000_000 })))
-  ]);
-  const exportUrls = {};
-  const readExport = async (type, locale) => {
-    const prefix = `Export${type}_${locale}.json!`;
-    const matches = indexes[locale === "en" ? 0 : 1].split(/\r?\n/).filter(line => line.startsWith(prefix));
-    invariant(matches.length === 1 && /^[A-Za-z0-9_.!+-]+$/.test(matches[0]), `Missing or ambiguous Public Export manifest: ${prefix}`);
-    const url = `https://content.warframe.com/PublicExport/Manifest/${matches[0]}`;
-    exportUrls[`${type}_${locale}`] = url;
-    const text = await content(url);
-    const records = JSON.parse(text)[`Export${type}`];
-    invariant(Array.isArray(records) && records.length > 0, `Malformed Public Export: ${url}`);
-    return { text, records };
-  };
-  const [recipes, relics, en, zh] = await Promise.all([
-    readExport("Recipes", "en"), readExport("RelicArcane", "en"),
-    Promise.all(["Warframes", "Weapons", "Sentinels"].map(type => readExport(type, "en"))),
-    Promise.all(["Warframes", "Weapons", "Sentinels"].map(type => readExport(type, "zh")))
-  ]);
-  return { dropTablesHtml, recipesText: recipes.text, recipeUrl: exportUrls.Recipes_en,
-    relicExport: relics.records, equipmentEn: en.flatMap(item => item.records), equipmentZh: zh.flatMap(item => item.records), exportUrls };
-}
-
-async function fetchWorldState(fetchImpl) {
-  return fetchResource(fetchImpl, OFFICIAL_SOURCES.worldState, { finalHosts: ["api.warframe.com"], maximumBytes: 10_000_000 });
-}
-
-async function fetchInventoryInputs({ fetchImpl = globalThis.fetch, decompress = decompressLzma, worldStateText } = {}) {
+async function fetchInventoryInputs({ fetchImpl = globalThis.fetch, decompress = decompressLzma, worldStateText, signal } = {}) {
   const [world, data, pages] = await Promise.all([
-    Promise.resolve(worldStateText ?? fetchWorldState(fetchImpl))
+    Promise.resolve(worldStateText ?? fetchWorldState(fetchImpl, signal))
       .then(worldStateText => ({ worldStateText }))
-      .catch(error => ({ worldStateWarning: `World State unavailable: ${safeErrorMessage(error)}` })),
-    fetchOfficialRotationData({ fetchImpl, decompress }),
-    fetchOfficialRotationPages({ fetchImpl }).catch(error => ({ pageWarning: `Auxiliary page unavailable: ${safeErrorMessage(error)}` }))
+      .catch(error => { signal?.throwIfAborted(); return { worldStateWarning: `World State unavailable: ${safeErrorMessage(error)}` }; }),
+    fetchOfficialRotationData({ fetchImpl, decompress, signal }),
+    fetchOfficialRotationPages({ fetchImpl, signal }).catch(error => { signal?.throwIfAborted(); return { pageWarning: `Auxiliary page unavailable: ${safeErrorMessage(error)}` }; })
   ]);
   return { ...data, ...pages, ...world };
 }
 
-export async function fetchOfficialAnnouncementInputs({ fetchImpl = globalThis.fetch, decompress = decompressLzma } = {}) {
+export async function fetchOfficialAnnouncementInputs({ fetchImpl = globalThis.fetch, decompress = decompressLzma, signal } = {}) {
   const [inventoryInputs, announcementText] = await Promise.all([
-    fetchInventoryInputs({ fetchImpl, decompress }),
-    fetchResource(fetchImpl, OFFICIAL_SOURCES.announcementFeed, { finalHosts: ["public.api.bsky.app"], maximumBytes: 5_000_000 })
+    fetchInventoryInputs({ fetchImpl, decompress, signal }),
+    fetchResource(fetchImpl, OFFICIAL_SOURCES.announcementFeed, { signal, finalHosts: ["public.api.bsky.app"], maximumBytes: 5_000_000 })
   ]);
   return { ...inventoryInputs, announcementText };
 }
@@ -1743,6 +1600,7 @@ async function completeOfficialCandidate({
   upcoming = null,
   official,
   fetchImpl,
+  signal,
   decompress,
   dryRun,
   discoveredAt,
@@ -1752,7 +1610,7 @@ async function completeOfficialCandidate({
 }) {
   const officialData = official.dropTablesHtml
     ? official
-    : { ...official, ...await fetchOfficialRotationData({ fetchImpl, decompress }) };
+    : { ...official, ...await fetchOfficialRotationData({ fetchImpl, decompress, signal }) };
   const dropRelics = parseDropTables(officialData.dropTablesHtml, { minimumRelics });
   const selection = selectRelicSet(dropRelics, lineup.items, lineup.inventoryRelics.map(relic => relic.name));
   validateInventoryRewards(selection, lineup, officialData.relicExport);
@@ -1812,6 +1670,7 @@ async function completeOfficialCandidate({
     { path: paths.candidates, label: SYNC_DATA_PATHS.candidates, original: candidatesText, text: jsonText(upgradedCandidates) }
   ];
   const changed = outputFiles.filter((file) => file.original !== file.text);
+  signal?.throwIfAborted();
   if (!dryRun && changed.length) await writeAtomically(changed);
   const result = {
     ...commonResult,
@@ -1854,11 +1713,13 @@ export async function runNearRotationWatcher({
   rootDir,
   dryRun = false,
   fetchImpl = globalThis.fetch,
+  signal,
   decompress = decompressLzma,
   now = new Date(),
   minimumRelics = 100,
   minimumRecipes = 1_000
 }) {
+  signal?.throwIfAborted();
   invariant(rootDir, "Repository root is required.");
   const paths = syncDataPaths(rootDir);
 
@@ -1888,12 +1749,12 @@ export async function runNearRotationWatcher({
   const discoveredAt = new Date(now).toISOString();
   const requested = [];
   const trackedFetch = (url, options) => { requested.push(url); return fetchImpl(url, options); };
-  const worldStateText = await fetchWorldState(trackedFetch);
+  const worldStateText = await fetchWorldState(trackedFetch, signal);
   const trader = parsePrimeVaultTrader(JSON.parse(worldStateText), discoveredAt);
   if (!trader.active || Date.parse(trader.startsAt) < Date.parse(candidate.effectiveAt)) {
     return nearWatcherResult({ ...selection, reason: "rotation-inventory-pending" }, { officialRotationChanged: false, externalRequests: requested.length });
   }
-  const pageInputs = await fetchInventoryInputs({ fetchImpl: trackedFetch, decompress, worldStateText });
+  const pageInputs = await fetchInventoryInputs({ fetchImpl: trackedFetch, decompress, worldStateText, signal });
   const lineup = inventoryLineup(pageInputs, discoveredAt);
   pageInputs.pageWarning = checkAuxiliaryPage(pageInputs, lineup, rotationData, primeData);
 
@@ -1913,6 +1774,7 @@ export async function runNearRotationWatcher({
     const changed = candidateText === candidatesText
       ? []
       : [{ path: paths.candidates, label: SYNC_DATA_PATHS.candidates, original: candidatesText, text: candidateText }];
+    signal?.throwIfAborted();
     if (!dryRun && changed.length) await writeAtomically(changed);
     const conflicted = conflictedCandidates.candidates.find((entry) => entry.id === candidate.id);
     const result = nearWatcherResult(selection, {
@@ -1944,6 +1806,7 @@ export async function runNearRotationWatcher({
     published: null,
     official: pageInputs,
     fetchImpl,
+    signal,
     decompress,
     dryRun,
     discoveredAt,
@@ -1969,10 +1832,12 @@ export async function runPrimeResurgenceSync({
   rootDir,
   dryRun = false,
   fetchImpl = globalThis.fetch,
+  signal,
   decompress = decompressLzma,
   inputs = null,
   now = new Date()
 }) {
+  signal?.throwIfAborted();
   invariant(rootDir, "Repository root is required.");
   const paths = syncDataPaths(rootDir);
   const [rotationText, primesText, relicsText, candidatesText, recipeExceptionsText] = await Promise.all([
@@ -1995,6 +1860,7 @@ export async function runPrimeResurgenceSync({
     const changed = candidateText === candidatesText
       ? []
       : [{ path: paths.candidates, label: SYNC_DATA_PATHS.candidates, original: candidatesText, text: candidateText }];
+    signal?.throwIfAborted();
     if (!dryRun && changed.length) await writeAtomically(changed);
     result.changedFiles = changed.map((file) => file.label);
     result.publishedVerification = official?.publishedVerification || null;
@@ -2002,7 +1868,7 @@ export async function runPrimeResurgenceSync({
     return result;
   };
 
-  let official = inputs || { announcementText: await fetchResource(fetchImpl, OFFICIAL_SOURCES.announcementFeed, { finalHosts: ["public.api.bsky.app"], maximumBytes: 5_000_000 }) };
+  let official = inputs || { announcementText: await fetchResource(fetchImpl, OFFICIAL_SOURCES.announcementFeed, { signal, finalHosts: ["public.api.bsky.app"], maximumBytes: 5_000_000 }) };
   const announcements = parseOfficialAnnouncements(JSON.parse(official.announcementText));
   const announcedCandidates = upsertAnnouncementCandidates(candidateData, announcements, rotationData, discoveredAt);
   const activeAnnouncements = announcedCandidates.candidates.filter((candidate) => candidate.status === "announced");
@@ -2018,7 +1884,7 @@ export async function runPrimeResurgenceSync({
       changedFiles: []
     });
   }
-  if (!inputs) official = { ...official, ...await fetchInventoryInputs({ fetchImpl, decompress }) };
+  if (!inputs) official = { ...official, ...await fetchInventoryInputs({ fetchImpl, decompress, signal }) };
   if (verifyPublishedPreview) {
     const actual = inventoryLineup(official, discoveredAt);
     // Once a later, unreviewed rotation is live, continue normal discovery.
@@ -2029,7 +1895,7 @@ export async function runPrimeResurgenceSync({
         rotationData, primeData, relicData, candidateData: announcedCandidates,
         recipeExceptions, lineup: actual,
         announcement: { startsAt: activePublished.startsAt, url: activePublished.source.announcementUrl },
-        published: activePublished, official, fetchImpl, decompress, dryRun, discoveredAt,
+        published: activePublished, official, fetchImpl, decompress, signal, dryRun, discoveredAt,
         minimumRelics: inputs ? 1 : 100, minimumRecipes: inputs ? 1 : 1_000
       });
       official.publishedVerification = activePublished.id;
@@ -2052,7 +1918,7 @@ export async function runPrimeResurgenceSync({
         paths, rotationText, primesText, relicsText, candidatesText,
         rotationData, primeData, relicData, candidateData: announcedCandidates,
         recipeExceptions, lineup: preview, announcement: announcementFromCandidate(futureCandidate),
-        published: null, official, fetchImpl, decompress, dryRun, discoveredAt,
+        published: null, official, fetchImpl, decompress, signal, dryRun, discoveredAt,
         minimumRelics: inputs ? 1 : 100, minimumRecipes: inputs ? 1 : 1_000,
         expectedCandidateId: futureCandidate.id
       });
@@ -2128,6 +1994,7 @@ export async function runPrimeResurgenceSync({
     upcoming,
     official,
     fetchImpl,
+    signal,
     decompress,
     dryRun,
     discoveredAt,

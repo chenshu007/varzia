@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "entries": [
+    {
+      "warframe": {
+        "name": "Banshee Prime",
+        "uniqueName": "/Lotus/Powersuits/Banshee/BansheePrime"
+      },
+      "items": [
+        { "name": "Euphona Prime", "uniqueName": "/Lotus/Weapons/Tenno/Pistols/AllNew1hSG/AllNew1hSG" },
+        { "name": "Helios Prime", "uniqueName": "/Lotus/Types/Sentinels/SentinelPowersuits/PrimeHeliosPowerSuit" }
+      ],
+      "sourceUrl": "https://www.warframe.com/en/news/banshee-ve-mirage-prime-vault"
+    },
+    {
+      "warframe": {
+        "name": "Mirage Prime",
+        "uniqueName": "/Lotus/Powersuits/Harlequin/MiragePrime"
+      },
+      "items": [
+        { "name": "Akbolto Prime", "uniqueName": "/Lotus/Weapons/Tenno/Pistols/PrimeAkbolto/PrimeAkBoltoWeapon" },
+        { "name": "Kogake Prime", "uniqueName": "/Lotus/Weapons/Tenno/Melee/PrimeKogake/KogakePrimeKnuckles" }
+      ],
+      "sourceUrl": "https://www.warframe.com/en/news/banshee-ve-mirage-prime-vault"
+    },
+    {
+      "warframe": {
+        "name": "Ivara Prime",
+        "uniqueName": "/Lotus/Powersuits/Ranger/IvaraPrime"
+      },
+      "items": [
+        { "name": "Aksomati Prime", "uniqueName": "/Lotus/Weapons/Tenno/Pistols/PrimeAksomati/PrimeAksomati" },
+        { "name": "Baza Prime", "uniqueName": "/Lotus/Weapons/Tenno/LongGuns/PrimeBaza/PrimeBazaGun" }
+      ],
+      "sourceUrl": "https://www.warframe.com/en/news/-549"
+    },
+    {
+      "warframe": {
+        "name": "Protea Prime",
+        "uniqueName": "/Lotus/Powersuits/Odalisk/ProteaPrime"
+      },
+      "items": [
+        { "name": "Okina Prime", "uniqueName": "/Lotus/Weapons/Tenno/Melee/Swords/PrimeOkina/PrimeOkina" },
+        { "name": "Velox Prime", "uniqueName": "/Lotus/Weapons/Tenno/Pistols/PrimeVelox/PrimeVeloxPistol" }
+      ],
+      "sourceUrl": "https://www.warframe.com/en/news/protea-prime-access"
+    }
+  ]
+}

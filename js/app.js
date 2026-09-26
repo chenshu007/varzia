@@ -1,34 +1,23 @@
+import { createRotationUiController, selectAnnouncementPreview } from "./rotation-ui-controller.js";
+import { createShareUiController } from "./share-ui-controller.js";
+import { createSessionUIController } from "./session-ui-controller.js";
+export { shouldShowSessionGraduationRecap } from "./session-ui-controller.js";
+import { createSimulationController } from "./simulation-controller.js";
+import { createResultsView } from "./results-view.js";
+import { createBudgetChartView } from "./budget-chart-view.js";
+import { createCollectionView } from "./collection-view.js";
+import { escapeHtml } from "./dom-helpers.js";
+import { requiredCount, isSafeOwnedKey, ownedCountIn, ownedMapsFromPlain, injectOwnedCounts, ownedPlainObject as collectionOwnedPlainObject } from "./planner-ownership.js";
+export { injectOwnedCounts, ownershipChangesSimulationInput } from "./planner-ownership.js";
 import {
   MAX_SIMULATION_BUDGET,
-  RARITIES,
   analysisCapFor,
-  refinementFor,
-  rankRelicsForMissing,
-  squadChance,
   validateSimulationBudget
 } from "./simulator.js";
-import {
-  appendSessionEvent,
-  createSession,
-  createSessionContext,
-  deriveSessionSummary,
-  isLegacySessionDocument,
-  replaySession,
-  undoLastSessionEvent,
-  validateSession
-} from "./session.js";
-import { validateRotationData } from "./data-validation.js";
-import { loadAnnouncementCandidates } from "./announcement-candidate-preview.js";
-import {
-  assertValidBudgetCurve,
-  formatProbability,
-  formatProbabilityPrecise
-} from "./presentation.js";
+import { FALLBACK_SCHEDULE, loadAppData } from "./app-data-loader.js";
 import {
   browserLocale,
-  getLocale,
   loadLocaleMessages,
-  localizeDisplayData,
   localeFromPathname,
   localePath,
   localeTag,
@@ -42,51 +31,15 @@ import {
   refinementKey,
   writeStoredLocale
 } from "./i18n.js";
-import {
-  calculateGraduationRecap,
-  calculatePercentileDeltas,
-  formatRecapPercent
-} from "./wave1.js";
-import {
-  buildShareCardModel,
-  renderShareCardSvg,
-  svgToPngBlob
-} from "./share-card.js";
 import { decodePlan, encodePlan, planUrl, planNavigationChanged } from "./plan-share.js";
 import {
   loadCollectionState,
   saveCollectionState,
-  readActiveSession,
-  saveActiveSession,
-  hasFutureSchemaDocument,
-  readStoredOwnedParts,
-  saveOwnedParts
+  hasFutureSchemaDocument
 } from "./storage.js";
-import {
-  countdownUpdateDelay,
-  formatRotationCountdown,
-  formatRotationLocalTime,
-  getTimeUntilRotation,
-  isSimulationResponseCurrent,
-  publishedRotations,
-  resolveRotationView
-} from "./rotation-schedule.js";
-import {
-  createSimulationWorkerClient,
-  schedulePendingRunAfterFailure,
-  simulationWorkerUrl
-} from "./simulation-worker-client.js";
-
-const fallbackSchedule = {
-  schemaVersion: 2,
-  lastVerified: "2026-08-14",
-  source: { name: "Warframe 官方简体中文 Prime 重生页面", url: "https://www.warframe.com/zh-hans/prime-resurgence" },
-  rotations: []
-};
-
 
 const state = {
-  scheduleData: fallbackSchedule,
+  scheduleData: FALLBACK_SCHEDULE,
   announcementCandidates: [],
   announcementPreview: null,
   rotations: [],
@@ -95,7 +48,6 @@ const state = {
   rotation: null,
   previewId: "",
   previewMode: false,
-  invalidPreviewWarned: false,
   allPrimeItems: [],
   allRelics: [],
   primeItems: [],
@@ -104,25 +56,9 @@ const state = {
   owned: {},
   squad: 4,
   mode: "budget",
-  runTimer: null,
-  running: false,
-  pendingRun: false,
-  simulationClient: null,
-  workerRequestId: 0,
-  activeSimulation: null,
-  lastBudgetChart: null,
-  chartResizeObserver: null,
-  chartResizeTimer: null,
-  rotationTimer: null,
-  lifecycleBound: false,
   dataLoadErrors: [],
   locale: "en",
   localeMessages: {},
-  recapAya: "",
-  shareCardBlob: null,
-  shareCardUrl: "",
-  shareCardPlanUrl: "",
-  shareGeneration: 0,
   sharedPlan: null,
   resultsUpdating: true,
   shareReady: false,
@@ -130,25 +66,12 @@ const state = {
   lastResultOptions: null,
   lastTrials: 0,
   currentRecap: null,
-  activeSession: null,
-  suspendedSession: null,
-  unresolvedSession: null,
-  storageLocked: false,
-  sessionTicker: null
+  storageLocked: false
 };
 
 const $ = (id) => document.getElementById(id);
 const format = (number) => Number(number || 0).toLocaleString(browserLocale(state.locale));
 const formatDate = (value) => String(value || "—").replaceAll("-", ".");
-
-function escapeHtml(value) {
-  return String(value ?? "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-}
 
 function message(key, variables = {}) {
   return t(key, variables);
@@ -189,6 +112,121 @@ export function localizedBudgetMarker(value, analysisCap) {
 function unit(key) {
   return message(`unit.${key}`);
 }
+
+// Compose state owners and views once. All DOM access is deferred until bootstrap.
+const collectionView = createCollectionView({ $, message, format, localizedTypeLabel, localizedRarityLabel });
+
+// The controller owns request identity and timers; hooks own page presentation.
+const simulation = createSimulationController({
+  getRotationId: () => state.rotation?.id || "",
+  prepareRequest() {
+    const validation = validateSimulationBudget($("budget").value);
+    if (!validation.valid) {
+      showBudgetValidationError();
+      return null;
+    }
+    clearBudgetValidationError();
+    return simulationOptions(validation.budget);
+  },
+  hooks: {
+    updating: setResultsUpdating,
+    started() {
+      $("runButton").disabled = true;
+      $("runButtonLabel").textContent = message("run.running");
+      $("runCaption").textContent = message("run.running");
+    },
+    completed(result, trials, completedRequest) {
+      renderResult(result, trials, completedRequest?.options || {});
+      if (sessionUi.activeSession) renderSessionPanel();
+      state.shareReady = true;
+      setResultsUpdating(false);
+      $("runButton").disabled = false;
+      $("runButtonLabel").textContent = message("run.button");
+    },
+    failed(failureKind) {
+      $("runButton").disabled = false;
+      $("runButtonLabel").textContent = message("run.button");
+      setResultsUpdating(false);
+      const failureMessage = failureKind === "unavailable"
+        ? message("run.workerUnavailable")
+        : failureKind === "timeout" ? message("run.timeout") : message("run.workerFailed");
+      $("trialBadge").textContent = failureMessage;
+      $("runCaption").textContent = failureMessage;
+    },
+    empty() {
+      $("runButton").disabled = false;
+      renderNoTargets();
+    },
+    progress(progress) {
+      $("runCaption").textContent = message("run.progress", {
+        completed: format(progress.completedTrials), trials: format(progress.totalTrials)
+      });
+    },
+    cancelled() {
+      $("runButton").disabled = false;
+      $("runButtonLabel").textContent = message("run.button");
+      setResultsUpdating(false);
+    }
+  }
+});
+const { schedule: scheduleRun, run, cancel: cancelActiveSimulation, init: initSimulationWorker } = simulation;
+
+const shareUi = createShareUiController({
+  getSnapshot: () => ({
+    shareReady: state.shareReady, resultsUpdating: state.resultsUpdating, running: simulation.running,
+    rotation: state.rotation, locale: state.locale, lastResult: state.lastResult,
+    lastResultOptions: state.lastResultOptions, lastTrials: state.lastTrials,
+    currentRecap: state.currentRecap, mode: state.mode, goal: $("goalLine").value
+  }),
+  $, message
+});
+const { copyPlanLink, generateShareCard, shareGeneratedCard } = shareUi;
+
+const budgetChart = createBudgetChartView({ $, message, format, localizedBudgetMarker, localizedProbabilityDescriptor,
+  isRunning: () => simulation.running });
+const { renderBudgetDistribution, initBudgetChartResize } = budgetChart;
+
+const resultsView = createResultsView({ $, message, format, unit, localizedBudgetMarker,
+  localizedRarityLabel, localizedRefinementLabel, renderBudgetDistribution });
+const { renderItemResults } = resultsView;
+
+const sessionUi = createSessionUIController({
+  getPlannerState: () => ({
+    rotation: state.rotation, previewMode: state.previewMode, rotations: state.rotations,
+    allPrimeItems: state.allPrimeItems, allRelics: state.allRelics,
+    primeItems: state.primeItems, relics: state.relics, selectedItemIds: state.selectedItemIds,
+    owned: state.owned, squad: state.squad, lastResult: state.lastResult
+  }),
+  applyPlannerState(patch) {
+    if (patch.selectedItemIds !== undefined) state.selectedItemIds = patch.selectedItemIds;
+    if (patch.owned !== undefined) state.owned = patch.owned;
+    if (patch.ayaBudget !== undefined) $("budget").value = String(patch.ayaBudget);
+  },
+  $, message, format, escapeHtml, getStorage, renderItemOptions, renderCollections, scheduleRun, setStatus
+});
+const {
+  adoptStoredSessionForRotation, startSessionTicker, stopSessionTicker, setBudgetInputEnabled,
+  applyEffectiveSessionState, renderSessionPanel, updateSessionClaimOptions,
+  startLiveSession, logLiveFissure, undoLastLiveFissure, finishLiveSession, cancelLiveSession,
+  finishSuspendedSession, cancelSuspendedSession
+} = sessionUi;
+export const { commitSessionGains, commitSuspendedSessionGains, persistSessionCandidate } = sessionUi;
+
+const rotationUi = createRotationUiController({
+  getSnapshot: () => ({
+    rotation: state.rotation, previewMode: state.previewMode, previewId: state.previewId,
+    realRotationState: state.realRotationState, announcementPreview: state.announcementPreview,
+    allPrimeItems: state.allPrimeItems, locale: state.locale, dataLoadErrors: state.dataLoadErrors,
+    publishedRotations: state.publishedRotations, rotations: state.rotations
+  }),
+  clearPreviewId: () => { state.previewId = ""; },
+  onView(view) {
+    state.realRotationState = { activeRotation: view.activeRotation,
+      nextRotation: view.nextRotation, previousRotation: view.previousRotation };
+  },
+  applyRotation, stopSessionTicker, $, message, localizedTypeLabel
+});
+const { renderRotationSchedule, scheduleRotationWatcher, bindRotationLifecycle } = rotationUi;
 
 function applyStaticTranslations() {
   document.documentElement.lang = localeTag(state.locale);
@@ -258,39 +296,12 @@ function ensureLocaleRoute() {
   return false;
 }
 
-async function readJson(path, fallback) {
-  try {
-    const response = await fetch(path, { cache: "no-store" });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    return await response.json();
-  } catch {
-    state.dataLoadErrors.push(path);
-    return fallback;
-  }
-}
-
 function getStorage() {
   try {
     return window.localStorage;
   } catch {
     return null;
   }
-}
-
-function requiredCount(part) {
-  return Math.max(1, Math.floor(Number(part.required || part.quantity || 1)));
-}
-
-function isSafeOwnedKey(value) {
-  return typeof value === "string" && !["__proto__", "constructor", "prototype"].includes(value);
-}
-
-function ownedCountIn(owned, itemId, partId) {
-  if (!isSafeOwnedKey(itemId) || !isSafeOwnedKey(partId)) return 0;
-  const parts = owned?.[itemId];
-  if (!parts) return 0;
-  const count = parts instanceof Map ? parts.get(partId) : parts[partId];
-  return Math.max(0, Number(count) || 0);
 }
 
 function ownedMap(itemId) {
@@ -304,41 +315,7 @@ function ownedCount(itemId, partId) {
 }
 
 function ownedPlainObject() {
-  return Object.fromEntries(Object.entries(state.owned).map(([itemId, parts]) => [
-    itemId,
-    Object.fromEntries([...parts].filter(([, count]) => count > 0))
-  ]));
-}
-
-function ownedMapsFromPlain(plain) {
-  return Object.fromEntries(Object.entries(plain || {})
-    .filter(([itemId, partCounts]) => isSafeOwnedKey(itemId) && partCounts && typeof partCounts === "object" && !Array.isArray(partCounts))
-    .map(([itemId, partCounts]) => [
-      itemId,
-      new Map(Object.entries(partCounts)
-        .filter(([partId]) => isSafeOwnedKey(partId))
-        .map(([partId, count]) => [partId, Number(count) || 0]))
-    ]));
-}
-
-export function injectOwnedCounts(primeItems, owned) {
-  return (primeItems || []).map((item) => ({
-    ...item,
-    parts: (item.parts || []).map((part) => ({
-      ...part,
-      ownedCount: Math.min(requiredCount(part), ownedCountIn(owned, item.id, part.id))
-    }))
-  }));
-}
-
-/** Whether a collection merge changes the owned counts sent to the Worker. */
-export function ownershipChangesSimulationInput({ primeItems, selectedItemIds, previousOwned, nextOwned }) {
-  const selected = new Set(selectedItemIds || []);
-  return (primeItems || []).some((item) => selected.has(item.id) && item.parts.some((part) => {
-    const required = requiredCount(part);
-    return Math.min(required, ownedCountIn(previousOwned, item.id, part.id))
-      !== Math.min(required, ownedCountIn(nextOwned, item.id, part.id));
-  }));
+  return collectionOwnedPlainObject(state.owned);
 }
 
 function itemById(itemId) {
@@ -347,21 +324,6 @@ function itemById(itemId) {
 
 function selectedItems() {
   return state.selectedItemIds.map(itemById).filter(Boolean);
-}
-
-function relicsForPart(itemId, partId) {
-  return state.relics.filter((relic) => relic.rewards.some((reward) => (
-    reward.itemId === itemId && reward.partId === partId
-  )));
-}
-
-function raritiesForPart(itemId, partId, fallback) {
-  const rarities = relicsForPart(itemId, partId).flatMap((relic) => relic.rewards
-    .filter((reward) => reward.itemId === itemId && reward.partId === partId)
-    .map((reward) => reward.rarity))
-    .filter((rarity) => RARITIES[rarity]);
-  return [...new Set(rarities.length ? rarities : [fallback])]
-    .sort((left, right) => RARITIES[left].rank - RARITIES[right].rank);
 }
 
 function currentPrimeItems() {
@@ -374,219 +336,19 @@ function setStatus(text, isError = false) {
   status.closest(".source-status")?.classList.toggle("is-error", isError);
 }
 
-function groupForType(type) {
-  if (type === "warframe") return { id: "warframes", labelKey: "group.warframes", shortLabelKey: "type.warframe" };
-  if (["primary", "secondary", "melee"].includes(type)) return { id: "weapons", labelKey: "group.weapons", shortLabelKey: "type.weapon" };
-  return { id: "other", labelKey: "group.other", shortLabelKey: "type.other" };
+function collectionModel() {
+  return { rotation: state.rotation, previewMode: state.previewMode, primeItems: state.primeItems,
+    relics: state.relics, selectedItemIds: state.selectedItemIds, owned: state.owned, activeSession: sessionUi.activeSession };
 }
-
-function groupedPrimeItems(items) {
-  const order = ["warframes", "weapons", "other"];
-  const groups = new Map();
-  for (const item of items) {
-    const group = groupForType(item.type);
-    if (!groups.has(group.id)) groups.set(group.id, { ...group, items: [] });
-    groups.get(group.id).items.push(item);
-  }
-  return order.map((id) => groups.get(id)).filter(Boolean);
-}
-
-function renderRotation() {
-  const rotation = state.rotation;
-  $("rotationName").textContent = rotation?.displayName || message("rotation.empty");
-  $("rotationIndex").textContent = rotation?.id || message("rotation.waiting");
-  $("targetRotationTitle").textContent = state.previewMode ? message("target.previewTitle") : message("target.title");
-  const featured = groupedPrimeItems(state.primeItems).map((group) => `
-    <section class="rotation-group" aria-label="${escapeHtml(message(group.labelKey))}">
-      <span class="rotation-group-label">${escapeHtml(message(group.labelKey))}</span>
-      <div class="rotation-group-grid">
-        ${group.items.map((item) => `<span class="rotation-chip">${escapeHtml(item.name)} <em>${escapeHtml(localizedTypeLabel(item.type))}</em></span>`).join("")}
-      </div>
-    </section>
-  `).join("");
-  $("rotationFeatured").innerHTML = featured || `<p class="rotation-empty">${escapeHtml(message("rotation.empty"))}</p>`;
-}
-
-function itemNamesForRotation(rotation) {
-  const itemMap = new Map(state.allPrimeItems.map((item) => [item.id, item]));
-  return (rotation?.items || []).map((id) => itemMap.get(id)).filter(Boolean);
-}
-
-function formatUtcTimestamp(timestamp) {
-  return typeof timestamp === "string" && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/.test(timestamp)
-    ? `${timestamp.slice(0, 16).replace("T", " ")} UTC`
-    : message("schedule.timePending");
-}
-
-function selectAnnouncementPreview(candidates) {
-  return (Array.isArray(candidates) ? candidates : [])
-    .filter((candidate) => candidate?.status === "announced" && candidate.relicDataStatus === "pending" && candidate.verified === false)
-    .sort((left, right) => (
-      String(left.effectiveAt || left.effectiveDate || "9999-12-31").localeCompare(String(right.effectiveAt || right.effectiveDate || "9999-12-31"))
-        || left.id.localeCompare(right.id)
-    ))[0] || null;
-}
-
-function renderRotationSchedule(now = Date.now()) {
-  const schedule = $("rotationSchedule");
-  const preview = $("nextRotationPreview");
-  const upcoming = state.realRotationState.nextRotation;
-  const announcement = upcoming ? null : state.announcementPreview;
-  const displayedUpcoming = upcoming || announcement;
-  const hasActive = Boolean(state.realRotationState.activeRotation);
-
-  $("previewModeBanner").hidden = !state.previewMode;
-  if (state.previewMode) {
-    const key = state.rotation?.publicationStatus === "provisional"
-      ? "status.provisionalPreviewWithId"
-      : "status.previewWithId";
-    $("previewModeText").textContent = message(key, { id: state.rotation?.id || state.previewId });
-  }
-
-  if (!displayedUpcoming) {
-    schedule.classList.remove("is-imminent");
-    schedule.classList.add("is-empty");
-    $("rotationScheduleStatus").textContent = message("schedule.table");
-    $("rotationCountdownLabel").textContent = message("schedule.nextNotAnnounced");
-    $("rotationCountdown").textContent = "—";
-    $("nextRotationTime").textContent = message("schedule.ongoing");
-    $("nextRotationTime").removeAttribute("datetime");
-    $("nextRotationPreviewNotice").hidden = true;
-    preview.hidden = true;
-    return;
-  }
-
-  if (announcement) {
-    const hasEffectiveAt = Boolean(announcement.effectiveAt);
-    const remaining = hasEffectiveAt ? getTimeUntilRotation({ startsAt: announcement.effectiveAt }, now) : 0;
-    schedule.classList.remove("is-empty");
-    schedule.classList.toggle("is-imminent", hasEffectiveAt && remaining <= 24 * 60 * 60 * 1_000);
-    $("rotationScheduleStatus").textContent = message("schedule.nextAnnounced");
-    $("rotationCountdownLabel").textContent = hasEffectiveAt ? message("schedule.starts") : message("schedule.timePending");
-    $("rotationCountdown").textContent = hasEffectiveAt ? formatRotationCountdown(remaining, state.locale) : "—";
-    $("nextRotationTime").textContent = formatUtcTimestamp(announcement.effectiveAt);
-    if (hasEffectiveAt) $("nextRotationTime").setAttribute("datetime", announcement.effectiveAt);
-    else $("nextRotationTime").removeAttribute("datetime");
-    $("nextRotationPreviewName").textContent = announcement.primeWarframes.join(" & ");
-    $("nextRotationPreviewTime").textContent = formatUtcTimestamp(announcement.effectiveAt);
-    $("nextRotationPreviewCountdown").textContent = hasEffectiveAt ? formatRotationCountdown(remaining, state.locale) : "—";
-    $("nextRotationPreviewItems").innerHTML = announcement.primeWarframes
-      .map((name) => `<li><span>${escapeHtml(name)}</span><em>${escapeHtml(message("schedule.primeWarframe"))}</em></li>`)
-      .join("");
-    $("nextRotationPreviewNotice").textContent = `${message("schedule.officiallyAnnounced")} ${message("schedule.relicDataPending")}`;
-    $("nextRotationPreviewNotice").hidden = false;
-    preview.hidden = false;
-    return;
-  }
-
-  const remaining = getTimeUntilRotation(upcoming, now);
-  schedule.classList.remove("is-empty");
-  schedule.classList.toggle("is-imminent", remaining <= 24 * 60 * 60 * 1_000);
-  $("rotationScheduleStatus").textContent = hasActive ? message("schedule.nextAnnounced") : message("schedule.firstUpcoming");
-  $("rotationCountdownLabel").textContent = hasActive ? message("schedule.until") : message("schedule.firstUpcoming");
-  $("rotationCountdown").textContent = formatRotationCountdown(remaining, state.locale);
-  $("nextRotationTime").textContent = formatRotationLocalTime(upcoming.startsAt, browserLocale(state.locale));
-  $("nextRotationTime").setAttribute("datetime", upcoming.startsAt);
-  $("nextRotationPreviewName").textContent = upcoming.displayName || upcoming.id;
-  $("nextRotationPreviewTime").textContent = formatRotationLocalTime(upcoming.startsAt, browserLocale(state.locale));
-  $("nextRotationPreviewCountdown").textContent = formatRotationCountdown(remaining, state.locale);
-  $("nextRotationPreviewItems").innerHTML = itemNamesForRotation(upcoming)
-    .map((item) => `<li><span>${escapeHtml(item.name)}</span><em>${escapeHtml(localizedTypeLabel(item.type))}</em></li>`)
-    .join("");
-  $("nextRotationPreviewNotice").hidden = true;
-  preview.hidden = false;
-}
-
-function renderItemOptions() {
-  const targetOptions = $("targetOptions");
-  targetOptions.innerHTML = state.primeItems.length
-    ? groupedPrimeItems(state.primeItems).map((group) => `<section class="item-option-group">
-      <div class="item-option-group-heading"><span>${escapeHtml(message(group.labelKey))}</span><em>${escapeHtml(message("target.group.count", { count: format(group.items.length) }))}</em></div>
-      <div class="target-option-grid">
-        ${group.items.map((item) => {
-          const required = item.parts.reduce((sum, part) => sum + requiredCount(part), 0);
-          const owned = item.parts.reduce((sum, part) => sum + Math.min(requiredCount(part), ownedCount(item.id, part.id)), 0);
-          const selected = state.selectedItemIds.includes(item.id);
-          const missing = Math.max(0, required - owned);
-          const completion = Math.round((owned / Math.max(1, required)) * 100);
-          return `<label class="target-option${selected ? " is-selected" : ""}">
-            <input type="checkbox" data-item-id="${escapeHtml(item.id)}" ${selected ? "checked" : ""} ${state.activeSession ? "disabled" : ""} />
-            <span class="target-option-main">
-              <span class="target-option-name">${escapeHtml(item.name)}</span>
-            <span class="target-option-meta">${escapeHtml(message("target.itemParts", { type: localizedTypeLabel(item.type), count: item.parts.length }))}</span>
-            </span>
-            <span class="target-option-progress">${owned} / ${required}</span>
-            <span class="target-option-status">${missing ? message("target.missing", { count: missing }) : message("target.completed")}</span>
-            <span class="target-option-meter" aria-hidden="true"><span data-completion="${completion}"></span></span>
-          </label>`;
-        }).join("")}
-      </div>
-    </section>`).join("")
-    : `<p class="field-hint">${escapeHtml(message("target.noData"))}</p>`;
-  for (const meter of targetOptions.querySelectorAll("[data-completion]")) {
-    const completion = Math.max(0, Math.min(100, Number(meter.dataset.completion) || 0));
-    meter.style.width = `${completion}%`;
-  }
-}
-
-function renderCollections() {
-  const items = selectedItems();
-  $("collectionList").innerHTML = items.length
-    ? items.map((item) => {
-      const totalRequired = item.parts.reduce((sum, part) => sum + requiredCount(part), 0);
-      const totalOwned = item.parts.reduce((sum, part) => sum + Math.min(requiredCount(part), ownedCount(item.id, part.id)), 0);
-      const complete = totalOwned >= totalRequired;
-      return `<section class="collection-card${complete ? " is-complete" : ""}">
-        <div class="collection-card-heading">
-          <div>
-            <span class="collection-card-title">${escapeHtml(item.name)}</span>
-            <span class="collection-card-subtitle">${escapeHtml(message("collection.subtitle", { type: localizedTypeLabel(item.type), owned: totalOwned, total: totalRequired }))}</span>
-          </div>
-          ${complete
-            ? `<span class="complete-button">${escapeHtml(message("collection.complete"))}</span>`
-            : `<button type="button" class="complete-button" data-complete-item="${escapeHtml(item.id)}" ${state.activeSession ? "disabled" : ""}>${escapeHtml(message("collection.ownAll"))}</button>`}
-        </div>
-        ${item.parts.map((part) => {
-          const required = requiredCount(part);
-          const count = Math.min(required, ownedCount(item.id, part.id));
-          const isOwned = count >= required;
-          const relicCount = relicsForPart(item.id, part.id).length;
-          const rarityBadges = raritiesForPart(item.id, part.id, part.rarity)
-            .map((rarity) => `<span class="rarity rarity-${escapeHtml(rarity)}">${escapeHtml(localizedRarityLabel(rarity))}</span>`)
-            .join(" ");
-          const checkboxId = `owned-${item.id}-${part.id}`;
-          const quantityControl = required > 1 ? `<span class="part-quantity" aria-label="${escapeHtml(message("collection.partQuantity", { name: part.name }))}">
-            <button type="button" data-item-id="${escapeHtml(item.id)}" data-part-id="${escapeHtml(part.id)}" data-part-delta="-1" aria-label="${escapeHtml(message("collection.decrease", { name: part.name }))}" ${state.activeSession ? "disabled" : ""}>−</button>
-            <span>${count} / ${required}</span>
-            <button type="button" data-item-id="${escapeHtml(item.id)}" data-part-id="${escapeHtml(part.id)}" data-part-delta="1" aria-label="${escapeHtml(message("collection.increase", { name: part.name }))}" ${state.activeSession ? "disabled" : ""}>+</button>
-          </span>` : "";
-          return `<div class="part-row${isOwned ? " is-owned" : ""}">
-            <input id="${escapeHtml(checkboxId)}" type="checkbox" data-item-id="${escapeHtml(item.id)}" data-part-id="${escapeHtml(part.id)}" ${isOwned ? "checked" : ""} ${state.activeSession ? "disabled" : ""} />
-            <label class="part-name" for="${escapeHtml(checkboxId)}">${escapeHtml(part.name)}${required > 1 ? ` ×${required}` : ""}</label>
-            ${quantityControl}
-            <span class="part-rarities">${rarityBadges}</span>
-            <span class="part-meta">${escapeHtml(message("collection.partMeta", { count: relicCount }))}</span>
-          </div>`;
-        }).join("")}
-      </section>`;
-    }).join("")
-    : `<p class="field-hint">${escapeHtml(message("target.noSelection"))}</p>`;
-
-  const selected = items.length;
-  const totalParts = items.reduce((sum, item) => sum + item.parts.reduce((partSum, part) => partSum + requiredCount(part), 0), 0);
-  const totalOwned = items.reduce((sum, item) => sum + item.parts.reduce((partSum, part) => (
-    partSum + Math.min(requiredCount(part), ownedCount(item.id, part.id))
-  ), 0), 0);
-  $("targetCount").textContent = selected
-    ? message("target.count", { count: selected, owned: totalOwned, total: totalParts })
-    : message("target.none");
-}
+function renderRotation() { collectionView.renderRotation(collectionModel()); }
+function renderItemOptions() { collectionView.renderItemOptions(collectionModel()); }
+function renderCollections() { collectionView.renderCollections(collectionModel()); }
 
 function persistCollection({ quiet = false } = {}) {
   // While a live session is active the persisted collection stays untouched:
   // effective state lives in baseline + replay and is committed exactly once
   // on finish.
-  if (state.activeSession) return false;
+  if (sessionUi.activeSession) return false;
   if (state.previewMode || !state.rotation) {
     if (!quiet && state.previewMode) {
       setStatus(message(state.rotation?.publicationStatus === "provisional" ? "status.provisionalPreview" : "status.preview"));
@@ -646,31 +408,6 @@ function revealSharedPlanNotice(status) {
   $("sharedPlanOwnCollection").hidden = status !== "ok";
 }
 
-function currentShareUrl() {
-  if (!state.shareReady || !state.lastResult || state.resultsUpdating || state.running || state.rotation?.publicationStatus !== "published") return null;
-  return planUrl(encodePlan({ rotationId: state.rotation.id, options: state.lastResultOptions,
-    mode: state.mode, goal: $("goalLine").value }), state.locale, window.location.origin);
-}
-
-async function copyPlanLink() {
-  const url = currentShareUrl();
-  if (!url) return;
-  const generation = state.shareGeneration;
-  const input = $("sharePlanLink");
-  input.value = url;
-  $("shareLinkFallback").hidden = false;
-  try {
-    await navigator.clipboard.writeText(url);
-    if (generation !== state.shareGeneration) return;
-    $("shareStatus").textContent = message("share.linkCopied");
-  } catch {
-    if (generation !== state.shareGeneration) return;
-    input.focus();
-    input.select();
-    $("shareStatus").textContent = message("share.copyManually");
-  }
-}
-
 function bindEvents() {
   window.addEventListener("hashchange", (event) => {
     // Same-document links and Back/Forward must enter or leave preview through a fresh bootstrap.
@@ -713,7 +450,7 @@ function bindEvents() {
     if (!itemId) return;
     // Selected targets come from the session baseline while a session is
     // active; planning edits cannot become authoritative session state.
-    if (state.activeSession) return;
+    if (sessionUi.activeSession) return;
     state.selectedItemIds = event.target.checked
       ? [...new Set([...state.selectedItemIds, itemId])]
       : state.selectedItemIds.filter((id) => id !== itemId);
@@ -727,7 +464,7 @@ function bindEvents() {
     const { itemId, partId } = event.target.dataset;
     if (!itemId || !partId) return;
     // Owned counts are session-owned while a live session is active.
-    if (state.activeSession) return;
+    if (sessionUi.activeSession) return;
     const item = itemById(itemId);
     const part = item?.parts.find((candidate) => candidate.id === partId);
     if (!part) return;
@@ -744,7 +481,7 @@ function bindEvents() {
     const itemId = completeItemId || event.target.dataset.itemId;
     if (!itemId) return;
     // Owned counts are session-owned while a live session is active.
-    if (state.activeSession) return;
+    if (sessionUi.activeSession) return;
     const item = itemById(itemId);
     if (!item) return;
 
@@ -768,7 +505,7 @@ function bindEvents() {
   const changeSelection = (nextIds) => {
     // Selected targets come from the session baseline while a session is
     // active; planning edits cannot become authoritative session state.
-    if (state.activeSession) return;
+    if (sessionUi.activeSession) return;
     state.selectedItemIds = nextIds;
     persistCollection();
     renderItemOptions();
@@ -802,9 +539,8 @@ function bindEvents() {
   $("strategy").addEventListener("change", () => { updateStrategyNote(); scheduleRun(); });
   $("trials").addEventListener("change", scheduleRun);
   $("goalLine").addEventListener("change", scheduleRun);
-  $("observedAya")?.addEventListener("input", (event) => {
-    state.recapAya = event.target.value;
-    state.shareGeneration += 1;
+  $("observedAya")?.addEventListener("input", () => {
+    shareUi.invalidate();
     $("sharePreview").hidden = true;
     $("shareStatus").textContent = "";
     $("shareResultButton").disabled = state.resultsUpdating || !state.shareReady;
@@ -836,7 +572,7 @@ function bindEvents() {
     scheduleRun();
   });
   $("shareDownloadLink")?.addEventListener("click", (event) => {
-    if (!state.shareCardBlob) event.preventDefault();
+    if (!shareUi.hasCard) event.preventDefault();
   });
   $("liveSessionPanel")?.addEventListener("submit", (event) => {
     event.preventDefault();
@@ -854,12 +590,6 @@ function bindEvents() {
   $("sessionSuspendCancelButton")?.addEventListener("click", cancelSuspendedSession);
 }
 
-function scheduleRun() {
-  window.clearTimeout(state.runTimer);
-  setResultsUpdating(true);
-  state.runTimer = window.setTimeout(run, 80);
-}
-
 function setResultsUpdating(updating) {
   state.resultsUpdating = updating;
   if (updating) state.shareReady = false;
@@ -868,7 +598,7 @@ function setResultsUpdating(updating) {
     if (button) button.disabled = updating || !state.shareReady || state.rotation?.publicationStatus !== "published";
   }
   if (updating) {
-    state.shareGeneration += 1;
+    shareUi.invalidate();
     $("sharePreview").hidden = true;
     $("shareLinkFallback").hidden = true;
     $("shareStatus").textContent = "";
@@ -920,109 +650,6 @@ function simulationOptions(budget = Number($("budget").value) || 0) {
   };
 }
 
-function finishRun(result, trials, completedRequest) {
-  if (!isSimulationResponseCurrent(
-    state.activeSimulation,
-    completedRequest,
-    state.rotation?.id || ""
-  )) return;
-  state.running = false;
-  state.activeSimulation = null;
-  if (state.pendingRun) {
-    state.pendingRun = false;
-    scheduleRun();
-    return;
-  }
-  renderResult(result, trials, completedRequest?.options || {});
-  if (state.activeSession) renderSessionPanel();
-  state.shareReady = true;
-  setResultsUpdating(false);
-  $("runButton").disabled = false;
-  $("runButtonLabel").textContent = message("run.button");
-}
-
-function failRun(request = state.activeSimulation, failureKind = "simulation") {
-  if (request && !isSimulationResponseCurrent(
-    state.activeSimulation,
-    request,
-    state.rotation?.id || ""
-  )) return;
-  const rerunRequested = state.pendingRun;
-  state.running = false;
-  state.activeSimulation = null;
-  state.pendingRun = false;
-  $("runButton").disabled = false;
-  $("runButtonLabel").textContent = message("run.button");
-  setResultsUpdating(false);
-  const failureMessage = failureKind === "unavailable"
-    ? message("run.workerUnavailable")
-    : failureKind === "timeout"
-      ? message("run.timeout")
-      : message("run.workerFailed");
-  $("trialBadge").textContent = failureMessage;
-  $("runCaption").textContent = failureMessage;
-  schedulePendingRunAfterFailure(rerunRequested, scheduleRun);
-}
-
-function initSimulationWorker() {
-  if (state.simulationClient) return;
-  state.simulationClient = createSimulationWorkerClient({
-    workerUrl: simulationWorkerUrl(),
-    createWorker: (url) => {
-      if (!("Worker" in window)) throw new Error("Worker unavailable");
-      return new Worker(url, { type: "module" });
-    },
-    onResult: (result, completedRequest) => {
-      if (!isSimulationResponseCurrent(state.activeSimulation, completedRequest, state.rotation?.id || "")) return;
-      finishRun(result, completedRequest.trials, completedRequest);
-    },
-    onFailure: (failedRequest, failureKind) => failRun(failedRequest, failureKind),
-    onProgress: (progress, request) => {
-      if (!isSimulationResponseCurrent(state.activeSimulation, request, state.rotation?.id || "")) return;
-      $("runCaption").textContent = message("run.progress", {
-        completed: format(progress.completedTrials),
-        trials: format(progress.totalTrials)
-      });
-    },
-    scheduleFrame: (callback) => window.requestAnimationFrame(callback),
-    setTimer: (callback, delay) => window.setTimeout(callback, delay),
-    clearTimer: (timer) => window.clearTimeout(timer)
-  });
-}
-
-function run() {
-  if (state.running) {
-    state.pendingRun = true;
-    return;
-  }
-  setResultsUpdating(true);
-  const budgetValidation = validateSimulationBudget($("budget").value);
-  if (!budgetValidation.valid) {
-    showBudgetValidationError();
-    return;
-  }
-  clearBudgetValidationError();
-  const request = simulationOptions(budgetValidation.budget);
-  if (!request.options.primeItems.length) {
-    state.pendingRun = false;
-    $("runButton").disabled = false;
-    renderNoTargets();
-    return;
-  }
-  state.running = true;
-  state.pendingRun = false;
-  const button = $("runButton");
-  button.disabled = true;
-  $("runButtonLabel").textContent = message("run.running");
-  $("runCaption").textContent = message("run.running");
-  const requestId = ++state.workerRequestId;
-  const rotationId = state.rotation?.id || "";
-  state.activeSimulation = { ...request, requestId, rotationId };
-  const activeRequest = state.activeSimulation;
-  initSimulationWorker();
-  state.simulationClient.start(activeRequest);
-}
-
 function renderNoTargets() {
   setResultsUpdating(false);
   $("runButtonLabel").textContent = message("run.button");
@@ -1051,7 +678,6 @@ function renderNoTargets() {
   $("sharePanel").hidden = true;
   $("recapPanel").hidden = true;
   $("observedAya").value = "";
-  state.recapAya = "";
 }
 
 function resetSimulationResults() {
@@ -1070,1172 +696,19 @@ function resetSimulationResults() {
   $("targetDeltaList").innerHTML = `<p class="field-hint">${escapeHtml(message("delta.waiting"))}</p>`;
   $("sharePanel").hidden = true;
   $("recapPanel").hidden = true;
-  state.shareCardBlob = null;
-  if (state.shareCardUrl) {
-    URL.revokeObjectURL(state.shareCardUrl);
-    state.shareCardUrl = "";
-  }
-}
-
-function clamp(value, minimum, maximum) {
-  return Math.max(minimum, Math.min(maximum, value));
-}
-
-function boxesOverlap(left, right, padding = 5) {
-  return !(left.x + left.width + padding <= right.x
-    || right.x + right.width + padding <= left.x
-    || left.y + left.height + padding <= right.y
-    || right.y + right.height + padding <= left.y);
-}
-
-function layoutBudgetLabels(markers, bounds) {
-  const placed = [];
-  const priority = { current: 0, p50: 1, p95: 2, p99: 3, p90: 4 };
-  const ordered = [...markers].sort((left, right) => priority[left.id] - priority[right.id]);
-  for (const marker of ordered) {
-    if (!marker.showLabel) continue;
-    const width = marker.id === "current" ? Math.min(138, bounds.width - 8) : marker.capped ? 76 : 64;
-    const height = marker.id === "current" ? 42 : 34;
-    const preferredDirection = marker.y < bounds.top + bounds.height * 0.32 ? 1 : -1;
-    const verticalCandidates = [
-      marker.y + preferredDirection * 49,
-      marker.y - preferredDirection * 49,
-      marker.y + preferredDirection * 88,
-      marker.y - preferredDirection * 88
-    ];
-    for (let laneY = bounds.top + height / 2 + 4; laneY <= bounds.top + bounds.height - height / 2 - 4; laneY += height + 7) {
-      verticalCandidates.push(laneY);
-    }
-    verticalCandidates.sort((left, right) => Math.abs(left - marker.y) - Math.abs(right - marker.y));
-    const horizontalCandidates = [marker.x, marker.x - width * 0.7, marker.x + width * 0.7];
-    let selected = null;
-    for (const centerY of verticalCandidates) {
-      for (const centerX of horizontalCandidates) {
-        const box = {
-          x: clamp(centerX - width / 2, bounds.left + 4, bounds.left + bounds.width - width - 4),
-          y: clamp(centerY - height / 2, bounds.top + 4, bounds.top + bounds.height - height - 4),
-          width,
-          height
-        };
-        if (!placed.some((entry) => boxesOverlap(box, entry.box))) {
-          selected = box;
-          break;
-        }
-      }
-      if (selected) break;
-    }
-    if (!selected) continue;
-    marker.box = selected;
-    placed.push({ marker, box: selected });
-  }
-  return markers;
-}
-
-function emptyBudgetChart(message) {
-  const svg = $("budgetChart");
-  const shell = $("budgetChartShell");
-  if (!svg || !shell) return;
-  const width = Math.max(260, Math.floor(shell.clientWidth || 800));
-  const height = Math.max(260, Math.floor(shell.clientHeight || 330));
-  svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
-  svg.setAttribute("aria-label", message);
-  svg.innerHTML = `<text x="${width / 2}" y="${height / 2}" text-anchor="middle" class="budget-axis-title">${escapeHtml(message)}</text>`;
-  $("budgetMarkerLegend").innerHTML = "";
-  $("budgetChartTooltip").hidden = true;
-}
-
-function renderBudgetDistribution(result, budget = Number($("budget").value) || 0, analysisCap = result?.analysisCap) {
-  const renderStartedAt = performance.now();
-  const currentBudget = Math.max(0, Math.floor(Number(budget) || 0));
-  $("budgetKpiCurrent").textContent = localizedBudgetMarker(currentBudget, null);
-  if (!result) {
-    state.lastBudgetChart = null;
-    $("budgetKpiProbability").textContent = "—";
-    $("budgetKpiProbabilityNote").textContent = message("kpi.waiting");
-    ["budgetKpiP50", "budgetKpiP95", "budgetKpiP99"].forEach((id) => { $(id).textContent = "—"; });
-    emptyBudgetChart(message("chart.waiting"));
-    return;
-  }
-
-  state.lastBudgetChart = { result, budget: currentBudget, analysisCap };
-  $("budgetKpiProbability").textContent = formatProbabilityPrecise(result.finishProbability);
-  $("budgetKpiProbabilityNote").textContent = localizedProbabilityDescriptor(result.finishProbability);
-  $("budgetKpiP50").textContent = localizedBudgetMarker(result.p50, analysisCap);
-  $("budgetKpiP95").textContent = localizedBudgetMarker(result.p95, analysisCap);
-  $("budgetKpiP99").textContent = localizedBudgetMarker(result.p99, analysisCap);
-
-  try {
-    assertValidBudgetCurve(result.budgetCurve);
-  } catch (error) {
-    console.warn("Varzia budget curve validation failed", error);
-    emptyBudgetChart(message("chart.validation"));
-    return;
-  }
-
-  const svg = $("budgetChart");
-  const shell = $("budgetChartShell");
-  const tooltip = $("budgetChartTooltip");
-  const width = Math.max(260, Math.floor(shell.clientWidth || 800));
-  const height = Math.max(260, Math.floor(shell.clientHeight || 390));
-  const mobile = width < 520;
-  const margin = { top: 18, right: 14, bottom: 47, left: mobile ? 42 : 52 };
-  const plot = {
-    left: margin.left,
-    top: margin.top,
-    width: width - margin.left - margin.right,
-    height: height - margin.top - margin.bottom
-  };
-  const curveCap = result.budgetCurve.at(-1).budget;
-  const rightAnchor = Number.isFinite(result.p99) ? Math.max(currentBudget, result.p99) : curveCap;
-  const xMargin = Math.max(2, Math.ceil(rightAnchor * 0.07));
-  const maxX = Math.max(1, Math.min(curveCap, rightAnchor + xMargin));
-  const visibleCurve = result.budgetCurve.filter((point) => point.budget <= maxX);
-  const xFor = (aya) => plot.left + (clamp(aya, 0, maxX) / maxX) * plot.width;
-  const yFor = (probability) => plot.top + (1 - clamp(probability, 0, 1)) * plot.height;
-  const path = visibleCurve.map((point, index) => {
-    const x = xFor(point.budget);
-    const y = yFor(point.finishProbability);
-    if (index === 0) return `M ${x.toFixed(2)} ${y.toFixed(2)}`;
-    return `H ${x.toFixed(2)} V ${y.toFixed(2)}`;
-  }).join(" ");
-  const firstPoint = visibleCurve[0];
-  const lastPoint = visibleCurve.at(-1);
-  const areaPath = `${path} L ${xFor(lastPoint.budget).toFixed(2)} ${yFor(0).toFixed(2)} L ${xFor(firstPoint.budget).toFixed(2)} ${yFor(0).toFixed(2)} Z`;
-  const yTicks = mobile ? [0, 0.5, 1] : [0, 0.25, 0.5, 0.75, 1];
-  const xTicks = [...new Set(Array.from({ length: mobile ? 4 : 6 }, (_, index) => (
-    Math.round((maxX * index) / (mobile ? 3 : 5))
-  )))];
-  const pointAtBudget = (aya) => result.budgetCurve[Math.min(curveCap, Math.max(0, aya))];
-  const markerSpecs = [
-    { id: "current", label: message("chart.current"), budget: currentBudget, probability: result.finishProbability, showLabel: true },
-    { id: "p50", label: "P50", budget: result.p50, target: 0.50, showLabel: true },
-    { id: "p90", label: "P90", budget: result.p90, target: 0.90, showLabel: !mobile },
-    { id: "p95", label: "P95", budget: result.p95, target: 0.95, showLabel: true },
-    { id: "p99", label: "P99", budget: result.p99, target: 0.99, showLabel: true }
-  ].map((marker) => {
-    const capped = !Number.isFinite(marker.budget);
-    const markerBudget = capped ? curveCap : marker.budget;
-    const point = pointAtBudget(markerBudget);
-    return {
-      ...marker,
-      capped,
-      markerBudget,
-      probability: marker.id === "current" ? marker.probability : point.finishProbability,
-      x: xFor(Math.min(markerBudget, maxX)),
-      y: yFor(marker.id === "current" ? marker.probability : point.finishProbability)
-    };
-  });
-  layoutBudgetLabels(markerSpecs, plot);
-
-  const gridMarkup = yTicks.map((tick) => {
-    const y = yFor(tick);
-    return `<line class="budget-grid-line" x1="${plot.left}" y1="${y}" x2="${plot.left + plot.width}" y2="${y}"></line>
-      <text class="budget-axis-label" x="${plot.left - 8}" y="${y + 3}" text-anchor="end">${Math.round(tick * 100)}%</text>`;
-  }).join("");
-  const xAxisMarkup = xTicks.map((tick) => {
-    const x = xFor(tick);
-    return `<line class="budget-axis-line" x1="${x}" y1="${plot.top + plot.height}" x2="${x}" y2="${plot.top + plot.height + 4}"></line>
-      <text class="budget-axis-label" x="${x}" y="${plot.top + plot.height + 17}" text-anchor="middle">${tick}</text>`;
-  }).join("");
-  const markerMarkup = [...markerSpecs].sort((left, right) => (
-    Number(left.id === "current") - Number(right.id === "current")
-  )).map((marker) => {
-    const isCurrent = marker.id === "current";
-    const labelValue = isCurrent
-      ? `${localizedBudgetMarker(marker.markerBudget, null)} · ${formatProbabilityPrecise(marker.probability)}`
-      : localizedBudgetMarker(marker.capped ? null : marker.markerBudget, marker.capped ? marker.markerBudget : null);
-    const label = marker.box ? `<line class="budget-marker-line" x1="${marker.x}" y1="${marker.y}" x2="${marker.box.x + marker.box.width / 2}" y2="${marker.box.y + marker.box.height / 2}"></line>
-      <rect class="budget-label-box${isCurrent ? " is-current" : ""}" x="${marker.box.x}" y="${marker.box.y}" width="${marker.box.width}" height="${marker.box.height}" rx="7"></rect>
-      <text class="budget-label-kicker${isCurrent ? " is-current" : ""}" x="${marker.box.x + 8}" y="${marker.box.y + 13}">${escapeHtml(marker.label)}</text>
-      <text class="budget-label-value" x="${marker.box.x + 8}" y="${marker.box.y + marker.box.height - 9}">${escapeHtml(labelValue)}</text>` : "";
-    return `${label}<circle class="budget-marker-dot${isCurrent ? " is-current" : ""}" cx="${marker.x}" cy="${marker.y}" r="${isCurrent ? 5 : 3.5}"></circle>`;
-  }).join("");
-  const ariaLabel = message("chart.aria", {
-    budget: format(currentBudget),
-    probability: formatProbabilityPrecise(result.finishProbability),
-    p95: localizedBudgetMarker(result.p95, analysisCap)
-  });
-
-  svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
-  svg.setAttribute("aria-label", ariaLabel);
-  svg.innerHTML = `<title>${escapeHtml(ariaLabel)}</title>
-    <desc>${escapeHtml(message("chart.desc"))}</desc>
-    <defs><linearGradient id="budgetAreaGradient" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--champagne-bright)" stop-opacity=".11"></stop><stop offset="1" stop-color="var(--champagne-bright)" stop-opacity=".015"></stop></linearGradient></defs>
-    ${gridMarkup}
-    <line class="budget-axis-line" x1="${plot.left}" y1="${plot.top + plot.height}" x2="${plot.left + plot.width}" y2="${plot.top + plot.height}"></line>
-    ${xAxisMarkup}
-    <text class="budget-axis-title" x="${plot.left}" y="11">${escapeHtml(message("chart.axisProbability"))}</text>
-    <text class="budget-axis-title" x="${plot.left + plot.width / 2}" y="${height - 7}" text-anchor="middle">${escapeHtml(message("chart.axisBudget"))}</text>
-    <path class="budget-area" d="${areaPath}"></path>
-    <path class="budget-path" d="${path}"></path>
-    <line class="budget-current-line" x1="${xFor(currentBudget)}" y1="${plot.top}" x2="${xFor(currentBudget)}" y2="${plot.top + plot.height}"></line>
-    ${markerMarkup}
-    <g id="budgetHoverMarker" visibility="hidden"><line class="budget-hover-line" x1="0" y1="${plot.top}" x2="0" y2="${plot.top + plot.height}"></line><circle class="budget-hover-dot" cx="0" cy="0" r="4"></circle></g>
-    <rect class="budget-hit-target" x="${plot.left}" y="${plot.top}" width="${plot.width}" height="${plot.height}" tabindex="0" role="application" aria-label="${escapeHtml(message("chart.keyboard"))}"></rect>`;
-
-  $("budgetMarkerLegend").innerHTML = [
-    ["P50", result.p50], ["P90", result.p90], ["P95", result.p95], ["P99", result.p99]
-  ].map(([label, value]) => `<span class="${Number.isFinite(value) ? "" : "is-capped"}"${Number.isFinite(value) ? "" : ` data-cap-note="${escapeHtml(message("chart.overCap"))}"`}><b>${label}</b><strong>${escapeHtml(localizedBudgetMarker(value, analysisCap))}</strong></span>`).join("");
-
-  const hitTarget = svg.querySelector(".budget-hit-target");
-  const hoverMarker = svg.querySelector("#budgetHoverMarker");
-  const hoverLine = hoverMarker.querySelector("line");
-  const hoverDot = hoverMarker.querySelector("circle");
-  let activeBudget = currentBudget;
-  const showPoint = (aya) => {
-    activeBudget = clamp(Math.round(aya), 0, maxX);
-    const point = pointAtBudget(activeBudget);
-    const x = xFor(activeBudget);
-    const y = yFor(point.finishProbability);
-    hoverMarker.setAttribute("visibility", "visible");
-    hoverLine.setAttribute("x1", x);
-    hoverLine.setAttribute("x2", x);
-    hoverDot.setAttribute("cx", x);
-    hoverDot.setAttribute("cy", y);
-    tooltip.hidden = false;
-    tooltip.innerHTML = `<strong>${escapeHtml(message("chart.tooltip", { budget: format(activeBudget), probability: formatProbabilityPrecise(point.finishProbability) }))}</strong>`;
-    const left = clamp((x / width) * shell.clientWidth + 10, 8, Math.max(8, shell.clientWidth - 166));
-    const top = clamp((y / height) * shell.clientHeight - 58, 8, Math.max(8, shell.clientHeight - 58));
-    tooltip.style.left = `${left}px`;
-    tooltip.style.top = `${top}px`;
-  };
-  hitTarget.addEventListener("pointermove", (event) => {
-    const bounds = svg.getBoundingClientRect();
-    const localX = (event.clientX - bounds.left) * (width / bounds.width);
-    showPoint(((localX - plot.left) / plot.width) * maxX);
-  });
-  hitTarget.addEventListener("pointerdown", (event) => {
-    const bounds = svg.getBoundingClientRect();
-    const localX = (event.clientX - bounds.left) * (width / bounds.width);
-    showPoint(((localX - plot.left) / plot.width) * maxX);
-  });
-  hitTarget.addEventListener("pointerleave", (event) => {
-    if (event.pointerType === "mouse") {
-      hoverMarker.setAttribute("visibility", "hidden");
-      tooltip.hidden = true;
-    }
-  });
-  hitTarget.addEventListener("focus", () => showPoint(currentBudget));
-  hitTarget.addEventListener("blur", () => {
-    hoverMarker.setAttribute("visibility", "hidden");
-    tooltip.hidden = true;
-  });
-  hitTarget.addEventListener("keydown", (event) => {
-    if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
-    event.preventDefault();
-    if (event.key === "Home") showPoint(0);
-    else if (event.key === "End") showPoint(maxX);
-    else showPoint(activeBudget + (event.key === "ArrowRight" ? 1 : -1));
-  });
-  svg.dataset.renderMs = (performance.now() - renderStartedAt).toFixed(2);
-}
-
-function initBudgetChartResize() {
-  if (!("ResizeObserver" in window)) return;
-  const observer = new ResizeObserver(() => {
-    window.clearTimeout(state.chartResizeTimer);
-    state.chartResizeTimer = window.setTimeout(() => {
-      if (state.lastBudgetChart && !state.running) {
-        renderBudgetDistribution(
-          state.lastBudgetChart.result,
-          state.lastBudgetChart.budget,
-          state.lastBudgetChart.analysisCap
-        );
-      }
-    }, 50);
-  });
-  observer.observe($("budgetChartShell"));
-  state.chartResizeObserver = observer;
-}
-
-function verdictFor(probability, result, budget) {
-  if (probability >= 0.95) {
-    return { label: message("verdict.lucky"), message: message("verdict.luckyMessage", { probability: formatProbability(probability) }) };
-  }
-  if (probability >= 0.90) {
-    return { label: message("verdict.podium"), message: message("verdict.podiumMessage") };
-  }
-  if (probability >= 0.75) {
-    return { label: message("verdict.advantage"), message: message("verdict.advantageMessage") };
-  }
-  if (probability >= 0.45) {
-    return { label: message("verdict.coinflip"), message: message("verdict.coinflipMessage") };
-  }
-  const extra = result.p90 === null
-    ? message("verdict.redExtraCap")
-    : message("verdict.redExtraP90", { budget: format(result.p90) });
-  return { label: message("verdict.red"), message: message("verdict.redMessage", { extra }) };
+  shareUi.clearCard();
 }
 
 function renderResult(result, trials, options = {}) {
-  const budget = Number(options.budget) || 0;
-  const analysisCap = Number(options.analysisCap);
-  const goal = Number($("goalLine").value) || 0.9;
-  const goalBudget = goal === 0.5 ? result.p50 : goal === 0.95 ? result.p95 : goal === 0.99 ? result.p99 : result.p90;
-  const displayProbability = state.mode === "goal" ? localizedBudgetMarker(goalBudget, analysisCap) : formatProbabilityPrecise(result.finishProbability);
-
   state.lastResult = result;
   state.lastResultOptions = options;
   state.lastTrials = trials;
-
-  $("trialBadge").textContent = result.empty ? message("result.graduated") : `${format(trials)} ${unit("trial")}`;
-  $("primaryResultLabel").textContent = state.mode === "goal"
-    ? message("result.goal", { percent: Math.round(goal * 100) })
-    : message("result.primary");
-  $("finishProbability").textContent = displayProbability;
-  $("finishDetail").textContent = result.empty
-    ? message("result.emptyDetail")
-    : state.mode === "goal"
-      ? message("result.analysisDetail", { budget: localizedBudgetMarker(analysisCap, null) })
-      : message("result.currentDetail", { budget: localizedBudgetMarker(budget, null) });
-  $("probabilityBar").style.width = `${Math.max(0, Math.min(100, result.finishProbability * 100))}%`;
-  $("meanAya").textContent = format(result.empty ? 0 : Math.ceil(result.averageAya));
-  $("traceTotal").textContent = result.empty ? message("trace.zero") : message("trace.median", { count: format(result.medianTraces) });
-  $("runCaption").textContent = result.empty ? message("run.completed") : message("run.updated", { trials: format(trials) });
-  $("summaryTargets").textContent = `${format(result.summary?.itemCount)} ${unit("item")}`;
-  $("summaryCompleted").textContent = `${format(result.summary?.completedItems)} / ${format(result.summary?.itemCount)}`;
-  $("summaryRemaining").textContent = `${format(result.summary?.remainingParts)} ${unit("part")}`;
-  $("summaryBudget").textContent = localizedBudgetMarker(result.summary?.budget, null);
-
-  const verdict = $("verdict");
-  if (result.empty) {
-    $("resultStatus").textContent = message("result.graduated");
-    $("resultSentence").textContent = message("result.finishedSentence");
-    verdict.innerHTML = `<span class="verdict-mark" aria-hidden="true">✦</span><strong class="verdict-status">${escapeHtml(message("result.finishedVerdict"))}</strong><span>${escapeHtml(message("result.finishedAdvice"))}</span>`;
-  } else if (result.finishProbability === 0) {
-    const gaps = [
-      ["P50", result.p50],
-      ["P90", result.p90],
-      ["P95", result.p95]
-    ].filter(([, line]) => Number.isFinite(line) && line >= budget)
-      .map(([label, line]) => message(`verdict.gap${label}`, { gap: format(line - budget) }));
-    const gapMessage = gaps.length ? gaps.join(state.locale === "zh" ? "；" : "; ") : message("verdict.noStableLine");
-    const status = message("verdict.zeroStatus");
-    $("resultStatus").textContent = status;
-    $("resultSentence").textContent = message("verdict.zeroSentence", { budget: format(budget), trials: format(trials) });
-    verdict.innerHTML = `<span class="verdict-mark" aria-hidden="true">✦</span><strong class="verdict-status">${escapeHtml(status)}</strong><span>${escapeHtml(message("verdict.zeroMessage", { gaps: gapMessage }))}</span><span class="verdict-tail">${escapeHtml(message("verdict.zeroTail"))}</span>`;
-  } else {
-    const outcome = verdictFor(result.finishProbability, result, budget);
-    $("resultStatus").textContent = outcome.label;
-    $("resultSentence").textContent = result.p95 === null
-      ? message("verdict.p95Missing", { budget: format(budget) })
-      : budget < result.p95
-        ? message("verdict.p95Short", { budget: format(budget), gap: format(result.p95 - budget) })
-        : message("verdict.p95Reached", { budget: format(budget) });
-    const insurance = result.p95 !== null && budget < result.p95
-      ? `<span class="verdict-tail">${escapeHtml(message("verdict.p95ShortTail", { gap: format(result.p95 - budget) }))}</span>`
-      : `<span class="verdict-tail">${escapeHtml(message("verdict.p95ReachedTail"))}</span>`;
-    verdict.innerHTML = `<span class="verdict-mark" aria-hidden="true">✦</span><strong class="verdict-status">${escapeHtml(outcome.label)}</strong><span>${escapeHtml(outcome.message)}</span>${insurance}`;
-  }
-
-  renderBudgetDistribution(result, budget, result.analysisCap || analysisCap);
-
-  $("timelineHeadline").textContent = result.empty
-    ? message("timeline.emptyHeadline")
-    : result.finishProbability === 0
-      ? message("timeline.zeroHeadline", { trials: format(trials) })
-      : message("timeline.normalHeadline", { trials: format(trials) });
-  $("timelineDetail").textContent = result.empty
-    ? message("timeline.emptyDetail")
-    : result.finishProbability === 0
-      ? message("timeline.zeroDetail")
-      : message("timeline.normalDetail", { failed: format(result.timelines.failed) });
-  $("timelineSuccess").textContent = result.empty ? "100%" : message("timeline.success", { count: format(result.timelines.success) });
-
-  renderBreakdown();
-  renderItemResults(result);
-  renderRecommendation(result);
-  renderPercentileDeltas(result, budget);
-  $("sharePanel").hidden = false;
-  $("recapPanel").hidden = false;
+  resultsView.renderResult(result, trials, options, { mode: state.mode, locale: state.locale,
+    primeItems: currentPrimeItems(), selectedItemIds: state.selectedItemIds, relics: state.relics, squad: state.squad });
   renderGraduationRecap();
 }
-
-function renderPercentileDeltas(result, currentBudget) {
-  const deltas = calculatePercentileDeltas({ currentBudget, percentiles: result });
-  $("targetDeltaList").innerHTML = deltas.map((entry) => {
-    const body = entry.status === "capped"
-      ? message("delta.exceeds", { label: entry.label })
-      : entry.status === "remaining"
-        ? message("delta.remaining", { delta: format(entry.delta), label: entry.label })
-        : message("delta.reached", { label: entry.label });
-    const tone = entry.status === "remaining" ? "is-open" : entry.status === "capped" ? "is-capped" : "is-reached";
-    return `<article class="target-delta-card ${tone}"><span class="target-delta-label">${escapeHtml(entry.label)}</span><strong>${escapeHtml(body)}</strong>${entry.status === "remaining" ? `<small>${escapeHtml(localizedBudgetMarker(entry.budget, null))}</small>` : ""}</article>`;
-  }).join("");
-}
-
 function renderGraduationRecap() {
-  const input = $("observedAya");
-  const output = $("recapResult");
-  if (!input || !output) return;
-  if (!state.lastResult) {
-    input.disabled = true;
-    output.textContent = message("recap.waiting");
-    state.currentRecap = null;
-    return;
-  }
-  input.disabled = false;
-  const value = input.value.trim();
-  if (!value) {
-    output.textContent = message("recap.waiting");
-    state.currentRecap = null;
-    return;
-  }
-  const recap = calculateGraduationRecap({ curve: state.lastResult.budgetCurve, observedAya: value });
-  state.currentRecap = recap;
-  if (recap.status !== "ok") {
-    output.innerHTML = `<span class="recap-result-status is-outside">${escapeHtml(message("recap.outside"))}</span>`;
-    return;
-  }
-  const percentile = formatRecapPercent(recap.faceBlackIndex);
-  const beat = formatRecapPercent(recap.beatPercentage);
-  const band = message(`recap.band.${recap.band}`);
-  const description = recap.percentile < 0.1
-    ? message("recap.luckyMessage", { aya: format(recap.observedAya), value: beat })
-    : message("recap.message", { value: percentile });
-  output.innerHTML = `<div class="recap-result-heading"><strong>${escapeHtml(band)}</strong><span>${escapeHtml(message("recap.index", { value: percentile }))}</span><span>${escapeHtml(message("recap.beat", { value: beat }))}</span></div><p>${escapeHtml(description)}</p>`;
-}
-
-function shareCardLabels() {
-  return {
-    brand: "VARZIA",
-    subtitle: message("share.cardSubtitle"),
-    rotation: message("share.cardRotation"),
-    targets: message("share.cardTargets"),
-    targetUnit: message("share.cardTargetUnit"),
-    currentAya: message("share.cardCurrentAya"),
-    probability: message("share.cardProbability"),
-    percentile: message("share.cardPercentile"),
-    squad: message("share.cardSquad"),
-    simulations: message("share.cardSimulations"),
-    recap: message("share.cardRecap"),
-    faceBlack: message("share.cardFaceBlack"),
-    beat: message("share.cardBeat"),
-    overCap: message("share.cardOverCap")
-  };
-}
-
-function shareFilename() {
-  const id = state.rotation?.id || "rotation";
-  return `varzia-${state.locale}-${id}-result.png`;
-}
-
-async function generateShareCard() {
-  const sharedUrl = currentShareUrl();
-  if (!sharedUrl) {
-    $("shareStatus").textContent = message("share.needsResult");
-    return;
-  }
-  const button = $("shareResultButton");
-  const status = $("shareStatus");
-  const generation = ++state.shareGeneration;
-  button.disabled = true;
-  status.textContent = message("share.generating");
-  try {
-    const result = state.lastResult;
-    const model = buildShareCardModel({
-      locale: state.locale,
-      rotationName: state.rotation?.displayName || state.rotation?.id,
-      itemCount: result.summary?.itemCount,
-      currentBudget: state.lastResultOptions?.budget,
-      finishProbability: result.finishProbability,
-      percentiles: result,
-      analysisCap: result.analysisCap || state.lastResultOptions?.analysisCap,
-      squad: state.lastResultOptions.squad,
-      trials: state.lastTrials,
-      recap: state.currentRecap,
-      labels: shareCardLabels()
-    });
-    const { renderPlanQr } = await import("./plan-qr.js");
-    const svg = renderShareCardSvg(model, renderPlanQr(sharedUrl));
-    const png = await svgToPngBlob(svg);
-    // A user may edit inputs while PNG encoding is in flight.
-    if (generation !== state.shareGeneration || state.lastResult !== result || state.resultsUpdating || state.running) return;
-    state.shareCardBlob = png;
-    state.shareCardPlanUrl = sharedUrl;
-    if (state.shareCardUrl) URL.revokeObjectURL(state.shareCardUrl);
-    state.shareCardUrl = URL.createObjectURL(png);
-    const preview = $("sharePreview");
-    const image = $("sharePreviewImage");
-    const link = $("shareDownloadLink");
-    image.src = state.shareCardUrl;
-    link.href = state.shareCardUrl;
-    link.download = shareFilename();
-    preview.hidden = false;
-    status.textContent = message("share.success");
-    $("shareSystemButton").hidden = typeof navigator.share !== "function";
-  } catch (error) {
-    console.warn("Varzia share card generation failed", error);
-    if (generation === state.shareGeneration) status.textContent = message("share.failed");
-  } finally {
-    if (generation === state.shareGeneration) button.disabled = state.resultsUpdating || !state.shareReady;
-  }
-}
-
-async function shareGeneratedCard() {
-  if (!state.shareReady || state.resultsUpdating || !state.shareCardBlob || typeof navigator.share !== "function") return;
-  const generation = state.shareGeneration;
-  const sharedUrl = state.shareCardPlanUrl;
-  const payload = { title: message("share.title"), text: `${message("share.openPlan")}\n${sharedUrl}`, url: sharedUrl };
-  if (typeof File === "function") {
-    const files = [new File([state.shareCardBlob], shareFilename(), { type: "image/png" })];
-    if (typeof navigator.canShare !== "function" || navigator.canShare({ files })) payload.files = files;
-  }
-  try {
-    // Called directly from a new click so mobile browsers retain transient user activation.
-    await navigator.share(payload);
-  } catch (error) {
-    if (generation === state.shareGeneration) {
-      $("shareStatus").textContent = message(error?.name === "AbortError" ? "share.canceled" : "share.systemFailed");
-    }
-  }
-}
-
-function renderBreakdown() {
-  const body = $("breakdownBody");
-  const missing = currentPrimeItems().flatMap((item) => item.parts
-    .filter((part) => part.ownedCount < requiredCount(part))
-    .map((part) => ({ ...part, item, missingCount: requiredCount(part) - part.ownedCount })));
-  if (!missing.length) {
-    body.innerHTML = `<tr><td class="empty-row" colspan="5">${escapeHtml(message("breakdown.noMissing"))}</td></tr>`;
-    return;
-  }
-  const strategy = $("strategy").value;
-  const squad = state.squad;
-  body.innerHTML = missing.map(({ item, missingCount, ...part }) => {
-    const routes = relicsForPart(item.id, part.id).map((relic) => {
-      const reward = relic.rewards.find((candidate) => candidate.itemId === item.id && candidate.partId === part.id);
-      const rarity = reward?.rarity || part.rarity;
-      const refinement = refinementFor(rarity, strategy);
-      const chance = squadChance(RARITIES[rarity]?.rates[refinement] || 0, squad);
-      return { relic, rarity, refinement, chance };
-    }).sort((left, right) => right.chance - left.chance || left.relic.name.localeCompare(right.relic.name, "zh-CN"));
-    const bestRoute = routes[0];
-    const rarity = bestRoute?.rarity || part.rarity;
-    const refinement = bestRoute?.refinement || refinementFor(rarity, strategy);
-    const chance = bestRoute?.chance || 0;
-    const routeLabel = routes.map((route) => route.relic.name).join(" / ");
-    const quantityLabel = missingCount > 1 ? ` ×${missingCount}` : "";
-    const label = state.selectedItemIds.length > 1 ? `${item.name} · ${part.name}${quantityLabel}` : `${part.name}${quantityLabel}`;
-    return `<tr>
-      <td data-label="${escapeHtml(message("breakdown.missing"))}">${escapeHtml(label)}${routeLabel ? `<small class="table-route">${escapeHtml(routeLabel)}</small>` : ""}</td>
-      <td data-label="${escapeHtml(message("breakdown.rarity"))}"><span class="rarity rarity-${escapeHtml(rarity)}">${escapeHtml(localizedRarityLabel(rarity))}</span></td>
-      <td data-label="${escapeHtml(message("breakdown.refinement"))}">${escapeHtml(localizedRefinementLabel(refinement))}</td>
-      <td data-label="${escapeHtml(message("breakdown.chance"))}">${(chance * 100).toFixed(2)}%</td>
-      <td data-label="${escapeHtml(message("breakdown.average"))}">${chance ? (1 / chance).toFixed(2) : "—"} ${unit("relic")}</td>
-    </tr>`;
-  }).join("");
-}
-
-function renderItemResults(result) {
-  $("targetResultList").innerHTML = result.itemProbabilities?.length
-    ? result.itemProbabilities.map((item) => `<div class="target-result-row">
-      <span class="target-result-name">${escapeHtml(item.name)}</span>
-      <span class="target-result-probability">${escapeHtml(message("targetBoard.itemProbability", { probability: formatProbability(item.probability) }))}</span>
-    </div>`).join("")
-    : `<p class="field-hint">${escapeHtml(message("targetBoard.empty"))}</p>`;
-}
-
-function renderRecommendation(result) {
-  const recommendation = result.recommendation || { items: [], totalAya: 0 };
-  $("recommendationAya").textContent = recommendation.items.length
-    ? message("recommendation.total", { count: format(recommendation.totalAya) })
-    : message("recommendation.none");
-  $("recommendationList").innerHTML = recommendation.items.length
-    ? recommendation.items.map((item) => {
-      const tokens = Array.from({ length: Math.min(item.count, 8) }, () => `<i class="aya-token" aria-hidden="true"></i>`).join("");
-      return `<div class="recommendation-row">
-        <div class="recommendation-main">
-          <strong>${escapeHtml(item.name)}</strong>
-          <span>${escapeHtml(message("recommendation.item", { rewards: format(item.rewardCount), items: format(item.itemCount) }))}</span>
-        </div>
-        <div class="aya-stack"><span class="aya-tokens">${tokens}</span><span>× ${format(item.count)}</span></div>
-      </div>`;
-    }).join("")
-    : `<p class="field-hint">${escapeHtml(message("recommendation.empty"))}</p>`;
-
-}
-
-function cancelActiveSimulation() {
-  window.clearTimeout(state.runTimer);
-  state.runTimer = null;
-  state.simulationClient?.cancel(state.activeSimulation);
-  state.workerRequestId += 1;
-  state.activeSimulation = null;
-  state.running = false;
-  state.pendingRun = false;
-  $("runButton").disabled = false;
-  $("runButtonLabel").textContent = message("run.button");
-  setResultsUpdating(false);
-}
-
-function allSessionContext() {
-  return createSessionContext(state.allPrimeItems, state.allRelics);
-}
-
-/**
- * Freeze only the historical contract this rotation needs: its claimable
- * parts/relics plus requirement caps for any collection state in the
- * baseline. The latter keeps unrelated already-owned parts intact on replay
- * without granting the session authority over other-rotation relics.
- */
-function sessionContextForRotation(rotation, baselineOwned = {}) {
-  if (!rotation) return null;
-  const itemIds = [...new Set([
-    ...(Array.isArray(rotation.items) ? rotation.items : []),
-    ...Object.keys(baselineOwned || {})
-  ])];
-  return createSessionContext(state.allPrimeItems, state.allRelics, {
-    itemIds,
-    relicIds: Array.isArray(rotation.relics) ? rotation.relics : []
-  });
-}
-
-function sessionContextForStoredLedger(raw) {
-  const rotationId = typeof raw?.rotationId === "string" ? raw.rotationId : "";
-  const historicalRotation = state.rotations.find((candidate) => candidate.id === rotationId);
-  return sessionContextForRotation(historicalRotation, raw?.baseline?.ownedParts);
-}
-
-function stopSessionTicker() {
-  if (state.sessionTicker) {
-    window.clearInterval(state.sessionTicker);
-    state.sessionTicker = null;
-  }
-}
-
-function startSessionTicker() {
-  stopSessionTicker();
-  state.sessionTicker = window.setInterval(() => {
-    if (!state.activeSession) {
-      stopSessionTicker();
-      return;
-    }
-    updateSessionElapsed();
-  }, 30_000);
-}
-
-function formatSessionElapsed(elapsedMs) {
-  const totalMinutes = Math.floor(Math.max(0, elapsedMs) / 60_000);
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
-  return hours ? message("session.elapsed.hm", { h: hours, m: minutes }) : message("session.elapsed.m", { m: minutes });
-}
-
-function updateSessionElapsed() {
-  const element = $("sessionElapsed");
-  if (!element || !state.activeSession) return;
-  const summary = deriveSessionSummary(state.activeSession, { now: Date.now(), context: allSessionContext() });
-  element.textContent = formatSessionElapsed(summary.elapsedMs);
-}
-
-function announceSession(text) {
-  const announcement = $("sessionAnnouncement");
-  if (!announcement) return;
-  announcement.textContent = "";
-  window.requestAnimationFrame(() => {
-    announcement.textContent = text;
-  });
-}
-
-function setBudgetInputEnabled(enabled) {
-  const input = $("budget");
-  if (input) input.disabled = !enabled;
-}
-
-/**
- * Commit session gains exactly once. The final collection is derived from
- * baseline + replay, merged (max per part) with the currently persisted
- * global collection, then written as absolute replacement values. Repeated
- * or interrupted commits therefore can never double-apply rewards.
- *
- * Finish is only complete when the collection write AND the session clear
- * both succeed; each step reports its outcome separately so recovery stays
- * actionable and idempotent.
- */
-export function commitSessionGains(session, { storage = getStorage(), context = allSessionContext() } = {}) {
-  const final = replaySession(session, context);
-  const persistedOwned = readStoredOwnedParts(storage);
-  if (persistedOwned) {
-    const merged = normalizeMergedOwned(final.ownedParts, persistedOwned, session);
-    final.ownedParts = merged;
-  }
-  const committed = saveCollectionState(storage, {
-    rotationId: session.rotationId,
-    selectedItemIds: final.selectedItemIds,
-    owned: final.ownedParts,
-    ayaBudget: final.ayaBudget
-  });
-  if (!committed) return { committed: false, cleared: false, final };
-  // Clear only after the collection write succeeds; an interrupted finish
-  // leaves the session resumable and replaying it again lands on identical
-  // absolute values.
-  const cleared = saveActiveSession(storage, null);
-  return { committed: true, cleared, final };
-}
-
-/**
- * Resolve an old suspended ledger without taking authority over the current
- * planner. Only ownership is reconciled; rotation, selected targets, Aya,
- * and all other current-root fields are deliberately left untouched.
- */
-export function commitSuspendedSessionGains(session, { storage = getStorage(), context = allSessionContext() } = {}) {
-  const final = replaySession(session, context);
-  const persistedOwned = readStoredOwnedParts(storage) || {};
-  final.ownedParts = normalizeMergedOwned(final.ownedParts, persistedOwned, session);
-  const committed = saveOwnedParts(storage, final.ownedParts);
-  if (!committed) return { committed: false, cleared: false, final };
-  const cleared = saveActiveSession(storage, null);
-  return { committed: true, cleared, final };
-}
-
-/**
- * Merge progress maps by keeping the higher count per part. Frozen ledger
- * keys are capped by their historical requirements; unrelated global keys
- * are merely preserved, so suspended reconciliation cannot double-count.
- */
-function normalizeMergedOwned(primary, secondary, session) {
-  const frozenContext = session?.version ? replayContextForMerge(session) : null;
-  const merged = {};
-  const keys = new Set([...Object.keys(primary || {}), ...Object.keys(secondary || {})]);
-  for (const itemId of keys) {
-    if (!isSafeOwnedKey(itemId)) continue;
-    const partKeys = new Set([
-      ...Object.keys(primary?.[itemId] || {}),
-      ...Object.keys(secondary?.[itemId] || {})
-    ]);
-    const counts = {};
-    for (const partId of partKeys) {
-      if (!isSafeOwnedKey(partId)) continue;
-      const uncapped = Math.max(
-        Number(primary?.[itemId]?.[partId]) || 0,
-        Number(secondary?.[itemId]?.[partId]) || 0
-      );
-      const required = frozenContext?.requiredOf(itemId, partId);
-      const count = Number.isFinite(required) ? Math.min(uncapped, required) : uncapped;
-      if (count > 0) counts[partId] = count;
-    }
-    if (Object.keys(counts).length) merged[itemId] = counts;
-  }
-  return merged;
-}
-
-function replayContextForMerge(session) {
-  // replaySession has already derived the historical state from this v2
-  // snapshot. Reconstructing the same context here caps only keys the ledger
-  // owns, while leaving unrelated global collection keys untouched.
-  const snapshot = session?.validationSnapshot;
-  if (!snapshot) return null;
-  const requiredCounts = snapshot.requiredCounts || {};
-  return {
-    requiredOf(itemId, partId) {
-      const count = requiredCounts[`${itemId}:${partId}`];
-      return typeof count === "number" && Number.isInteger(count) && count > 0 ? count : null;
-    }
-  };
-}
-
-/** Persist first; only a durable candidate may become live app state. */
-export function persistSessionCandidate(previousSession, candidateSession, { storage = getStorage() } = {}) {
-  if (!candidateSession || !saveActiveSession(storage, candidateSession)) {
-    return { ok: false, session: previousSession };
-  }
-  return { ok: true, session: candidateSession };
-}
-
-function startLiveSession() {
-  if (!state.rotation || state.previewMode || state.activeSession || state.suspendedSession || state.unresolvedSession) return;
-  const baselineOwned = ownedPlainObject();
-  const frozenContext = sessionContextForRotation(state.rotation, baselineOwned);
-  const session = createSession({
-    rotationId: state.rotation.id,
-    startedAt: new Date().toISOString(),
-    selectedItemIds: state.selectedItemIds,
-    ownedParts: baselineOwned,
-    ayaBudget: Number($("budget").value) || 0,
-    validationSnapshot: frozenContext?.validationSnapshot
-  });
-  if (!session) return;
-  if (!saveActiveSession(getStorage(), session)) {
-    setStatus(message("session.error.storage"), true);
-    return;
-  }
-  state.activeSession = session;
-  setBudgetInputEnabled(false);
-  startSessionTicker();
-  applyEffectiveSessionState({ reschedule: false });
-  announceSession(message("session.startedAnnounce"));
-}
-
-/** Hydrate app state from baseline + replay; the only session→app bridge. */
-function applyEffectiveSessionState({ reschedule = true } = {}) {
-  if (!state.activeSession) return;
-  const effective = replaySession(state.activeSession, allSessionContext());
-  state.selectedItemIds = effective.selectedItemIds.filter((id) => itemById(id));
-  state.owned = ownedMapsFromPlain(effective.ownedParts);
-  $("budget").value = String(effective.ayaBudget);
-  renderItemOptions();
-  renderCollections();
-  renderSessionPanel();
-  if (reschedule) scheduleRun();
-}
-
-function logLiveFissure() {
-  if (!state.activeSession) return;
-  const [claimedItemId, claimedPartId] = ($("sessionClaimed").value || "").split("|");
-  const event = {
-    type: "fissure",
-    at: new Date().toISOString(),
-    relicId: $("sessionRelic").value || "",
-    refinement: $("sessionRefinement").value || "",
-    ayaCost: $("sessionOwnedRelic").checked ? 0 : 1,
-    claimed: claimedItemId && claimedPartId ? { itemId: claimedItemId, partId: claimedPartId } : null
-  };
-  const result = appendSessionEvent(state.activeSession, event, allSessionContext());
-  if (!result.ok) {
-    announceSession(message(`session.error.${result.error}`));
-    return;
-  }
-  const persisted = persistSessionCandidate(state.activeSession, result.session);
-  if (!persisted.ok) {
-    setStatus(message("session.error.storage"), true);
-    announceSession(message("session.error.storage"));
-    return;
-  }
-  state.activeSession = persisted.session;
-  $("sessionOwnedRelic").checked = false;
-  applyEffectiveSessionState();
-  announceSession(message("session.loggedAnnounce"));
-  $("sessionLogButton")?.focus();
-}
-
-function undoLastLiveFissure() {
-  if (!state.activeSession) return;
-  const next = undoLastSessionEvent(state.activeSession);
-  if (!next) return;
-  const persisted = persistSessionCandidate(state.activeSession, next);
-  if (!persisted.ok) {
-    setStatus(message("session.error.storage"), true);
-    announceSession(message("session.error.storage"));
-    return;
-  }
-  state.activeSession = persisted.session;
-  applyEffectiveSessionState();
-  announceSession(message("session.undoAnnounce"));
-  $("sessionLogButton")?.focus();
-}
-
-function finishLiveSession() {
-  if (!state.activeSession) return;
-  const summary = deriveSessionSummary(state.activeSession, { now: Date.now(), context: allSessionContext() });
-  const result = commitSessionGains(state.activeSession);
-  if (!result.committed) {
-    setStatus(message("session.error.storage"), true);
-    announceSession(message("session.error.storage"));
-    return;
-  }
-  if (!result.cleared) {
-    // Collection gains are saved exactly once, but the local session record
-    // could not be cleared. Stay in the session with actionable guidance;
-    // retrying Finish is idempotent.
-    setStatus(message("session.error.clearFailed"), true);
-    announceSession(message("session.error.clearFailed"));
-    return;
-  }
-  stopSessionTicker();
-  state.activeSession = null;
-  setBudgetInputEnabled(true);
-  $("budget").value = String(result.final.ayaBudget);
-  renderItemOptions();
-  renderCollections();
-  renderSessionPanel();
-  announceSession(message("session.finishedAnnounce", { count: summary.fissures, aya: format(summary.ayaSpent) }));
-  $("sessionStartButton")?.focus();
-}
-
-function cancelLiveSession() {
-  if (!state.activeSession) return;
-  const baseline = state.activeSession.baseline;
-  if (!saveActiveSession(getStorage(), null)) {
-    setStatus(message("session.error.storage"), true);
-    announceSession(message("session.error.storage"));
-    return;
-  }
-  stopSessionTicker();
-  state.activeSession = null;
-  setBudgetInputEnabled(true);
-  state.selectedItemIds = baseline.selectedItemIds.filter((id) => itemById(id));
-  state.owned = ownedMapsFromPlain(baseline.ownedParts);
-  $("budget").value = String(baseline.ayaBudget);
-  renderItemOptions();
-  renderCollections();
-  renderSessionPanel();
-  announceSession(message("session.canceledAnnounce"));
-  scheduleRun();
-  $("sessionStartButton")?.focus();
-}
-
-/**
- * Rotation rule for stored sessions. Preview mode and missing rotation data
- * never touch the stored session. A session bound to another rotation is
- * SUSPENDED: it is never replayed into the displayed rotation and never
- * finalized implicitly — the user must explicitly Finish (commit once) or
- * Cancel (discard) it from the Live Session panel before a new session can
- * start on the current rotation.
- */
-function adoptStoredSessionForRotation(rotation, { preview = false } = {}) {
-  stopSessionTicker();
-  state.activeSession = null;
-  state.suspendedSession = null;
-  state.unresolvedSession = null;
-  const storage = getStorage();
-  const raw = readActiveSession(storage);
-  if (preview || !rotation) return;
-  const session = validateSession(raw, sessionContextForStoredLedger(raw));
-  if (!session) {
-    if (raw !== null) {
-      // A ledger we cannot safely validate is preserved byte-for-byte. This
-      // includes v1 sessions whose historical rotation context is no longer
-      // available, so no event is silently discarded or auto-finished.
-      state.unresolvedSession = raw;
-      announceSession(message("session.recoveryPreserved"));
-    }
-    return;
-  }
-  if (isLegacySessionDocument(raw)) {
-    // v1 can be upgraded only after its rotation-scoped contract was rebuilt;
-    // persistence succeeds before the v2 session becomes app authority.
-    if (!saveActiveSession(storage, session)) {
-      state.unresolvedSession = raw;
-      announceSession(message("session.error.storage"));
-      return;
-    }
-  }
-  if (session.rotationId !== rotation.id) {
-    state.suspendedSession = session;
-    return;
-  }
-  state.activeSession = session;
-}
-
-function finishSuspendedSession() {
-  const session = state.suspendedSession;
-  if (!session) return;
-  const summary = deriveSessionSummary(session, { now: Date.now(), context: allSessionContext() });
-  const result = commitSuspendedSessionGains(session);
-  if (!result.committed) {
-    setStatus(message("session.error.storage"), true);
-    announceSession(message("session.error.storage"));
-    return;
-  }
-  if (!result.cleared) {
-    setStatus(message("session.error.clearFailed"), true);
-    announceSession(message("session.error.clearFailed"));
-    return;
-  }
-  const ownershipChanged = ownershipChangesSimulationInput({
-    primeItems: state.primeItems,
-    selectedItemIds: state.selectedItemIds,
-    previousOwned: state.owned,
-    nextOwned: result.final.ownedParts
-  });
-  state.suspendedSession = null;
-  state.owned = ownedMapsFromPlain(result.final.ownedParts);
-  renderItemOptions();
-  renderCollections();
-  renderSessionPanel();
-  if (ownershipChanged) scheduleRun();
-  announceSession(message("session.suspendedFinishedAnnounce", { count: summary.fissures }));
-  $("sessionStartButton")?.focus();
-}
-
-function cancelSuspendedSession() {
-  if (!state.suspendedSession && !state.unresolvedSession) return;
-  if (!saveActiveSession(getStorage(), null)) {
-    setStatus(message("session.error.storage"), true);
-    announceSession(message("session.error.storage"));
-    return;
-  }
-  state.suspendedSession = null;
-  state.unresolvedSession = null;
-  renderSessionPanel();
-  announceSession(message("session.suspendedCanceledAnnounce"));
-  $("sessionStartButton")?.focus();
-}
-
-function sessionMissingTargets() {
-  return currentPrimeItems().flatMap((item) => item.parts
-    .filter((part) => part.ownedCount < requiredCount(part))
-    .map((part) => ({
-      itemId: item.id,
-      itemName: item.name,
-      partId: part.id,
-      partName: part.name,
-      missingCount: requiredCount(part) - part.ownedCount
-    })));
-}
-
-/** Graduation/luck language is meaningful only once the session targets are done. */
-export function shouldShowSessionGraduationRecap({ selectedItemIds, missingTargets, ayaSpent, curve }) {
-  return Array.isArray(selectedItemIds)
-    && selectedItemIds.length > 0
-    && Array.isArray(missingTargets)
-    && missingTargets.length === 0
-    && Number(ayaSpent) > 0
-    && Boolean(curve);
-}
-
-function fillSelectPreserving(select, options, preferredValue = "") {
-  const previous = select.value;
-  select.innerHTML = options.map((option) => (
-    `<option value="${escapeHtml(option.value)}">${escapeHtml(option.label)}</option>`
-  )).join("");
-  const next = options.some((option) => option.value === previous)
-    ? previous
-    : (options.some((option) => option.value === preferredValue) ? preferredValue : options[0]?.value ?? "");
-  if (next) select.value = next;
-}
-
-function renderSessionPanel() {
-  if (!$("liveSessionPanel")) return;
-  const active = Boolean(state.activeSession);
-  const suspended = Boolean(state.suspendedSession);
-  const unresolved = Boolean(state.unresolvedSession);
-  const blocked = suspended || unresolved;
-  $("sessionIdleView").hidden = active || blocked;
-  $("sessionActiveView").hidden = !active;
-  $("sessionSuspendedView").hidden = !blocked;
-  $("sessionStartButton").disabled = !state.rotation || state.previewMode || active || blocked;
-  $("sessionIdleHint").textContent = message(
-    state.previewMode
-      ? "session.previewHint"
-      : state.rotation
-        ? "session.startHint"
-        : "session.waitingRotationHint"
-  );
-  $("sessionElapsed").hidden = !active;
-  $("targetLockHint").hidden = !active;
-
-  const targetButtons = ["selectAllTargets", "selectWarframes", "selectWeapons", "clearTargets"];
-  for (const id of targetButtons) {
-    const button = $(id);
-    if (button) button.disabled = active;
-  }
-
-  if (unresolved) {
-    $("sessionSuspendedTitle").textContent = message("session.recoveryTitle");
-    $("sessionSuspendedHint").textContent = message("session.recoveryHint");
-    $("sessionSuspendedStats").textContent = "";
-    $("sessionSuspendFinishButton").hidden = true;
-    $("sessionSuspendCancelButton").textContent = message("session.recoveryDiscard");
-    return;
-  }
-
-  $("sessionSuspendedTitle").textContent = message("session.suspendedTitle");
-  $("sessionSuspendedHint").textContent = message("session.suspendedHint");
-  $("sessionSuspendFinishButton").hidden = false;
-  $("sessionSuspendCancelButton").textContent = message("session.suspendedCancel");
-  if (suspended) {
-    const summary = deriveSessionSummary(state.suspendedSession, { now: Date.now(), context: allSessionContext() });
-    $("sessionSuspendedStats").textContent = message("session.suspendedStats", {
-      count: format(summary.fissures),
-      aya: format(summary.ayaSpent)
-    });
-    return;
-  }
-
-  if (!active) {
-    $("sessionElapsed").textContent = "—";
-    return;
-  }
-
-  updateSessionElapsed();
-  const effective = replaySession(state.activeSession, allSessionContext());
-  const summary = deriveSessionSummary(state.activeSession, { now: Date.now(), context: allSessionContext() });
-  const missing = sessionMissingTargets();
-
-  $("sessionStatFissures").textContent = format(summary.fissures);
-  $("sessionStatAya").textContent = format(summary.ayaSpent);
-  $("sessionStatClaims").textContent = format(summary.claims);
-  $("sessionStatRemaining").textContent = format(missing.reduce((sum, entry) => sum + entry.missingCount, 0));
-  $("sessionStatChance").textContent = state.lastResult
-    ? formatProbabilityPrecise(state.lastResult.finishProbability)
-    : "—";
-
-  const percentileLine = $("sessionPercentileLine");
-  const curve = state.lastResult?.budgetCurve;
-  const showGraduationRecap = shouldShowSessionGraduationRecap({
-    selectedItemIds: state.selectedItemIds,
-    missingTargets: missing,
-    ayaSpent: summary.ayaSpent,
-    curve
-  });
-  percentileLine.textContent = showGraduationRecap
-    ? (() => {
-      const recap = calculateGraduationRecap({ curve, observedAya: summary.ayaSpent });
-      return recap.status === "ok"
-        ? message("session.percentileLine", { band: message(`recap.band.${recap.band}`), value: formatRecapPercent(recap.faceBlackIndex) })
-        : message("recap.outside");
-    })()
-    : "";
-
-  // Recommendation ranking stays budget-aware, but the LOGGING selector lists
-  // every current-rotation relic so an already-owned relic stays recordable
-  // at 0 Aya even when no purchase is affordable.
-  const ranked = rankRelicsForMissing({
-    primeItems: currentPrimeItems(),
-    relics: state.relics,
-    squad: state.squad,
-    strategy: $("strategy").value,
-    availableAya: effective.ayaBudget
-  });
-  $("sessionNextHint").textContent = ranked[0]
-    ? message("session.nextRecommended", { relic: ranked[0].name })
-    : message("session.noRecommendation");
-
-  const rankedIds = new Set(ranked.map((entry) => entry.id));
-  const rankedNames = new Map(state.relics.map((relic) => [relic.id, relic.name]));
-  const relicOptions = [
-    ...ranked.map((entry, index) => ({
-      value: entry.id,
-      label: index === 0 ? `${entry.name} · ${message("session.recommendedMark")}` : entry.name
-    })),
-    ...state.relics
-      .filter((relic) => !rankedIds.has(relic.id))
-      .map((relic) => ({ value: relic.id, label: relic.name }))
-  ];
-  const relicSelect = $("sessionRelic");
-  if (relicOptions.length) fillSelectPreserving(relicSelect, relicOptions);
-  else relicSelect.innerHTML = `<option value="">${escapeHtml(message("session.noRelics"))}</option>`;
-  relicSelect.disabled = !relicOptions.length;
-
-  updateSessionClaimOptions();
-
-  $("sessionUndoButton").disabled = !state.activeSession.events.length;
-}
-
-/**
- * Claim choices are filtered by the currently selected relic through the
- * catalog-derived relic→reward relation; an impossible pairing is never
- * offered. Called on every panel render and whenever the relic selection
- * changes.
- */
-function updateSessionClaimOptions() {
-  const relicSelect = $("sessionRelic");
-  const claimSelect = $("sessionClaimed");
-  if (!relicSelect || !claimSelect) return;
-  const selectedRelicId = relicSelect.value || "";
-  const context = allSessionContext();
-  const eligible = sessionMissingTargets()
-    .filter((entry) => context.hasReward(selectedRelicId, entry.itemId, entry.partId));
-  fillSelectPreserving(claimSelect, [
-    { value: "", label: message("session.claimNone") },
-    ...eligible.map((entry) => ({
-      value: `${entry.itemId}|${entry.partId}`,
-      label: `${entry.itemName} · ${entry.partName}${entry.missingCount > 1 ? ` ×${entry.missingCount}` : ""}`
-    }))
-  ], "");
-  $("sessionLogButton").disabled = !selectedRelicId;
+  state.currentRecap = resultsView.renderGraduationRecap(state.lastResult);
 }
 
 function announceRotationChange(rotation) {
@@ -2276,7 +749,7 @@ function applyRotation(rotation, { preview = false, announce = false, scheduleSi
   ]));
   $("budget").value = String(saved.ayaBudget);
 
-  if (state.activeSession) {
+  if (sessionUi.activeSession) {
     // Resume: effective collection is baseline + replay and overrides whatever
     // the normal document held; the persisted collection stays untouched.
     setBudgetInputEnabled(false);
@@ -2308,67 +781,6 @@ function applyRotation(rotation, { preview = false, announce = false, scheduleSi
   if (scheduleSimulation && rotation && state.primeItems.length) scheduleRun();
 }
 
-function scheduleRotationWatcher(now = Date.now()) {
-  window.clearTimeout(state.rotationTimer);
-  state.rotationTimer = null;
-  const nextRotation = state.realRotationState.nextRotation;
-  if (!nextRotation) return;
-  const remaining = getTimeUntilRotation(nextRotation, now);
-  if (remaining <= 0) {
-    state.rotationTimer = window.setTimeout(() => checkForRotationChange(Date.now()), 0);
-    return;
-  }
-  state.rotationTimer = window.setTimeout(
-    () => checkForRotationChange(Date.now()),
-    countdownUpdateDelay(remaining)
-  );
-}
-
-function checkForRotationChange(now = Date.now()) {
-  if (state.dataLoadErrors.length) return;
-  let view = resolveRotationView(state.publishedRotations, now, state.previewId, state.rotations);
-  if (view.invalidPreviewId) {
-    if (!state.invalidPreviewWarned) {
-      console.warn(`Varzia rotation preview not found: ${view.invalidPreviewId}`);
-      state.invalidPreviewWarned = true;
-    }
-    state.previewId = "";
-    view = resolveRotationView(state.publishedRotations, now, "", state.rotations);
-  }
-
-  state.realRotationState = {
-    activeRotation: view.activeRotation,
-    nextRotation: view.nextRotation,
-    previousRotation: view.previousRotation
-  };
-  const displayChanged = (state.rotation?.id || "") !== (view.displayRotation?.id || "")
-    || state.previewMode !== view.isPreview;
-  if (displayChanged) {
-    applyRotation(view.displayRotation, { preview: view.isPreview, announce: true });
-  } else {
-    renderRotationSchedule(now);
-  }
-  scheduleRotationWatcher(now);
-}
-
-function clearRotationWatcher() {
-  window.clearTimeout(state.rotationTimer);
-  state.rotationTimer = null;
-  stopSessionTicker();
-}
-
-function bindRotationLifecycle() {
-  if (state.lifecycleBound) return;
-  document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "visible") checkForRotationChange(Date.now());
-  });
-  window.addEventListener("pageshow", () => checkForRotationChange(Date.now()));
-  window.addEventListener("focus", () => checkForRotationChange(Date.now()));
-  window.addEventListener("pagehide", clearRotationWatcher);
-  window.addEventListener("beforeunload", clearRotationWatcher);
-  state.lifecycleBound = true;
-}
-
 async function loadData() {
   if (!ensureLocaleRoute()) return;
   $("budget").max = String(MAX_SIMULATION_BUDGET);
@@ -2389,58 +801,26 @@ async function loadData() {
   // the document can never be downgraded or destroyed. Catalog data itself
   // is unaffected, so this stays out of dataLoadErrors.
   state.storageLocked = hasFutureSchemaDocument(getStorage());
-  const [scheduleData, primes, relicData] = await Promise.all([
-    readJson("/data/rotation.json", fallbackSchedule),
-    readJson("/data/primes.json", { primeItems: [] }),
-    readJson("/data/relics.json", { relics: [] })
-  ]);
-  try {
-    validateRotationData(scheduleData, primes, relicData);
-  } catch (error) {
-    console.warn("Varzia rotation data validation failed", error);
-    state.dataLoadErrors.push("data-validation");
-  }
-
-  state.scheduleData = state.dataLoadErrors.length ? fallbackSchedule : scheduleData;
-  const displayData = localizeDisplayData({
-    rotations: state.scheduleData.rotations || [],
-    primeItems: state.dataLoadErrors.length ? [] : (primes?.primeItems || []),
-    relics: state.dataLoadErrors.length ? [] : (relicData?.relics || [])
-  }, state.locale);
-  state.rotations = displayData.rotations;
-  state.publishedRotations = publishedRotations(state.rotations);
-  state.announcementCandidates = state.dataLoadErrors.length
-    ? []
-    : await loadAnnouncementCandidates({ rotationData: scheduleData });
+  const loaded = await loadAppData({ locale: state.locale });
+  state.dataLoadErrors = loaded.dataLoadErrors;
+  state.scheduleData = loaded.scheduleData;
+  state.rotations = loaded.rotations;
+  state.publishedRotations = loaded.publishedRotations;
+  state.announcementCandidates = loaded.announcementCandidates;
   state.announcementPreview = selectAnnouncementPreview(state.announcementCandidates);
-  state.allPrimeItems = displayData.primeItems;
-  state.allRelics = displayData.relics;
+  state.allPrimeItems = loaded.allPrimeItems;
+  state.allRelics = loaded.allRelics;
   const shared = decodePlan(window.location.hash, { rotations: state.publishedRotations, primeItems: state.allPrimeItems });
   state.sharedPlan = shared.status === "ok" ? shared.plan : null;
   state.previewId = new URLSearchParams(window.location.search).get("rotation")?.trim() || "";
   if (state.sharedPlan) state.previewId = state.sharedPlan.rotationId;
 
-  let view = resolveRotationView(state.publishedRotations, Date.now(), state.previewId, state.rotations);
-  if (view.invalidPreviewId) {
-    console.warn(`Varzia rotation preview not found: ${view.invalidPreviewId}`);
-    state.invalidPreviewWarned = true;
-    state.previewId = "";
-    view = resolveRotationView(state.publishedRotations, Date.now(), "", state.rotations);
-  }
-  state.realRotationState = {
-    activeRotation: view.activeRotation,
-    nextRotation: view.nextRotation,
-    previousRotation: view.previousRotation
-  };
+  const view = rotationUi.resolveView();
   applyRotation(view.displayRotation, { preview: view.isPreview, scheduleSimulation: false });
   if (state.sharedPlan) applySharedPlan(state.sharedPlan);
   if (shared.status !== "absent") revealSharedPlanNotice(shared.status);
 
-  $("dataUpdatedAt").textContent = formatDate([
-    scheduleData?.lastVerified,
-    primes?.updatedAt,
-    relicData?.updatedAt
-  ].filter(Boolean).sort().at(-1));
+  $("dataUpdatedAt").textContent = formatDate(loaded.dataUpdatedAt);
   if (state.dataLoadErrors.length) {
     setStatus(message("status.dataError"), true);
   } else if (state.storageLocked) {
