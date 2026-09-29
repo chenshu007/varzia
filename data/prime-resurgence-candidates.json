@@ -3,7 +3,7 @@
   "candidates": [
     {
       "id": "ivara-protea-2026-10",
-      "status": "announced",
+      "status": "ready-for-review",
       "primeWarframes": [
         "Ivara Prime",
         "Protea Prime"
@@ -20,17 +20,128 @@
           "Ivara Prime",
           "Protea Prime"
         ],
-        "rawEffectiveText": "October 1 at 2 p.m. ET"
+        "rawEffectiveText": "October 1 at 2 p.m. ET",
+        "relatedAnnouncements": [
+          {
+            "url": "https://bsky.app/profile/warframe.com/post/3mwbtjr26bc2i",
+            "publishedAt": "2026-09-24T18:00:19.051Z",
+            "rawPublishedAt": "2026-09-24T18:00:19.05131294Z",
+            "discoveredAt": "2026-09-29T15:52:12.325Z",
+            "rawPrimeWarframes": [
+              "Protea Prime",
+              "Ivara Prime"
+            ],
+            "rawEffectiveText": "October 1 at 2 p.m. ET"
+          }
+        ],
+        "officialData": {
+          "vaultExport": {
+            "type": "digital-extremes-public-export-vault-group",
+            "url": "https://content.warframe.com/PublicExport/Manifest/ExportRelicArcane_en.json!00_yfpUexy9C05OPU7UR+f6pA",
+            "group": "ProteaIvaraVault",
+            "startsAt": "2026-10-01T18:00:00Z",
+            "rawPrimeWarframes": [
+              "Ivara Prime",
+              "Protea Prime"
+            ],
+            "relics": [
+              {
+                "itemType": "/Lotus/StoreItems/Types/Game/Projections/T4VoidProjectionProteaIvaraVaultABronze",
+                "name": "Axi A23",
+                "costAya": 1
+              },
+              {
+                "itemType": "/Lotus/StoreItems/Types/Game/Projections/T3VoidProjectionProteaIvaraVaultBBronze",
+                "name": "Neo O4",
+                "costAya": 1
+              },
+              {
+                "itemType": "/Lotus/StoreItems/Types/Game/Projections/T3VoidProjectionProteaIvaraVaultABronze",
+                "name": "Neo P11",
+                "costAya": 1
+              },
+              {
+                "itemType": "/Lotus/StoreItems/Types/Game/Projections/T2VoidProjectionProteaIvaraVaultBBronze",
+                "name": "Meso V16",
+                "costAya": 1
+              },
+              {
+                "itemType": "/Lotus/StoreItems/Types/Game/Projections/T2VoidProjectionProteaIvaraVaultABronze",
+                "name": "Meso I3",
+                "costAya": 1
+              },
+              {
+                "itemType": "/Lotus/StoreItems/Types/Game/Projections/T1VoidProjectionProteaIvaraVaultABronze",
+                "name": "Lith B12",
+                "costAya": 1
+              }
+            ],
+            "exportUrls": {
+              "Recipes_en": "https://content.warframe.com/PublicExport/Manifest/ExportRecipes_en.json!00_oac+LCAtIyqDxZF8Qe1ZZA",
+              "RelicArcane_en": "https://content.warframe.com/PublicExport/Manifest/ExportRelicArcane_en.json!00_yfpUexy9C05OPU7UR+f6pA",
+              "Warframes_en": "https://content.warframe.com/PublicExport/Manifest/ExportWarframes_en.json!00_4rhgqA3Tmgk8H641FaFbBQ",
+              "Weapons_en": "https://content.warframe.com/PublicExport/Manifest/ExportWeapons_en.json!00_MQsZnDnCp5PVHQqCAGIJzg",
+              "Sentinels_en": "https://content.warframe.com/PublicExport/Manifest/ExportSentinels_en.json!00_8iGr2T9MTskXt5zeKEVNmQ",
+              "Warframes_zh": "https://content.warframe.com/PublicExport/Manifest/ExportWarframes_zh.json!00_cKcs6HhjvhYKM0WJ55qG7g",
+              "Weapons_zh": "https://content.warframe.com/PublicExport/Manifest/ExportWeapons_zh.json!00_dz8Ln8LWdFqjYmDrtpXbLA",
+              "Sentinels_zh": "https://content.warframe.com/PublicExport/Manifest/ExportSentinels_zh.json!00_9XVxUBzLu5VzVKtKO8rVFg"
+            },
+            "selectionBasis": "announced-pair-specific-vault-group",
+            "priceBasis": "planner-preset",
+            "featuredSources": [
+              {
+                "warframe": "Ivara Prime",
+                "url": "https://www.warframe.com/en/news/-549"
+              },
+              {
+                "warframe": "Protea Prime",
+                "url": "https://www.warframe.com/en/news/protea-prime-access"
+              }
+            ],
+            "incidentalItemNames": [
+              "Braton Prime",
+              "Burston Prime"
+            ],
+            "discoveredAt": "2026-09-29T15:52:12.325Z"
+          },
+          "dropTable": {
+            "type": "digital-extremes-official-drop-table",
+            "url": "https://www.warframe.com/droptables",
+            "discoveredAt": "2026-09-29T15:52:12.325Z"
+          },
+          "recipeExport": {
+            "type": "digital-extremes-public-export",
+            "url": "https://content.warframe.com/PublicExport/Manifest/ExportRecipes_en.json!00_oac+LCAtIyqDxZF8Qe1ZZA",
+            "discoveredAt": "2026-09-29T15:52:12.325Z"
+          },
+          "rawPrimeWarframes": [
+            "Ivara Prime",
+            "Protea Prime"
+          ]
+        }
       },
-      "relicDataStatus": "pending",
-      "verified": false,
+      "relicDataStatus": "validated",
+      "verified": true,
       "statusHistory": [
         {
           "status": "announced",
           "at": "2026-09-21T00:38:31.809Z"
+        },
+        {
+          "status": "official-data-available",
+          "at": "2026-09-29T15:52:12.325Z"
+        },
+        {
+          "status": "validated",
+          "at": "2026-09-29T15:52:12.325Z"
+        },
+        {
+          "status": "ready-for-review",
+          "at": "2026-09-29T15:52:12.325Z"
         }
       ],
-      "reviewReason": "Officially announced by Digital Extremes; awaiting official relic and reward data."
+      "reviewReason": "Announced pair-specific Vault export, drop table, and recipes passed validation before activation; sale inventory and price remain unobserved. Ready for human review.",
+      "rotationId": "ivara-protea-2026-10"
     }
   ]
 }

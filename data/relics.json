@@ -404,6 +404,269 @@
           "rarity": "common"
         }
       ]
+    },
+    {
+      "id": "lith-b12",
+      "name": "古纪 B12",
+      "nameEn": "Lith B12",
+      "era": "古纪",
+      "eraEn": "Lith",
+      "costAya": 1,
+      "rotation": "ivara-protea-2026-10",
+      "rewards": [
+        {
+          "itemId": "baza-prime",
+          "partId": "stock",
+          "rarity": "rare"
+        },
+        {
+          "itemId": "ivara-prime",
+          "partId": "blueprint",
+          "rarity": "uncommon"
+        },
+        {
+          "itemId": "velox-prime",
+          "partId": "blueprint",
+          "rarity": "uncommon"
+        },
+        {
+          "itemId": "aksomati-prime",
+          "partId": "receiver",
+          "rarity": "common"
+        }
+      ]
+    },
+    {
+      "id": "meso-i3",
+      "name": "前纪 I3",
+      "nameEn": "Meso I3",
+      "era": "前纪",
+      "eraEn": "Meso",
+      "costAya": 1,
+      "rotation": "ivara-protea-2026-10",
+      "rewards": [
+        {
+          "itemId": "ivara-prime",
+          "partId": "chassis",
+          "rarity": "rare"
+        },
+        {
+          "itemId": "baza-prime",
+          "partId": "blueprint",
+          "rarity": "uncommon"
+        },
+        {
+          "itemId": "protea-prime",
+          "partId": "systems",
+          "rarity": "uncommon"
+        },
+        {
+          "itemId": "aksomati-prime",
+          "partId": "blueprint",
+          "rarity": "common"
+        }
+      ]
+    },
+    {
+      "id": "meso-v16",
+      "name": "前纪 V16",
+      "nameEn": "Meso V16",
+      "era": "前纪",
+      "eraEn": "Meso",
+      "costAya": 1,
+      "rotation": "ivara-protea-2026-10",
+      "rewards": [
+        {
+          "itemId": "velox-prime",
+          "partId": "barrel",
+          "rarity": "rare"
+        },
+        {
+          "itemId": "ivara-prime",
+          "partId": "systems",
+          "rarity": "uncommon"
+        },
+        {
+          "itemId": "okina-prime",
+          "partId": "handle",
+          "rarity": "uncommon"
+        },
+        {
+          "itemId": "baza-prime",
+          "partId": "receiver",
+          "rarity": "common"
+        }
+      ]
+    },
+    {
+      "id": "neo-o4",
+      "name": "中纪 O4",
+      "nameEn": "Neo O4",
+      "era": "中纪",
+      "eraEn": "Neo",
+      "costAya": 1,
+      "rotation": "ivara-protea-2026-10",
+      "rewards": [
+        {
+          "itemId": "okina-prime",
+          "partId": "blueprint",
+          "rarity": "rare"
+        },
+        {
+          "itemId": "baza-prime",
+          "partId": "barrel",
+          "rarity": "uncommon"
+        },
+        {
+          "itemId": "ivara-prime",
+          "partId": "neuroptics",
+          "rarity": "common"
+        },
+        {
+          "itemId": "protea-prime",
+          "partId": "blueprint",
+          "rarity": "common"
+        }
+      ]
+    },
+    {
+      "id": "neo-p11",
+      "name": "中纪 P11",
+      "nameEn": "Neo P11",
+      "era": "中纪",
+      "eraEn": "Neo",
+      "costAya": 1,
+      "rotation": "ivara-protea-2026-10",
+      "rewards": [
+        {
+          "itemId": "protea-prime",
+          "partId": "chassis",
+          "rarity": "rare"
+        },
+        {
+          "itemId": "aksomati-prime",
+          "partId": "barrel",
+          "rarity": "uncommon"
+        },
+        {
+          "itemId": "okina-prime",
+          "partId": "blade",
+          "rarity": "common"
+        }
+      ]
+    },
+    {
+      "id": "axi-a23",
+      "name": "后纪 A23",
+      "nameEn": "Axi A23",
+      "era": "后纪",
+      "eraEn": "Axi",
+      "costAya": 1,
+      "rotation": "ivara-protea-2026-10",
+      "rewards": [
+        {
+          "itemId": "aksomati-prime",
+          "partId": "link",
+          "rarity": "rare"
+        },
+        {
+          "itemId": "protea-prime",
+          "partId": "neuroptics",
+          "rarity": "uncommon"
+        },
+        {
+          "itemId": "velox-prime",
+          "partId": "receiver",
+          "rarity": "common"
+        }
+      ]
     }
-  ]
+  ],
+  "provisionalSources": {
+    "ivara-protea-2026-10": {
+      "status": "provisional",
+      "rotationUrl": "https://content.warframe.com/PublicExport/Manifest/ExportRelicArcane_en.json!00_yfpUexy9C05OPU7UR+f6pA",
+      "vaultExport": {
+        "type": "digital-extremes-public-export-vault-group",
+        "url": "https://content.warframe.com/PublicExport/Manifest/ExportRelicArcane_en.json!00_yfpUexy9C05OPU7UR+f6pA",
+        "group": "ProteaIvaraVault",
+        "startsAt": "2026-10-01T18:00:00Z",
+        "rawPrimeWarframes": [
+          "Ivara Prime",
+          "Protea Prime"
+        ],
+        "relics": [
+          {
+            "itemType": "/Lotus/StoreItems/Types/Game/Projections/T4VoidProjectionProteaIvaraVaultABronze",
+            "name": "Axi A23",
+            "costAya": 1
+          },
+          {
+            "itemType": "/Lotus/StoreItems/Types/Game/Projections/T3VoidProjectionProteaIvaraVaultBBronze",
+            "name": "Neo O4",
+            "costAya": 1
+          },
+          {
+            "itemType": "/Lotus/StoreItems/Types/Game/Projections/T3VoidProjectionProteaIvaraVaultABronze",
+            "name": "Neo P11",
+            "costAya": 1
+          },
+          {
+            "itemType": "/Lotus/StoreItems/Types/Game/Projections/T2VoidProjectionProteaIvaraVaultBBronze",
+            "name": "Meso V16",
+            "costAya": 1
+          },
+          {
+            "itemType": "/Lotus/StoreItems/Types/Game/Projections/T2VoidProjectionProteaIvaraVaultABronze",
+            "name": "Meso I3",
+            "costAya": 1
+          },
+          {
+            "itemType": "/Lotus/StoreItems/Types/Game/Projections/T1VoidProjectionProteaIvaraVaultABronze",
+            "name": "Lith B12",
+            "costAya": 1
+          }
+        ],
+        "exportUrls": {
+          "Recipes_en": "https://content.warframe.com/PublicExport/Manifest/ExportRecipes_en.json!00_oac+LCAtIyqDxZF8Qe1ZZA",
+          "RelicArcane_en": "https://content.warframe.com/PublicExport/Manifest/ExportRelicArcane_en.json!00_yfpUexy9C05OPU7UR+f6pA",
+          "Warframes_en": "https://content.warframe.com/PublicExport/Manifest/ExportWarframes_en.json!00_4rhgqA3Tmgk8H641FaFbBQ",
+          "Weapons_en": "https://content.warframe.com/PublicExport/Manifest/ExportWeapons_en.json!00_MQsZnDnCp5PVHQqCAGIJzg",
+          "Sentinels_en": "https://content.warframe.com/PublicExport/Manifest/ExportSentinels_en.json!00_8iGr2T9MTskXt5zeKEVNmQ",
+          "Warframes_zh": "https://content.warframe.com/PublicExport/Manifest/ExportWarframes_zh.json!00_cKcs6HhjvhYKM0WJ55qG7g",
+          "Weapons_zh": "https://content.warframe.com/PublicExport/Manifest/ExportWeapons_zh.json!00_dz8Ln8LWdFqjYmDrtpXbLA",
+          "Sentinels_zh": "https://content.warframe.com/PublicExport/Manifest/ExportSentinels_zh.json!00_9XVxUBzLu5VzVKtKO8rVFg"
+        },
+        "selectionBasis": "announced-pair-specific-vault-group",
+        "priceBasis": "planner-preset",
+        "featuredSources": [
+          {
+            "warframe": "Ivara Prime",
+            "url": "https://www.warframe.com/en/news/-549"
+          },
+          {
+            "warframe": "Protea Prime",
+            "url": "https://www.warframe.com/en/news/protea-prime-access"
+          }
+        ],
+        "incidentalItemNames": [
+          "Braton Prime",
+          "Burston Prime"
+        ]
+      },
+      "announcementUrl": "https://bsky.app/profile/warframe.com/post/3mvqabe4v5m2w",
+      "dropTableUrl": "https://www.warframe.com/droptables",
+      "preparedAt": "2026-09-17",
+      "rarityWarnings": [
+        "Lith B12 / Aksomati Prime Receiver: official label uncommon, intact probability 25.33% maps to common",
+        "Meso I3 / Aksomati Prime Blueprint: official label uncommon, intact probability 25.33% maps to common",
+        "Meso V16 / Baza Prime Receiver: official label uncommon, intact probability 25.33% maps to common",
+        "Neo O4 / Ivara Prime Neuroptics: official label uncommon, intact probability 25.33% maps to common",
+        "Neo O4 / Protea Prime Blueprint: official label uncommon, intact probability 25.33% maps to common",
+        "Neo P11 / Okina Prime Blade: official label uncommon, intact probability 25.33% maps to common",
+        "Axi A23 / Velox Prime Receiver: official label uncommon, intact probability 25.33% maps to common"
+      ],
+      "note": "遗物奖励和 route-specific rarity 来自官方 Drop Tables；Forma 等非目标奖励继续按现有规划器规则忽略。"
+    }
+  }
 }
