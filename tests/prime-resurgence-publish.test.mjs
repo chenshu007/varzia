@@ -87,9 +87,9 @@ function fixture(t, { candidate = 2 } = {}) {
     git("switch", "main");
     git("reset", "--hard", baseSha);
   };
-  const oldPR = ({ version = 3, state: prState = "open", draft = true, human = false, branch = prefix } = {}) => {
+  const oldPR = ({ version = 3, state: prState = "open", draft = true, human = false, branch = prefix, metadata = {} } = {}) => {
     git("switch", "--create", branch, baseSha);
-    for (const file of SYNC_MUTABLE_DATA_PATHS) writeFileSync(path.join(cwd, file), `{"version":${version}}\n`);
+    for (const file of SYNC_MUTABLE_DATA_PATHS) writeFileSync(path.join(cwd, file), `${JSON.stringify({ version, ...metadata })}\n`);
     git("add", "data");
     git("-c", `user.email=${botEmail}`, "commit", "--author", `github-actions[bot] <${botEmail}>`, "-m", title);
     if (human) {
@@ -185,6 +185,39 @@ test("repeated sync: content deduplication keeps exactly one open candidate PR",
   assert.equal(f.publish().status, "skipped");
   assert.equal(f.state.prs.length, 1);
 });
+
+test("collection timestamps alone: deduplicate a reviewed PR without creating another Draft", t => {
+  const f = fixture(t);
+  const pr = f.oldPR({ version: 2, draft: false, metadata: {
+    discoveredAt: "2026-09-29T12:00:00Z", statusHistory: [{ status: "validated", at: "2026-09-29T12:00:00Z" }]
+  } });
+  const before = structuredClone(pr);
+  for (const file of SYNC_MUTABLE_DATA_PATHS) writeFileSync(path.join(f.artifact, file), JSON.stringify({
+    statusHistory: [{ at: "2026-09-30T12:00:00Z", status: "validated" }], version: 2, discoveredAt: "2026-09-30T12:00:00Z"
+  }));
+  assert.equal(f.publish().status, "skipped");
+  assertUntouched(f, pr, before);
+  assert.equal(f.state.prs.length, 1);
+});
+
+test("collection timestamps alone against default: no PR is needed", t => {
+  const f = fixture(t, { candidate: 1 });
+  for (const file of SYNC_MUTABLE_DATA_PATHS) writeFileSync(path.join(f.artifact, file), JSON.stringify({ version: 1, discoveredAt: "2026-09-30T12:00:00Z" }));
+  assert.equal(f.publish().status, "skipped");
+  assert.equal(f.state.prs.length, 0);
+  assert.ok(!f.state.calls.some(call => call[0] === "git" && call[1] === "push"));
+});
+
+for (const field of ["effectiveAt", "publishedAt", "rawPublishedAt", "startsAt", "lastVerified"]) {
+  test(`${field} is substantive: changed official/effective times still roll over`, t => {
+    const f = fixture(t);
+    const pr = f.oldPR({ version: 2, metadata: { [field]: "2026-09-29T12:00:00Z" } });
+    const before = structuredClone(pr);
+    for (const file of SYNC_MUTABLE_DATA_PATHS) writeFileSync(path.join(f.artifact, file), JSON.stringify({ version: 2, [field]: "2026-09-30T12:00:00Z" }));
+    assert.equal(f.publish().status, "created");
+    assertUntouched(f, pr, before);
+  });
+}
 
 test("closed/merged history reserves deleted content branch names; next generation is stable", t => {
   const f = fixture(t);

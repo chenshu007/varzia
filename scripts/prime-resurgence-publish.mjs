@@ -7,6 +7,18 @@ import { SYNC_MUTABLE_DATA_PATHS } from "./lib/prime-resurgence-sync.mjs";
 
 const BOT_EMAIL = "41898282+github-actions[bot]@users.noreply.github.com";
 
+// Collection times change on every run against an unmerged candidate. They
+// are audit metadata, not new data; retain all source/effective timestamps.
+function candidateContent(value, historyEntry = false) {
+  if (Array.isArray(value)) return value.map(entry => candidateContent(entry, historyEntry));
+  if (value && typeof value === "object") {
+    return Object.fromEntries(Object.keys(value).sort()
+      .filter(key => key !== "discoveredAt" && !(historyEntry && key === "at"))
+      .map(key => [key, candidateContent(value[key], key === "statusHistory")]));
+  }
+  return value;
+}
+
 // Existing branches are immutable, even while Draft. GitHub cannot atomically
 // test a PR's Draft state and update its Git ref; a second state check alone
 // would still allow a ready/merge race to change a human-owned branch.
@@ -47,7 +59,12 @@ export function publishCandidate({ env = process.env, cwd = process.cwd(), run, 
   if (!changed.length) return skip("No candidate diff against the default branch.");
   git("add", "--", ...SYNC_MUTABLE_DATA_PATHS);
   git("diff", "--cached", "--check");
-  const digest = createHash("sha256").update(git("ls-files", "--stage", "--", ...SYNC_MUTABLE_DATA_PATHS)).digest("hex").slice(0, 20);
+  const snapshot = read => JSON.stringify(SYNC_MUTABLE_DATA_PATHS.map(file => [file, candidateContent(JSON.parse(read(file)))]));
+  const candidateSnapshot = snapshot(file => readFileSync(path.join(cwd, file), "utf8"));
+  if (candidateSnapshot === snapshot(file => git("show", `${baseSha}:${file}`))) {
+    return skip("No substantive candidate diff against the default branch.");
+  }
+  const digest = createHash("sha256").update(candidateSnapshot).digest("hex").slice(0, 20);
 
   // Paginate all states: closed/merged PRs reserve names even after their refs
   // are deleted. Forks with a similarly named branch do not own our refs.
@@ -56,7 +73,14 @@ export function publishCandidate({ env = process.env, cwd = process.cwd(), run, 
       (pr.head.ref === prefix || pr.head.ref.startsWith(`${prefix}-`)));
   const sameData = sha => {
     git("fetch", "--no-tags", "origin", sha);
-    return git("diff", "--name-only", sha, "--", ...SYNC_MUTABLE_DATA_PATHS) === "";
+    if (git("ls-tree", "-r", "--name-only", sha, "--", ...SYNC_MUTABLE_DATA_PATHS).split("\n").length !== SYNC_MUTABLE_DATA_PATHS.length) return false;
+    try {
+      return snapshot(file => git("show", `${sha}:${file}`)) === candidateSnapshot;
+    } catch (error) {
+      // Human edits may leave invalid JSON. Preserve that branch and roll over.
+      if (error instanceof SyntaxError) return false;
+      throw error;
+    }
   };
   let prs = listPRs();
   for (const pr of prs.filter(pr => pr.state === "open" && pr.base.ref === base)) {
