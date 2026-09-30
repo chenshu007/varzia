@@ -1361,16 +1361,10 @@ test("GitHub Actions 隔离 read/write 权限并保护 bot branch 与 Draft PR",
   assert.match(workflow, /publish:[\s\S]*?permissions:\n      contents: write\n      pull-requests: write/);
   assert.equal((workflow.match(/persist-credentials: false/g) || []).length, 2);
   assert.match(workflow, /automation\/prime-resurgence-sync/);
-  assert.match(workflow, /Default branch advanced after validation/);
-  assert.match(workflow, /Automation branch contains a non-data change/);
-  assert.match(workflow, /git add -- "\$\{managed_paths\[@\]\}"/);
-  assert.match(workflow, /git rev-list --count/);
-  assert.match(workflow, /--force-with-lease="refs\/heads\/\$AUTOMATION_BRANCH:\$remote_branch_sha"/);
-  assert.match(workflow, /Multiple open automation PRs found/);
-  assert.match(workflow, /\.\[0\]\.isDraft/);
+  assert.match(workflow, /run: node scripts\/prime-resurgence-publish\.mjs/);
   assert.match(workflow, /chore: prepare Prime Resurgence data update/);
   assert.match(workflow, /GH_TOKEN: \$\{\{ github\.token \}\}/);
-  assert.ok(workflow.indexOf("Run repository tests") < workflow.indexOf("GH_TOKEN: ${{ github.token }}"));
+  assert.ok(workflow.indexOf("Verify repository") < workflow.indexOf("GH_TOKEN: ${{ github.token }}"));
   assert.doesNotMatch(workflow, /BASE_BRANCH="\$\{\{/);
   assert.doesNotMatch(workflow, /\|\| true/);
   assert.doesNotMatch(workflow, /secrets\./);

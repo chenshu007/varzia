@@ -191,6 +191,8 @@ node scripts/prime-resurgence-sync.mjs --mode near-rotation --dry-run
 
 workflow 的 prepare job 只有 `contents: read`，checkout 不持久化 credential。`contents: write` / `pull-requests: write` 只存在于 publish job，token 也只注入固定的 branch/PR step；仓库 parser 与测试代码不会接触写 token。
 
+PR 发布由 `scripts/prime-resurgence-publish.mjs` 处理。保留全 workflow 的 `prime-resurgence-data-sync` concurrency group；候选分支使用 `automation/prime-resurgence-sync-<数据内容 hash>-<generation>`，每个分支不可变。与 default branch 无 diff，或已有 open PR（Draft / 非 Draft，含旧固定分支）包含相同候选数据时成功跳过，不编辑 PR。有不同数据时从本次验证的最新 default branch 创建新的 Draft PR；即使旧 PR 仍是 Draft，也不改写其分支，以避免 PR 转为 review / closed / merged 与推送之间的竞态。所有旧 PR、人工 commit、PR 状态和正文均保留。closed / merged PR 历史和现有远端分支都会占用名字，旧分支删除后也不会复用；创建新分支使用空 SHA lease，禁止覆盖并发创建的 ref。保留单 bot 提交、作者、标题、数据 allowlist 检查。验证后 default branch 前进则成功等待下一轮重新抓取验证，不发布过期 artifact。PR 创建失败可能遗留无 PR 分支，下次同步跳过该名字；真实 API / 网络 / 校验错误仍报错。
+
 自动生成的 rotation 永远是 `publicationStatus: "provisional"`。流水线不推进正式数据的 `lastVerified` 或目录级 `updatedAt`，不从官方来源推导 `ayaBudget`，也不会把候选加入 `publishedRotations()`。人工 Review 合格后把 rotation 的状态改为 `published`，同时移除已完成的 announcement candidate。允许在未来生效时间之前发布；正常排期仅在 `startsAt` 到达后启用该轮换。后续 daily sync 用实际商店、掉落表和配方复核提前发布的数据，发现遗物集合、价格、奖励或配方差异会报错，绝不覆盖已发布内容。
 
 ## 贡献
