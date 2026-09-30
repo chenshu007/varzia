@@ -658,6 +658,402 @@
           ]
         }
       ]
+    },
+    {
+      "id": "aksomati-prime",
+      "name": "轻灵月神双枪 Prime",
+      "nameEn": "Aksomati Prime",
+      "type": "secondary",
+      "rotation": "ivara-protea-2026-10",
+      "relics": [
+        "lith-b12",
+        "meso-i3",
+        "neo-p11",
+        "axi-a23"
+      ],
+      "parts": [
+        {
+          "id": "blueprint",
+          "name": "蓝图",
+          "nameEn": "Blueprint",
+          "required": 1,
+          "rarity": "common",
+          "relics": [
+            "meso-i3"
+          ]
+        },
+        {
+          "id": "link",
+          "name": "连接器",
+          "nameEn": "Link",
+          "required": 1,
+          "rarity": "rare",
+          "relics": [
+            "axi-a23"
+          ]
+        },
+        {
+          "id": "barrel",
+          "name": "枪管",
+          "nameEn": "Barrel",
+          "required": 2,
+          "rarity": "uncommon",
+          "relics": [
+            "neo-p11"
+          ]
+        },
+        {
+          "id": "receiver",
+          "name": "枪机",
+          "nameEn": "Receiver",
+          "required": 2,
+          "rarity": "common",
+          "relics": [
+            "lith-b12"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "baza-prime",
+      "name": "苍鹰 Prime",
+      "nameEn": "Baza Prime",
+      "type": "primary",
+      "rotation": "ivara-protea-2026-10",
+      "relics": [
+        "lith-b12",
+        "meso-i3",
+        "meso-v16",
+        "neo-o4"
+      ],
+      "parts": [
+        {
+          "id": "blueprint",
+          "name": "蓝图",
+          "nameEn": "Blueprint",
+          "required": 1,
+          "rarity": "uncommon",
+          "relics": [
+            "meso-i3"
+          ]
+        },
+        {
+          "id": "barrel",
+          "name": "枪管",
+          "nameEn": "Barrel",
+          "required": 1,
+          "rarity": "uncommon",
+          "relics": [
+            "neo-o4"
+          ]
+        },
+        {
+          "id": "receiver",
+          "name": "枪机",
+          "nameEn": "Receiver",
+          "required": 1,
+          "rarity": "common",
+          "relics": [
+            "meso-v16"
+          ]
+        },
+        {
+          "id": "stock",
+          "name": "枪托",
+          "nameEn": "Stock",
+          "required": 1,
+          "rarity": "rare",
+          "relics": [
+            "lith-b12"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ivara-prime",
+      "name": "Ivara Prime",
+      "nameEn": "Ivara Prime",
+      "type": "warframe",
+      "rotation": "ivara-protea-2026-10",
+      "relics": [
+        "lith-b12",
+        "meso-i3",
+        "meso-v16",
+        "neo-o4"
+      ],
+      "parts": [
+        {
+          "id": "blueprint",
+          "name": "蓝图",
+          "nameEn": "Blueprint",
+          "required": 1,
+          "rarity": "uncommon",
+          "relics": [
+            "lith-b12"
+          ]
+        },
+        {
+          "id": "neuroptics",
+          "name": "神经光元",
+          "nameEn": "Neuroptics",
+          "required": 1,
+          "rarity": "common",
+          "relics": [
+            "neo-o4"
+          ]
+        },
+        {
+          "id": "chassis",
+          "name": "机体",
+          "nameEn": "Chassis",
+          "required": 1,
+          "rarity": "rare",
+          "relics": [
+            "meso-i3"
+          ]
+        },
+        {
+          "id": "systems",
+          "name": "系统",
+          "nameEn": "Systems",
+          "required": 1,
+          "rarity": "uncommon",
+          "relics": [
+            "meso-v16"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "okina-prime",
+      "name": "翁 Prime",
+      "nameEn": "Okina Prime",
+      "type": "melee",
+      "rotation": "ivara-protea-2026-10",
+      "relics": [
+        "meso-v16",
+        "neo-o4",
+        "neo-p11"
+      ],
+      "parts": [
+        {
+          "id": "blueprint",
+          "name": "蓝图",
+          "nameEn": "Blueprint",
+          "required": 1,
+          "rarity": "rare",
+          "relics": [
+            "neo-o4"
+          ]
+        },
+        {
+          "id": "handle",
+          "name": "握柄",
+          "nameEn": "Handle",
+          "required": 2,
+          "rarity": "uncommon",
+          "relics": [
+            "meso-v16"
+          ]
+        },
+        {
+          "id": "blade",
+          "name": "刀刃",
+          "nameEn": "Blade",
+          "required": 2,
+          "rarity": "common",
+          "relics": [
+            "neo-p11"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "protea-prime",
+      "name": "Protea Prime",
+      "nameEn": "Protea Prime",
+      "type": "warframe",
+      "rotation": "ivara-protea-2026-10",
+      "relics": [
+        "meso-i3",
+        "neo-o4",
+        "neo-p11",
+        "axi-a23"
+      ],
+      "parts": [
+        {
+          "id": "blueprint",
+          "name": "蓝图",
+          "nameEn": "Blueprint",
+          "required": 1,
+          "rarity": "common",
+          "relics": [
+            "neo-o4"
+          ]
+        },
+        {
+          "id": "neuroptics",
+          "name": "神经光元",
+          "nameEn": "Neuroptics",
+          "required": 1,
+          "rarity": "uncommon",
+          "relics": [
+            "axi-a23"
+          ]
+        },
+        {
+          "id": "chassis",
+          "name": "机体",
+          "nameEn": "Chassis",
+          "required": 1,
+          "rarity": "rare",
+          "relics": [
+            "neo-p11"
+          ]
+        },
+        {
+          "id": "systems",
+          "name": "系统",
+          "nameEn": "Systems",
+          "required": 1,
+          "rarity": "uncommon",
+          "relics": [
+            "meso-i3"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "velox-prime",
+      "name": "逐电 Prime",
+      "nameEn": "Velox Prime",
+      "type": "secondary",
+      "rotation": "ivara-protea-2026-10",
+      "relics": [
+        "lith-b12",
+        "meso-v16",
+        "axi-a23"
+      ],
+      "parts": [
+        {
+          "id": "blueprint",
+          "name": "蓝图",
+          "nameEn": "Blueprint",
+          "required": 1,
+          "rarity": "uncommon",
+          "relics": [
+            "lith-b12"
+          ]
+        },
+        {
+          "id": "barrel",
+          "name": "枪管",
+          "nameEn": "Barrel",
+          "required": 1,
+          "rarity": "rare",
+          "relics": [
+            "meso-v16"
+          ]
+        },
+        {
+          "id": "receiver",
+          "name": "枪机",
+          "nameEn": "Receiver",
+          "required": 1,
+          "rarity": "common",
+          "relics": [
+            "axi-a23"
+          ]
+        }
+      ]
     }
-  ]
+  ],
+  "provisionalSources": {
+    "ivara-protea-2026-10": {
+      "status": "provisional",
+      "rotationUrl": "https://content.warframe.com/PublicExport/Manifest/ExportRelicArcane_en.json!00_yfpUexy9C05OPU7UR+f6pA",
+      "vaultExport": {
+        "type": "digital-extremes-public-export-vault-group",
+        "url": "https://content.warframe.com/PublicExport/Manifest/ExportRelicArcane_en.json!00_yfpUexy9C05OPU7UR+f6pA",
+        "group": "ProteaIvaraVault",
+        "startsAt": "2026-10-01T18:00:00Z",
+        "rawPrimeWarframes": [
+          "Ivara Prime",
+          "Protea Prime"
+        ],
+        "relics": [
+          {
+            "itemType": "/Lotus/StoreItems/Types/Game/Projections/T4VoidProjectionProteaIvaraVaultABronze",
+            "name": "Axi A23",
+            "costAya": 1
+          },
+          {
+            "itemType": "/Lotus/StoreItems/Types/Game/Projections/T3VoidProjectionProteaIvaraVaultBBronze",
+            "name": "Neo O4",
+            "costAya": 1
+          },
+          {
+            "itemType": "/Lotus/StoreItems/Types/Game/Projections/T3VoidProjectionProteaIvaraVaultABronze",
+            "name": "Neo P11",
+            "costAya": 1
+          },
+          {
+            "itemType": "/Lotus/StoreItems/Types/Game/Projections/T2VoidProjectionProteaIvaraVaultBBronze",
+            "name": "Meso V16",
+            "costAya": 1
+          },
+          {
+            "itemType": "/Lotus/StoreItems/Types/Game/Projections/T2VoidProjectionProteaIvaraVaultABronze",
+            "name": "Meso I3",
+            "costAya": 1
+          },
+          {
+            "itemType": "/Lotus/StoreItems/Types/Game/Projections/T1VoidProjectionProteaIvaraVaultABronze",
+            "name": "Lith B12",
+            "costAya": 1
+          }
+        ],
+        "exportUrls": {
+          "Recipes_en": "https://content.warframe.com/PublicExport/Manifest/ExportRecipes_en.json!00_oac+LCAtIyqDxZF8Qe1ZZA",
+          "RelicArcane_en": "https://content.warframe.com/PublicExport/Manifest/ExportRelicArcane_en.json!00_yfpUexy9C05OPU7UR+f6pA",
+          "Warframes_en": "https://content.warframe.com/PublicExport/Manifest/ExportWarframes_en.json!00_4rhgqA3Tmgk8H641FaFbBQ",
+          "Weapons_en": "https://content.warframe.com/PublicExport/Manifest/ExportWeapons_en.json!00_MQsZnDnCp5PVHQqCAGIJzg",
+          "Sentinels_en": "https://content.warframe.com/PublicExport/Manifest/ExportSentinels_en.json!00_8iGr2T9MTskXt5zeKEVNmQ",
+          "Warframes_zh": "https://content.warframe.com/PublicExport/Manifest/ExportWarframes_zh.json!00_cKcs6HhjvhYKM0WJ55qG7g",
+          "Weapons_zh": "https://content.warframe.com/PublicExport/Manifest/ExportWeapons_zh.json!00_dz8Ln8LWdFqjYmDrtpXbLA",
+          "Sentinels_zh": "https://content.warframe.com/PublicExport/Manifest/ExportSentinels_zh.json!00_9XVxUBzLu5VzVKtKO8rVFg"
+        },
+        "selectionBasis": "announced-pair-specific-vault-group",
+        "priceBasis": "planner-preset",
+        "featuredSources": [
+          {
+            "warframe": "Ivara Prime",
+            "url": "https://www.warframe.com/en/news/-549"
+          },
+          {
+            "warframe": "Protea Prime",
+            "url": "https://www.warframe.com/en/news/protea-prime-access"
+          }
+        ],
+        "incidentalItemNames": [
+          "Braton Prime",
+          "Burston Prime"
+        ]
+      },
+      "announcementUrl": "https://bsky.app/profile/warframe.com/post/3mvqabe4v5m2w",
+      "dropTableUrl": "https://www.warframe.com/droptables",
+      "recipeExportUrl": "https://content.warframe.com/PublicExport/Manifest/ExportRecipes_en.json!00_oac+LCAtIyqDxZF8Qe1ZZA",
+      "preparedAt": "2026-09-17",
+      "rarityWarnings": [
+        "Lith B12 / Aksomati Prime Receiver: official label uncommon, intact probability 25.33% maps to common",
+        "Meso I3 / Aksomati Prime Blueprint: official label uncommon, intact probability 25.33% maps to common",
+        "Meso V16 / Baza Prime Receiver: official label uncommon, intact probability 25.33% maps to common",
+        "Neo O4 / Ivara Prime Neuroptics: official label uncommon, intact probability 25.33% maps to common",
+        "Neo O4 / Protea Prime Blueprint: official label uncommon, intact probability 25.33% maps to common",
+        "Neo P11 / Okina Prime Blade: official label uncommon, intact probability 25.33% maps to common",
+        "Axi A23 / Velox Prime Receiver: official label uncommon, intact probability 25.33% maps to common"
+      ],
+      "note": "装备与部件从公告组合专属 Vault 遗物组、官方掉落表和 Public Export 关联；尚未声明实际商店库存。"
+    }
+  }
 }
