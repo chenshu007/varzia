@@ -680,8 +680,12 @@ function announcementForLineup(lineup, announcements, rotationData) {
   const matchingPublished = publishedRotations(rotationData.rotations).find(rotation => rotation.startsAt === lineup.startsAt && sameSet(rotation.items, pageItemIds));
   if (matchingPublished) {
     const exact = announcements.filter(announcement => announcement.startsAt === matchingPublished.startsAt && sameSet(announcement.warframes, pageWarframes));
-    invariant(exact.length === 1, "Published rotation does not have one matching official announcement.");
-    return { announcement: exact[0], published: matchingPublished };
+    invariant(exact.length > 0, "Published rotation does not have a matching official announcement.");
+    // Repeated official reminders can confirm the same pair and start time.
+    // Keep the reviewed source when present, otherwise the earliest reminder.
+    const announcement = exact.find(entry => entry.url === matchingPublished.source?.announcementUrl)
+      || exact.sort((left, right) => left.createdAt.localeCompare(right.createdAt))[0];
+    return { announcement, published: matchingPublished };
   }
   const existingPreviews = rotationData.rotations.filter((rotation) => rotation.publicationStatus === "provisional" && sameSet(rotation.items, pageItemIds));
   invariant(existingPreviews.length <= 1, `Multiple provisional rotations own the same official lineup: ${existingPreviews.map((rotation) => rotation.id).join(", ")}.`);
@@ -1041,6 +1045,7 @@ function sourceRecords({ announcement, recipeUrl, preparedAt, recipeExceptions, 
     dropTableUrl: OFFICIAL_SOURCES.dropTables,
     recipeExportUrl: recipeUrl,
     preparedAt,
+    ...(lineup.currentPageEvidence ? { currentPage: lineup.currentPageEvidence } : {}),
     ...(recipeExceptions.length ? { recipeExceptions } : {}),
     ...(rarityWarnings.length ? { rarityWarnings } : {})
   };
@@ -1105,7 +1110,7 @@ function comparePublishedFacts({ rotation, primeData, relicData, lineup, selecte
   }
 }
 
-function mergeCandidate({ rotationData, primeData, relicData, lineup, selectedRelics, requirements, announcement, recipeUrl }) {
+function mergeCandidate({ rotationData, primeData, relicData, lineup, selectedRelics, requirements, announcement, recipeUrl, discoveredAt }) {
   const candidateId = candidateIdFor(lineup, announcement.startsAt);
   const oldCandidate = rotationData.rotations.find((rotation) => rotation.id === candidateId);
   invariant(!oldCandidate || oldCandidate.publicationStatus === "provisional", `Automation refuses to modify published rotation ${candidateId}.`);
@@ -1116,7 +1121,7 @@ function mergeCandidate({ rotationData, primeData, relicData, lineup, selectedRe
   const selectedRelicIds = selectedRelics.map((relic) => relicId(relic.name));
   const preparedAt = oldCandidate?.source?.preparedAt
     || primeData.provisionalSources?.[candidateId]?.preparedAt
-    || new Date(announcement.createdAt).toISOString().slice(0, 10);
+    || new Date(discoveredAt).toISOString().slice(0, 10);
   const recipeExceptions = recipeExceptionProvenance(requirements);
   const rarityWarnings = rarityWarningsFor(selectedRelics);
   const sources = sourceRecords({ announcement, recipeUrl, preparedAt, recipeExceptions, rarityWarnings, lineup });
@@ -1388,6 +1393,33 @@ function inventoryLineup(official, now) {
   return lineupFromInventory(trader, official);
 }
 
+function confirmedLiveLineup(candidate, official, now) {
+  invariant(Date.parse(candidate.effectiveAt) <= Date.parse(now), "Release preparation requires an effective rotation.");
+  const page = parsePrimeResurgencePages(official.englishHtml, official.chineseHtml);
+  invariant(sameSet(page.warframes.map(item => item.name), candidate.primeWarframes), "Current official page does not confirm the candidate pair.");
+  const dropRelics = parseDropTables(official.dropTablesHtml);
+  const preview = lineupFromVaultExport(candidate, official, dropRelics);
+  invariant(preview, "Exact pair-specific Vault export is missing.");
+  validateVaultRewardCatalog(preview, dropRelics, official);
+  invariant(sameSet(page.items.map(item => item.name), preview.items.map(item => item.name)), "Current official page and Vault featured lineup disagree.");
+  let lineup = preview;
+  if (official.worldStateText) {
+    lineup = inventoryLineup(official, now);
+    invariant(lineup.startsAt === candidate.effectiveAt
+      && sameSet(lineup.items.map(item => item.name), preview.items.map(item => item.name))
+      && sameSet(lineup.inventoryRelics.map(relic => relic.name), preview.inventoryRelics.map(relic => relic.name)),
+    "Live World State inventory differs from the candidate Vault export.");
+  }
+  lineup.currentPageEvidence = {
+    englishUrl: OFFICIAL_SOURCES.rotationEn,
+    chineseUrl: OFFICIAL_SOURCES.rotationZh,
+    checkedAt: now,
+    rawPrimeWarframes: page.warframes.map(item => item.name),
+    rawItems: page.items.map(item => item.name)
+  };
+  return lineup;
+}
+
 function prepareAnnouncementCatalog(candidate, official) {
   const items = candidate.primeWarframes.map(name => {
     const matches = official.equipmentEn.filter(item => item.name === name && item.productCategory === "Suits");
@@ -1571,7 +1603,7 @@ function safeErrorMessage(error) {
 }
 
 function announcementFromCandidate(candidate) {
-  invariant(candidate?.status === "announced", "Near-rotation watcher can only consume an announced candidate.");
+  invariant(candidate?.status === "announced" || (candidate?.status === "ready-for-review" && candidate.verified), "Announcement evidence requires an announced or validated review candidate.");
   invariant(candidate.effectiveAt, `Announcement candidate ${candidate.id} has no effectiveAt.`);
   return {
     warframes: [...candidate.primeWarframes],
@@ -1644,14 +1676,16 @@ async function completeOfficialCandidate({
 
   if (published) {
     comparePublishedFacts({ rotation: published, primeData, relicData, lineup, selectedRelics: selection.relics, requirements, announcement });
-    const result = { ...commonResult, status: "no-change (official inventory matches the published rotation)", publicationStatus: "published", candidate: null };
+    const result = { ...commonResult, status: lineup.previewEvidence
+      ? "no-change (current official page and exact Vault export match the published rotation)"
+      : "no-change (official inventory matches the published rotation)", publicationStatus: "published", candidate: null };
     result.summary = markdownSummary(result);
     return result;
   }
 
   const merged = mergeCandidate({
     rotationData, primeData, relicData, lineup, selectedRelics: selection.relics,
-    requirements, announcement, recipeUrl: officialData.recipeUrl
+    requirements, announcement, recipeUrl: officialData.recipeUrl, discoveredAt
   });
   invariant(!expectedCandidateId || merged.candidate.id === expectedCandidateId, `Official data would change announcement candidate identity from ${expectedCandidateId} to ${merged.candidate.id}.`);
   validateIsolation({ rotationData, primeData, relicData }, merged, merged.candidate, requirements);
@@ -1876,7 +1910,10 @@ export async function runPrimeResurgenceSync({
   const verifyPublishedPreview = Boolean(activePublished?.source?.vaultExport);
   const terminal = !activeAnnouncements.length && (announcedCandidates.candidates.find(candidate => candidate.status === "conflict")
     || announcedCandidates.candidates.find(candidate => candidate.status === "ready-for-review"));
-  if (terminal && !verifyPublishedPreview) {
+  const liveReview = terminal?.status === "ready-for-review"
+    && Boolean(terminal.source.officialData?.vaultExport)
+    && Date.parse(terminal.effectiveAt) <= Date.parse(discoveredAt);
+  if (terminal && !verifyPublishedPreview && !liveReview) {
     return await writeCandidateFiles(announcedCandidates, {
       candidateStage: "terminal",
       status: "NO_OP",
@@ -1885,6 +1922,17 @@ export async function runPrimeResurgenceSync({
     });
   }
   if (!inputs) official = { ...official, ...await fetchInventoryInputs({ fetchImpl, decompress, signal }) };
+  if (liveReview) {
+    const lineup = confirmedLiveLineup(terminal, official, discoveredAt);
+    return await completeOfficialCandidate({
+      paths, rotationText, primesText, relicsText, candidatesText,
+      rotationData, primeData, relicData, candidateData: announcedCandidates,
+      recipeExceptions, lineup, announcement: announcementFromCandidate(terminal),
+      published: null, official, fetchImpl, decompress, signal, dryRun, discoveredAt,
+      minimumRelics: inputs ? 1 : 100, minimumRecipes: inputs ? 1 : 1_000,
+      expectedCandidateId: terminal.id
+    });
+  }
   if (verifyPublishedPreview) {
     const actual = inventoryLineup(official, discoveredAt);
     // Once a later, unreviewed rotation is live, continue normal discovery.
@@ -1924,7 +1972,23 @@ export async function runPrimeResurgenceSync({
       });
     }
   }
-  const lineup = inventoryLineup(official, discoveredAt);
+  let lineup;
+  if (official.worldStateText) lineup = inventoryLineup(official, discoveredAt);
+  else {
+    // Some Linux networks receive 403 from World State. A fresh current page
+    // plus its exact announced Vault group can verify facts, without claiming
+    // to have observed a shop price on this run.
+    const page = parsePrimeResurgencePages(official.englishHtml, official.chineseHtml);
+    const pagePair = page.warframes.map(item => item.name);
+    const known = announcedCandidates.candidates.filter(candidate => candidate.effectiveAt
+      && Date.parse(candidate.effectiveAt) <= Date.parse(discoveredAt)
+      && candidate.status !== "conflict" && sameSet(candidate.primeWarframes, pagePair));
+    if (activePublished && pageMatchesPublishedLineup(page, { rotations: [activePublished] }, primeData)) {
+      known.push({ effectiveAt: activePublished.startsAt, primeWarframes: pagePair });
+    }
+    invariant(known.length === 1, "World State unavailable and current page has no unique known rotation; refusing to infer inventory.");
+    lineup = confirmedLiveLineup(known[0], official, discoveredAt);
+  }
   const pageWarning = checkAuxiliaryPage(official, lineup, rotationData, primeData);
   const officialPageMatchesPublished = pageMatchesPublishedLineup(lineup, rotationData, primeData);
   const matchedCandidate = candidateForLineup(announcedCandidates, lineup);
@@ -2001,4 +2065,68 @@ export async function runPrimeResurgenceSync({
     minimumRelics: inputs ? 1 : 100,
     minimumRecipes: inputs ? 1 : 1_000
   });
+}
+
+// Explicit human-invoked release proposal. The ordinary updater always keeps
+// candidates provisional; this diff belongs in a reviewed PR before publication.
+export async function preparePrimeResurgenceRelease({ rootDir, rotationId, dryRun = true, inputs = null, now = new Date(), fetchImpl = globalThis.fetch, decompress = decompressLzma } = {}) {
+  invariant(rootDir && rotationId, "Repository root and rotation ID are required.");
+  const discoveredAt = new Date(now).toISOString();
+  const paths = syncDataPaths(rootDir);
+  const texts = await Promise.all([paths.rotation, paths.primes, paths.relics, paths.candidates, paths.recipeExceptions].map(file => readFile(file, "utf8")));
+  const [rotationData, primeData, relicData, candidateData] = texts.slice(0, 4).map(JSON.parse);
+  validateRotationData(rotationData, primeData, relicData);
+  validateAnnouncementCandidates(candidateData, rotationData);
+  const candidate = candidateData.candidates.find(entry => entry.id === rotationId);
+  invariant(candidate?.status === "ready-for-review" && candidate.verified, "Release requires a validated ready-for-review candidate.");
+  const official = inputs || await fetchOfficialInputs({ fetchImpl, decompress });
+  const announcements = parseOfficialAnnouncements(JSON.parse(official.announcementText));
+  const matches = announcements.filter(entry => entry.startsAt === candidate.effectiveAt && sameSet(entry.warframes, candidate.primeWarframes));
+  const announcement = matches.find(entry => entry.url === candidate.source.url)
+    || matches.sort((left, right) => left.createdAt.localeCompare(right.createdAt))[0];
+  invariant(announcement, "Fresh official announcement does not confirm candidate identity and start time.");
+  const lineup = confirmedLiveLineup(candidate, official, discoveredAt);
+  const dropRelics = parseDropTables(official.dropTablesHtml, { minimumRelics: inputs ? 1 : 100 });
+  const selection = selectRelicSet(dropRelics, lineup.items, lineup.inventoryRelics.map(relic => relic.name));
+  validateInventoryRewards(selection, lineup, official.relicExport);
+  const requirements = resolveRecipeRequirements(parseRecipes(official.recipesText, { minimumRecipes: inputs ? 1 : 1_000 }), lineup.items, selection.expectedByItem, {
+    recipeExceptions: parseRecipeExceptions(texts[4]), recipeUrl: official.recipeUrl
+  });
+  const merged = mergeCandidate({ rotationData, primeData, relicData, lineup, selectedRelics: selection.relics, requirements, announcement, recipeUrl: official.recipeUrl, discoveredAt });
+  validateIsolation({ rotationData, primeData, relicData }, merged, merged.candidate, requirements);
+  // Correct legacy preparation dates using the persisted first data transition,
+  // while retaining the separate announcement date in announcement provenance.
+  const preparedAt = candidate.statusHistory.find(entry => entry.status === "official-data-available").at.slice(0, 10);
+  const verifiedAt = discoveredAt.slice(0, 10);
+  merged.candidate.publicationStatus = "published";
+  merged.candidate.source = {
+    ...merged.candidate.source, status: "official", preparedAt, verifiedAt,
+    announcementPublishedAt: announcement.createdAt,
+    rotationUrl: OFFICIAL_SOURCES.rotationZh,
+    publicationReview: "pending-draft-pr",
+    note: "当前中英文官方轮换页面确认阵容；组合专属 Vault、掉落表与 Public Export 确认遗物、奖励、概率和制造数量。此发布变更等待 Draft PR 人工审核；合并后按 startsAt 生效。World State 不可用时，costAya=1 仍为规划器预设。"
+  };
+  merged.rotationData.lastVerified = verifiedAt;
+  merged.rotationData.source = {
+    ...merged.rotationData.source, url: OFFICIAL_SOURCES.rotationZh,
+    announcementUrl: announcement.url, note: merged.candidate.source.note
+  };
+  merged.primeData.updatedAt = verifiedAt;
+  merged.relicData.updatedAt = verifiedAt;
+  delete merged.primeData.provisionalSources[rotationId];
+  delete merged.relicData.provisionalSources[rotationId];
+  const remainingCandidates = { ...candidateData, candidates: candidateData.candidates.filter(entry => entry.id !== rotationId) };
+  validateRotationData(merged.rotationData, merged.primeData, merged.relicData);
+  validateAnnouncementCandidates(remainingCandidates, merged.rotationData);
+  const files = [merged.rotationData, merged.primeData, merged.relicData, remainingCandidates].map((data, index) => ({
+    path: [paths.rotation, paths.primes, paths.relics, paths.candidates][index], label: SYNC_MUTABLE_DATA_PATHS[index], original: texts[index], text: jsonText(data)
+  })).filter(file => file.original !== file.text);
+  if (!dryRun) await writeAtomically(files);
+  return {
+    rotationId, dryRun, reviewRequired: true, itemCount: lineup.items.length, relicCount: selection.relics.length,
+    totalRequiredParts: totalRequired(requirements), preparedAt, verifiedAt,
+    worldStateWarning: official.worldStateWarning || null,
+    priceBasis: lineup.previewEvidence ? "planner-preset" : "observed-inventory",
+    changedFiles: files.map(file => file.label)
+  };
 }

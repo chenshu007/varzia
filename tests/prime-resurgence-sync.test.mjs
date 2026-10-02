@@ -17,9 +17,10 @@ import {
   parsePrimeResurgencePages,
   parseRecipeExceptions,
   parseRecipes,
+  preparePrimeResurgenceRelease,
   resolveRecipeRequirements,
   runNearRotationWatcher,
-  runPrimeResurgenceSync,
+  runPrimeResurgenceSync as runSync,
   SYNC_MUTABLE_DATA_PATHS,
   selectNearRotationCandidate,
   selectRelicSet,
@@ -31,6 +32,10 @@ import { normalizeOfficialTimestamp } from "../js/prime-resurgence-candidate.js"
 import { publishedRotations, resolveRotationState } from "../js/rotation-schedule.js";
 import { lineupFromInventory, parsePrimeVaultTrader } from "../scripts/lib/prime-vault-inventory.mjs";
 import { lineupFromVaultExport } from "../scripts/lib/prime-vault-preview.mjs";
+
+// Captured inventory expires in September. Scenario clocks must not follow CI time.
+const FIXTURE_NOW = "2026-09-03T18:01:00Z";
+const runPrimeResurgenceSync = options => runSync({ now: FIXTURE_NOW, ...options });
 
 const fixtureDirectory = new URL("./fixtures/", import.meta.url);
 const inventoryNames = ["Lith K5", "Lith M7", "Meso E5", "Neo B6", "Axi A12", "Axi H5"];
@@ -71,20 +76,23 @@ async function temporaryRepository() {
   // Production data may already contain the currently published rotation.
   // Candidate-pipeline tests need the prior published rotation as their
   // baseline so the fixture lineup can exercise the promotion path.
-  const candidateId = "banshee-mirage-2026-09";
   const rotationPath = path.join(directory, "data/rotation.json");
   const primesPath = path.join(directory, "data/primes.json");
   const relicsPath = path.join(directory, "data/relics.json");
   const rotation = JSON.parse(await readFile(rotationPath, "utf8"));
-  rotation.rotations = rotation.rotations.filter((entry) => entry.id !== candidateId);
+  const removedIds = new Set(rotation.rotations.filter(entry => Date.parse(entry.startsAt) >= Date.parse("2026-09-03T18:00:00Z")).map(entry => entry.id));
+  rotation.rotations = rotation.rotations.filter(entry => !removedIds.has(entry.id));
+  rotation.lastVerified = "2026-09-04";
 
   const primes = JSON.parse(await readFile(primesPath, "utf8"));
-  primes.primeItems = primes.primeItems.filter((item) => item.rotation !== candidateId);
-  delete primes.provisionalSources?.[candidateId];
+  primes.primeItems = primes.primeItems.filter(item => !removedIds.has(item.rotation));
+  primes.updatedAt = "2026-09-04";
+  for (const id of removedIds) delete primes.provisionalSources?.[id];
 
   const relics = JSON.parse(await readFile(relicsPath, "utf8"));
-  relics.relics = relics.relics.filter((relic) => relic.rotation !== candidateId);
-  delete relics.provisionalSources?.[candidateId];
+  relics.relics = relics.relics.filter(relic => !removedIds.has(relic.rotation));
+  relics.updatedAt = "2026-09-04";
+  for (const id of removedIds) delete relics.provisionalSources?.[id];
 
   await Promise.all([
     writeFile(rotationPath, `${JSON.stringify(rotation, null, 2)}\n`, "utf8"),
@@ -133,6 +141,7 @@ test("开卖前从官方组合专属 Vault 组完成候选，旧商店和旧官�
   const prepared = rotations.rotations.find(rotation => rotation.id === result.candidate.id);
   assert.equal(prepared.publicationStatus, "provisional");
   assert.equal(prepared.source.inventory, undefined);
+  assert.equal(prepared.source.preparedAt, "2026-08-21");
   assert.deepEqual(prepared.relics.slice().sort(), inventoryNames.map(name => name.toLowerCase().replaceAll(" ", "-")).sort());
   for (const previous of before[0].rotations) assert.deepEqual(rotations.rotations.find(rotation => rotation.id === previous.id), previous);
   assert.equal(validateRotationData(rotations, primes, relics), true);
@@ -1378,4 +1387,89 @@ test("GitHub Actions 隔离 read/write 权限并保护 bot branch 与 Draft PR",
       "actions/download-artifact@v4"
     ]
   );
+});
+
+test("release preparation freshly validates live sources, defaults to dry-run, and preserves first preparation date", async () => {
+  const rootDir = await temporaryRepository();
+  await runPrimeResurgenceSync({ rootDir, inputs: await prelaunchInputs(), now: "2026-08-21T18:00:00Z" });
+  const before = await dataSnapshot(rootDir);
+  const options = { rootDir, rotationId: "banshee-mirage-2026-09", inputs: await fixtureInputs(), now: FIXTURE_NOW };
+  const result = await preparePrimeResurgenceRelease(options);
+  assert.equal(result.dryRun, true);
+  assert.equal(result.reviewRequired, true);
+  assert.equal(result.preparedAt, "2026-08-21");
+  assert.equal(result.priceBasis, "observed-inventory");
+  assert.deepEqual(await dataSnapshot(rootDir), before);
+  await preparePrimeResurgenceRelease({ ...options, dryRun: false });
+  const [rotations, primes, relics] = (await dataSnapshot(rootDir)).map(JSON.parse);
+  const published = rotations.rotations.find(entry => entry.id === options.rotationId);
+  assert.equal(published.publicationStatus, "published");
+  assert.equal(published.source.publicationReview, "pending-draft-pr");
+  assert.equal(published.source.announcementPublishedAt, "2026-08-20T18:00:25.166Z");
+  assert.equal(resolveRotationState(publishedRotations(rotations.rotations), Date.parse(FIXTURE_NOW)).activeRotation.id, options.rotationId);
+  assert.equal(primes.provisionalSources[options.rotationId], undefined);
+  assert.equal(relics.provisionalSources[options.rotationId], undefined);
+  assert.deepEqual((await candidateSnapshot(rootDir)).candidates, []);
+});
+
+for (const variant of ["before-start", "stale-page", "recipe-conflict"]) {
+  test(`release preparation fails closed without writes: ${variant}`, async () => {
+    const rootDir = await temporaryRepository();
+    await runPrimeResurgenceSync({ rootDir, inputs: await prelaunchInputs(), now: "2026-08-21T18:00:00Z" });
+    const before = await dataSnapshot(rootDir);
+    const inputs = variant === "stale-page" ? await prelaunchInputs() : await fixtureInputs();
+    if (variant === "recipe-conflict") inputs.recipesText = inputs.recipesText.replace('"ItemCount": 2', '"ItemCount": 0');
+    await assert.rejects(preparePrimeResurgenceRelease({ rootDir, rotationId: "banshee-mirage-2026-09", dryRun: false, inputs,
+      now: variant === "before-start" ? "2026-08-22T18:00:00Z" : FIXTURE_NOW }));
+    assert.deepEqual(await dataSnapshot(rootDir), before);
+  });
+}
+
+test("ready Vault candidate is rechecked after launch and remains provisional in ordinary updater", async () => {
+  const rootDir = await temporaryRepository();
+  await runPrimeResurgenceSync({ rootDir, inputs: await prelaunchInputs(), now: "2026-08-21T18:00:00Z" });
+  const inputs = await fixtureInputs();
+  delete inputs.worldStateText;
+  inputs.worldStateWarning = "World State unavailable: HTTP 403";
+  const result = await runPrimeResurgenceSync({ rootDir, inputs, now: FIXTURE_NOW });
+  assert.equal(result.candidate.status, "ready-for-review");
+  const [rotations] = (await dataSnapshot(rootDir)).map(JSON.parse);
+  const candidate = rotations.rotations.find(entry => entry.id === result.candidate.id);
+  assert.equal(candidate.publicationStatus, "provisional");
+  assert.equal(candidate.source.currentPage.rawItems.length, 6);
+  assert.equal(candidate.source.preparedAt, "2026-08-21");
+});
+
+test("published rotation can be revalidated from current pages and exact Vault when Linux World State returns 403", async () => {
+  const rootDir = await temporaryRepository();
+  await runPrimeResurgenceSync({ rootDir, inputs: await prelaunchInputs(), now: "2026-08-21T18:00:00Z" });
+  await preparePrimeResurgenceRelease({ rootDir, rotationId: "banshee-mirage-2026-09", inputs: await fixtureInputs(), now: FIXTURE_NOW, dryRun: false });
+  const before = await dataSnapshot(rootDir);
+  const inputs = await fixtureInputs();
+  delete inputs.worldStateText;
+  inputs.worldStateWarning = "World State unavailable: HTTP 403";
+  const result = await runPrimeResurgenceSync({ rootDir, inputs, now: FIXTURE_NOW });
+  assert.equal(result.publicationStatus, "published");
+  assert.match(result.status, /current official page and exact Vault/);
+  assert.deepEqual(result.changedFiles, []);
+  assert.match(result.summary, /World State unavailable/);
+  assert.deepEqual(await dataSnapshot(rootDir), before);
+});
+
+test("published revalidation accepts repeated official reminders with identical pair and start time", async () => {
+  const rootDir = await temporaryRepository();
+  await runPrimeResurgenceSync({ rootDir, inputs: await prelaunchInputs(), now: "2026-08-21T18:00:00Z" });
+  const inputs = await fixtureInputs();
+  await preparePrimeResurgenceRelease({ rootDir, rotationId: "banshee-mirage-2026-09", inputs, now: FIXTURE_NOW, dryRun: false });
+  const feed = JSON.parse(inputs.announcementText);
+  const reminder = structuredClone(feed.feed[0]);
+  reminder.post.uri = reminder.post.uri.replace(/[^/]+$/, "3validreminder");
+  reminder.post.record.createdAt = "2026-08-27T18:00:00Z";
+  feed.feed.unshift(reminder);
+  inputs.announcementText = JSON.stringify(feed);
+  const before = await dataSnapshot(rootDir);
+  const result = await runPrimeResurgenceSync({ rootDir, inputs, now: FIXTURE_NOW });
+  assert.equal(result.publicationStatus, "published");
+  assert.equal(result.announcementUrl, "https://bsky.app/profile/warframe.com/post/3mtjt7pmvpr2o");
+  assert.deepEqual(await dataSnapshot(rootDir), before);
 });
