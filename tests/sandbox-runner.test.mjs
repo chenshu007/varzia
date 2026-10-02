@@ -57,6 +57,7 @@ test("successful check verifies locales and exports validated artifacts after st
   assert.equal(report.status, "passed"); assert.equal(report.stopped, true);
   assert.equal(f.options.persistent, false); assert.equal(f.options.timeout, 300_000);
   assert.equal(f.options.source.revision, revision); assert.deepEqual(f.options.env, { CI: "1" });
+  assert.deepEqual(f.calls.find(call => call.cmd === "dnf"), { cmd: "dnf", args: ["install", "-y", "xz"], cwd: "/vercel/sandbox", sudo: true });
   assert.deepEqual(f.calls.find(call => call.cmd === "npm" && call.args[1] === "check:locales").args, ["run", "check:locales"]);
   assert.ok(f.calls.find(call => call.args.includes("--dry-run")));
   for (const file of SYNC_MUTABLE_DATA_PATHS) assert.deepEqual(await readFile(path.join(outputDir, file)), fixtureFiles.get(file));

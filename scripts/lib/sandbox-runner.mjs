@@ -17,6 +17,7 @@ export function sandboxPlan({ revision, mode = "check", timeoutMs = 300_000 } = 
     commands: [
       { step: "checkout", cmd: "git", args: ["rev-parse", "HEAD"] },
       { step: "runtime", cmd: "node", args: ["--version"] },
+      { step: "bootstrap", cmd: "dnf", args: ["install", "-y", "xz"], sudo: true },
       { step: "decompressor", cmd: "xz", args: ["--version"] },
       { step: "sync", cmd: "node", args: ["scripts/prime-resurgence-sync.mjs", "--mode", "announcement", ...(mode === "check" ? ["--dry-run"] : []), "--summary-file", "/tmp/varzia-sync-summary.md"] },
       { step: "verify", cmd: "npm", args: ["run", "verify"] },
@@ -57,7 +58,7 @@ export async function runSandbox({ revision, mode = "check", timeoutMs, outputDi
     report.sandboxId = sandbox.sandboxId || sandbox.name;
     for (const command of plan.commands) {
       onStep(command.step);
-      const result = await sandbox.runCommand({ cmd: command.cmd, args: command.args, cwd: WORKSPACE });
+      const result = await sandbox.runCommand({ cmd: command.cmd, args: command.args, cwd: WORKSPACE, ...(command.sudo ? { sudo: true } : {}) });
       const [stdout, stderr] = await Promise.all([result.stdout(), result.stderr()]);
       if (stdout.length + stderr.length > MAX_LOG_CHARS) throw new Error(`Output limit exceeded in ${command.step}.`);
       logs.push(`## ${command.step}\n${redact(stdout, secrets)}${redact(stderr, secrets)}`);

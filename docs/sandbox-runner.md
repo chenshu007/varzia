@@ -1,6 +1,6 @@
 # On-demand Varzia updater and check runner (STA-7)
 
-The runner starts one ephemeral Vercel Sandbox, clones only `chenshu007/varzia` at a full commit SHA, runs the existing official-data updater and the complete repository checks, exports review artifacts, and stops the VM. It uses the SDK's Node 22 runtime to match CI. The static Cloudflare Pages application stays unchanged.
+The runner starts one ephemeral Vercel Sandbox, clones only `chenshu007/varzia` at a full commit SHA, runs the existing official-data updater and the complete repository checks, exports review artifacts, and stops the VM. It uses the SDK's Node 22 runtime to match CI and installs the updater's `xz` decompressor into that temporary VM with `dnf`. The static Cloudflare Pages application stays unchanged.
 
 Install the separate host tool dependency:
 
