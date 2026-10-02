@@ -62,7 +62,8 @@ for (const locale of ["en", "zh"]) {
     const result = await h.load(locale);
     assertUsableSnapshot(result, h.data, locale);
     assert.deepEqual(result.announcementCandidates, h.data[candidatePath].candidates);
-    assert.ok(result.announcementCandidates.length > 0);
+    // A reviewed rotation can consume the last pending announcement.
+    assert.ok(Array.isArray(result.announcementCandidates));
     assert.deepEqual(h.warnings, []);
     assert.deepEqual(h.calls, [...requiredPaths, candidatePath].map((path) => ({ path, options: { cache: "no-store" } })));
   });

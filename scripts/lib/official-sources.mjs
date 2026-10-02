@@ -30,7 +30,26 @@ export function parsePublicExportIndex(text) {
   return `https://content.warframe.com/PublicExport/Manifest/${matches[0]}`;
 }
 
-export async function decompressLzma(buffer, { timeoutMs = 10_000, maximumBytes = 2_000_000 } = {}) {
+export async function decompressLzma(buffer, options = {}) {
+  const input = Buffer.from(buffer);
+  try { return (await decodeLzma(input, options)).toString("utf8"); }
+  catch (error) {
+    // DE's index has a known length AND an end marker. Older liblzma rejects
+    // this valid combination. Retry with the standard unknown-size header,
+    // requiring the complete end marker and matching the original byte count.
+    // No bytes of the compressed payload or trailing input are discarded.
+    if (input.length < 13 || !error.message.includes("decompression failed")) throw error;
+    const expected = input.readBigUInt64LE(5);
+    if (expected === 0xffffffffffffffffn || expected > BigInt(options.maximumBytes ?? 2_000_000)) throw error;
+    const normalized = Buffer.from(input);
+    normalized.fill(0xff, 5, 13);
+    const decoded = await decodeLzma(normalized, options);
+    invariant(BigInt(decoded.length) === expected, "Public Export index decompressed length differs from its original header.");
+    return decoded.toString("utf8");
+  }
+}
+
+async function decodeLzma(buffer, { timeoutMs = 10_000, maximumBytes = 2_000_000 } = {}) {
   return await new Promise((resolve, reject) => {
     const child = spawn("xz", ["--format=lzma", "--decompress", "--stdout"], { stdio: ["pipe", "pipe", "pipe"] });
     const stdout = [];
@@ -61,7 +80,7 @@ export async function decompressLzma(buffer, { timeoutMs = 10_000, maximumBytes 
     child.on("close", (code) => {
       if (terminalError) finish(reject, terminalError);
       else if (code !== 0) finish(reject, new PrimeResurgenceSyncError(`Public Export index decompression failed: ${Buffer.concat(stderr).toString("utf8").trim() || `xz exit ${code}`}`));
-      else finish(resolve, Buffer.concat(stdout).toString("utf8"));
+      else finish(resolve, Buffer.concat(stdout));
     });
     child.stdin.on("error", (error) => {
       if (!terminalError) terminalError = new PrimeResurgenceSyncError(`Unable to stream Public Export index to xz: ${error.message}`);

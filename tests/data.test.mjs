@@ -178,9 +178,9 @@ test("每一期都引用非空、存在且相互一致的装备与遗物", () =>
 });
 
 test("最新轮换已经发布并记录官方来源", () => {
-  assert.equal(rotation.lastVerified, "2026-09-04");
-  assert.equal(primes.updatedAt, "2026-09-04");
-  assert.equal(relicData.updatedAt, "2026-09-04");
+  assert.match(rotation.lastVerified, /^\d{4}-\d{2}-\d{2}$/);
+  assert.equal(primes.updatedAt, rotation.lastVerified);
+  assert.equal(relicData.updatedAt, rotation.lastVerified);
   assert.equal(latestRotation.publicationStatus, "published");
   assert.equal(latestRotation.source.status, "official");
   assert.deepEqual(
@@ -345,4 +345,20 @@ test("盗贼双枪 Prime 的重复制造需求计入整期部件总量", () => {
   const currentItems = currentRotation.items.map((itemId) => itemMap.get(itemId));
   const totalRequired = currentItems.flatMap((item) => item.parts).reduce((sum, part) => sum + part.required, 0);
   assert.equal(totalRequired, 25);
+});
+
+test("October release proposal activates the live Ivara/Protea lineup with observed inventory", () => {
+  const current = rotation.rotations.find(entry => entry.id === "ivara-protea-2026-10");
+  assert.equal(current.publicationStatus, "published");
+  assert.equal(current.source.status, "official");
+  assert.equal(current.source.preparedAt, "2026-09-29");
+  assert.equal(current.source.verifiedAt, "2026-10-02");
+  assert.equal(current.source.inventory.startsAt, "2026-10-01T18:00:00Z");
+  assert.equal(current.source.inventory.endsAt, "2026-10-29T18:00:00Z");
+  assert.equal(current.source.inventory.relics.length, 6);
+  assert.ok(current.source.inventory.relics.every(entry => entry.costAya === 1));
+  assert.deepEqual([...current.relics].sort(), ["axi-a23", "lith-b12", "meso-i3", "meso-v16", "neo-o4", "neo-p11"]);
+  assert.equal(current.items.flatMap(id => primes.primeItems.find(item => item.id === id).parts).reduce((total, part) => total + part.required, 0), 26);
+  assert.equal(resolveRotationState(publishedRotations(rotation.rotations), Date.parse("2026-10-02T00:00:00Z")).activeRotation.id, current.id);
+  assert.equal(resolveRotationState(publishedRotations(rotation.rotations), Date.parse("2026-10-01T17:59:59Z")).activeRotation.id, "banshee-mirage-2026-09");
 });

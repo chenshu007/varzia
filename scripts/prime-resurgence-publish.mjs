@@ -13,7 +13,7 @@ function candidateContent(value, historyEntry = false) {
   if (Array.isArray(value)) return value.map(entry => candidateContent(entry, historyEntry));
   if (value && typeof value === "object") {
     return Object.fromEntries(Object.keys(value).sort()
-      .filter(key => key !== "discoveredAt" && !(historyEntry && key === "at"))
+      .filter(key => key !== "discoveredAt" && key !== "checkedAt" && !(historyEntry && key === "at"))
       .map(key => [key, candidateContent(value[key], key === "statusHistory")]));
   }
   return value;
