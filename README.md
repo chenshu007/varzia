@@ -195,6 +195,8 @@ PR 发布由 `scripts/prime-resurgence-publish.mjs` 处理。保留全 workflow 
 
 自动生成的 rotation 永远是 `publicationStatus: "provisional"`。流水线不推进正式数据的 `lastVerified` 或目录级 `updatedAt`，不从官方来源推导 `ayaBudget`，也不会把候选加入 `publishedRotations()`。人工 Review 合格后把 rotation 的状态改为 `published`，同时移除已完成的 announcement candidate。允许在未来生效时间之前发布；正常排期仅在 `startsAt` 到达后启用该轮换。后续 daily sync 用实际商店、掉落表和配方复核提前发布的数据，发现遗物集合、价格、奖励或配方差异会报错，绝不覆盖已发布内容。
 
+按需的 Codex + skill 路径使用 `npm run sandbox:agent`：由 Vercel Sandbox 自带 Codex 读取仓库 skill、执行官方核验与测试，再由 host 在独立副本重算并导出审查用 patch。用户本人通过 device code 登录订阅账号；登录只在单次临时 VM 内有效，未配置无人值守持久授权。配置、边界、预算和运行前提见 [Codex + skill review runner](docs/codex-sandbox-agent.md)。
+
 ## 贡献
 
 欢迎提交数据修正、概率或界面 Bug，以及有测试支持的模拟改进。请先阅读 [CONTRIBUTING.md](CONTRIBUTING.md)。
