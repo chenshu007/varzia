@@ -273,3 +273,21 @@ test("cleanup cannot hide a terminal size/host validation error or start a retry
     if (kind === "size") assert.ok(released);
   }
 });
+
+// Captured official index, 2026-10-02. SHA-256:
+// 7b409ba3d4ee1cb88c119b6fde5dc29ce49b9bf9510749ccad0d1f781362b37a
+// Known size (798 bytes) plus EOS was reproduced failing on Sandbox xz 5.2.5.
+test("official LZMA index accepts known-size/EOS format without relaxing corruption checks", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const { decompressLzma, parsePublicExportIndex } = await import("../scripts/lib/official-sources.mjs");
+  const compressed = await readFile(new URL("./fixtures/prime-resurgence-index.lzma", import.meta.url));
+  const decoded = await decompressLzma(compressed);
+  assert.equal(Buffer.byteLength(decoded), 798);
+  assert.match(parsePublicExportIndex(decoded), /ExportRecipes_en\.json!00_oac\+LCAtIyqDxZF8Qe1ZZA$/);
+  await assert.rejects(decompressLzma(compressed.subarray(0, -8)), /decompression failed/);
+  await assert.rejects(decompressLzma(Buffer.concat([compressed, Buffer.from("garbage")])), /decompression failed/);
+  const wrongLength = Buffer.from(compressed);
+  wrongLength.writeBigUInt64LE(799n, 5);
+  await assert.rejects(decompressLzma(wrongLength), /length differs|decompression failed/);
+  await assert.rejects(decompressLzma(compressed, { maximumBytes: 100 }), /size exceeds|decompression failed/);
+});
