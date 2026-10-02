@@ -1,5 +1,7 @@
 # Codex + skill review runner
 
+> Status: this describes the earlier Codex implementation proposal in draft PR6. The current requested deliverable is the Chinese [Sandbox agent architecture design](sandbox-agent-architecture.md), covering Claude Code, Codex, and OpenCode with native named persistence. Per-run login below is an implementation choice, not a Vercel limitation; this document does not establish that account-auth automation is approved or applicable to this public repository.
+
 `npm run sandbox:agent` launches the Codex bundled in Vercel's universal image and explicitly invokes `$varzia-official-update`. Codex reads the repository skill, runs the deterministic official updater, examines the evidence, runs repository and locale checks, and returns a structured review report. The host independently rebuilds the result from the pinned original commit before approving any export. This path uses the user's ChatGPT subscription through device-code login; it has no API-key or AI Gateway billing fallback.
 
 ## Inspect and run
