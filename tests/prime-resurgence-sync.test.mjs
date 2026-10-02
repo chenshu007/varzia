@@ -1473,3 +1473,83 @@ test("published revalidation accepts repeated official reminders with identical 
   assert.equal(result.announcementUrl, "https://bsky.app/profile/warframe.com/post/3mtjt7pmvpr2o");
   assert.deepEqual(await dataSnapshot(rootDir), before);
 });
+
+async function publishedPageVaultFixture() {
+  const rootDir = await temporaryRepository();
+  await runPrimeResurgenceSync({ rootDir, inputs: await prelaunchInputs(), now: "2026-08-21T18:00:00Z" });
+  const inputs = await fixtureInputs();
+  delete inputs.worldStateText;
+  inputs.worldStateWarning = "World State unavailable: HTTP 403";
+  const release = await preparePrimeResurgenceRelease({ rootDir, rotationId: "banshee-mirage-2026-09", inputs, now: FIXTURE_NOW, dryRun: false });
+  const before = await dataSnapshot(rootDir);
+  return { rootDir, inputs, release, before };
+}
+
+test("page/Vault release remains revalidatable without World State in dry-run and write modes", async () => {
+  const { rootDir, inputs, release, before } = await publishedPageVaultFixture();
+  assert.equal(release.priceBasis, "planner-preset");
+  const published = JSON.parse(before[0]).rotations.find(rotation => rotation.id === release.rotationId);
+  assert.ok(published.source.vaultExport);
+  assert.equal(published.source.inventory, undefined);
+  for (const dryRun of [true, false]) {
+    const result = await runPrimeResurgenceSync({ rootDir, inputs, now: FIXTURE_NOW, dryRun });
+    assert.equal(result.publicationStatus, "published");
+    assert.equal(result.publishedVerification, release.rotationId);
+    assert.match(result.status, /current official page and exact Vault/);
+    assert.deepEqual(result.changedFiles, []);
+    assert.match(result.summary, /Published preview verified against current official pages and exact Vault export/);
+    assert.match(result.summary, /actual sale price has not been observed/);
+    assert.deepEqual(await dataSnapshot(rootDir), before);
+  }
+});
+
+for (const [variant, expectedError] of [
+  ["missing-current-page", /HTML is unexpectedly small/],
+  ["stale-current-page", /no unique known rotation/],
+  ["missing-exact-vault", /Exact pair-specific Vault export is missing/],
+  ["recipe-drift", /Published recipe quantity differs/],
+  ["reward-conflict", /disagree|differs/i],
+  ["malformed-present-inventory", /JSON/],
+  ["expired-present-inventory", /expired or not active/]
+]) {
+  test(`page/Vault published revalidation rejects evidence changes without writes: ${variant}`, async () => {
+    const { rootDir, inputs, before } = await publishedPageVaultFixture();
+    if (variant === "missing-current-page") inputs.englishHtml = "";
+    if (variant === "stale-current-page") {
+      const previous = await prelaunchInputs();
+      inputs.englishHtml = previous.englishHtml;
+      inputs.chineseHtml = previous.chineseHtml;
+    }
+    if (variant === "missing-exact-vault") inputs.relicExport = [];
+    if (variant === "recipe-drift") inputs.recipesText = inputs.recipesText.replace('"ItemCount": 2', '"ItemCount": 3');
+    if (variant === "reward-conflict") inputs.relicExport[0].relicRewards[0].rewardName = "/Lotus/StoreItems/Types/Recipes/Weapons/WeaponParts/AkboltoPrimeBarrel";
+    if (variant === "malformed-present-inventory") inputs.worldStateText = "{broken";
+    if (variant === "expired-present-inventory") {
+      const world = JSON.parse((await fixtureInputs()).worldStateText);
+      world.PrimeVaultTraders[0].Expiry = { $date: { $numberLong: String(Date.parse(FIXTURE_NOW) - 1_000) } };
+      inputs.worldStateText = JSON.stringify(world);
+    }
+    await assert.rejects(runPrimeResurgenceSync({ rootDir, inputs, now: FIXTURE_NOW }), expectedError);
+    assert.deepEqual(await dataSnapshot(rootDir), before);
+  });
+}
+
+test("page/Vault published facts are revalidated while a following announcement is pending", async () => {
+  const { rootDir, inputs, release, before } = await publishedPageVaultFixture();
+  const feed = JSON.parse(inputs.announcementText);
+  const next = structuredClone(feed.feed[0]);
+  next.post.uri = next.post.uri.replace("3mtjt7pmvpr2o", "3mvqabe4v5m2w");
+  next.post.record.createdAt = "2026-09-17T18:00:20.412Z";
+  next.post.record.text = "Ivara Prime and Protea Prime enter Prime Resurgence on October 1 at 2 p.m. ET.";
+  feed.feed.unshift(next);
+  inputs.announcementText = JSON.stringify(feed);
+  const now = "2026-09-21T18:00:00Z";
+  const result = await runPrimeResurgenceSync({ rootDir, inputs, now, dryRun: true });
+  assert.equal(result.candidateStage, "announced");
+  assert.equal(result.publishedVerification, release.rotationId);
+  assert.match(result.summary, /Published preview verified against current official pages and exact Vault export/);
+  assert.deepEqual(await dataSnapshot(rootDir), before);
+  inputs.recipesText = inputs.recipesText.replace('"ItemCount": 2', '"ItemCount": 3');
+  await assert.rejects(runPrimeResurgenceSync({ rootDir, inputs, now }), /Published recipe quantity differs/);
+  assert.deepEqual(await dataSnapshot(rootDir), before);
+});

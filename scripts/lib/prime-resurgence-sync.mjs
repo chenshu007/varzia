@@ -1420,6 +1420,24 @@ function confirmedLiveLineup(candidate, official, now) {
   return lineup;
 }
 
+function currentOfficialLineup(official, candidates, activePublished, primeData, now) {
+  // Present inventory remains authoritative: malformed or expired data must
+  // fail rather than silently switch to page/Vault evidence.
+  if (official.worldStateText) return inventoryLineup(official, now);
+  // Linux networks can return 403. Require fresh bilingual current pages and
+  // one already-known effective identity before checking its exact Vault.
+  const page = parsePrimeResurgencePages(official.englishHtml, official.chineseHtml);
+  const pagePair = page.warframes.map(item => item.name);
+  const known = candidates.filter(candidate => candidate.effectiveAt
+    && Date.parse(candidate.effectiveAt) <= Date.parse(now)
+    && candidate.status !== "conflict" && sameSet(candidate.primeWarframes, pagePair));
+  if (activePublished && pageMatchesPublishedLineup(page, { rotations: [activePublished] }, primeData)) {
+    known.push({ effectiveAt: activePublished.startsAt, primeWarframes: pagePair });
+  }
+  invariant(known.length === 1, "World State unavailable and current page has no unique known rotation; refusing to infer inventory.");
+  return confirmedLiveLineup(known[0], official, now);
+}
+
 function prepareAnnouncementCatalog(candidate, official) {
   const items = candidate.primeWarframes.map(name => {
     const matches = official.equipmentEn.filter(item => item.name === name && item.productCategory === "Suits");
@@ -1462,7 +1480,7 @@ export function escapeMarkdownInline(value) {
 function markdownSummary(result) {
   const inline = escapeMarkdownInline;
   const lines = ["## Prime Resurgence sync", ""];
-  if (result.publishedVerification) lines.push(`- Published preview verified against live inventory: ${inline(result.publishedVerification)}`);
+  if (result.publishedVerification) lines.push(`- Published preview verified against ${result.publishedVerificationBasis === "page-and-vault" ? "current official pages and exact Vault export" : "live inventory"}: ${inline(result.publishedVerification)}`);
   if (result.watcher) {
     const watcher = result.watcher;
     lines.push("### Prime Resurgence near-rotation watcher", "");
@@ -1670,6 +1688,7 @@ async function completeOfficialCandidate({
     vaultExport: lineup.previewEvidence,
     worldStateWarning: official.worldStateWarning || null,
     publishedVerification: official.publishedVerification || null,
+    publishedVerificationBasis: official.publishedVerificationBasis || null,
     pageWarning: official.pageWarning || null,
     changedFiles: []
   };
@@ -1898,6 +1917,7 @@ export async function runPrimeResurgenceSync({
     if (!dryRun && changed.length) await writeAtomically(changed);
     result.changedFiles = changed.map((file) => file.label);
     result.publishedVerification = official?.publishedVerification || null;
+    result.publishedVerificationBasis = official?.publishedVerificationBasis || null;
     result.summary = markdownSummary(result);
     return result;
   };
@@ -1934,7 +1954,7 @@ export async function runPrimeResurgenceSync({
     });
   }
   if (verifyPublishedPreview) {
-    const actual = inventoryLineup(official, discoveredAt);
+    const actual = currentOfficialLineup(official, announcedCandidates.candidates, activePublished, primeData, discoveredAt);
     // Once a later, unreviewed rotation is live, continue normal discovery.
     // Until then, compare every published fact even if another preview is pending.
     if (Date.parse(actual.startsAt) <= Date.parse(activePublished.startsAt)) {
@@ -1947,6 +1967,7 @@ export async function runPrimeResurgenceSync({
         minimumRelics: inputs ? 1 : 100, minimumRecipes: inputs ? 1 : 1_000
       });
       official.publishedVerification = activePublished.id;
+      official.publishedVerificationBasis = actual.previewEvidence ? "page-and-vault" : "live-inventory";
     }
   }
   if (terminal) return await writeCandidateFiles(announcedCandidates, {
@@ -1972,23 +1993,7 @@ export async function runPrimeResurgenceSync({
       });
     }
   }
-  let lineup;
-  if (official.worldStateText) lineup = inventoryLineup(official, discoveredAt);
-  else {
-    // Some Linux networks receive 403 from World State. A fresh current page
-    // plus its exact announced Vault group can verify facts, without claiming
-    // to have observed a shop price on this run.
-    const page = parsePrimeResurgencePages(official.englishHtml, official.chineseHtml);
-    const pagePair = page.warframes.map(item => item.name);
-    const known = announcedCandidates.candidates.filter(candidate => candidate.effectiveAt
-      && Date.parse(candidate.effectiveAt) <= Date.parse(discoveredAt)
-      && candidate.status !== "conflict" && sameSet(candidate.primeWarframes, pagePair));
-    if (activePublished && pageMatchesPublishedLineup(page, { rotations: [activePublished] }, primeData)) {
-      known.push({ effectiveAt: activePublished.startsAt, primeWarframes: pagePair });
-    }
-    invariant(known.length === 1, "World State unavailable and current page has no unique known rotation; refusing to infer inventory.");
-    lineup = confirmedLiveLineup(known[0], official, discoveredAt);
-  }
+  const lineup = currentOfficialLineup(official, announcedCandidates.candidates, activePublished, primeData, discoveredAt);
   const pageWarning = checkAuxiliaryPage(official, lineup, rotationData, primeData);
   const officialPageMatchesPublished = pageMatchesPublishedLineup(lineup, rotationData, primeData);
   const matchedCandidate = candidateForLineup(announcedCandidates, lineup);
