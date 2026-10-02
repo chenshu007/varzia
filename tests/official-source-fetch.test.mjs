@@ -290,4 +290,11 @@ test("official LZMA index accepts known-size/EOS format without relaxing corrupt
   wrongLength.writeBigUInt64LE(799n, 5);
   await assert.rejects(decompressLzma(wrongLength), /length differs|decompression failed/);
   await assert.rejects(decompressLzma(compressed, { maximumBytes: 100 }), /size exceeds|decompression failed/);
+  // Invalid UTF-8 expands to a three-byte replacement character. Compare the
+  // one raw output byte before conversion so a corrupt size header cannot pass.
+  const { spawnSync } = await import("node:child_process");
+  const encodedByte = spawnSync("xz", ["--format=lzma", "--compress", "--stdout"], { input: Buffer.from([0xff]) });
+  assert.equal(encodedByte.status, 0);
+  encodedByte.stdout.writeBigUInt64LE(3n, 5);
+  await assert.rejects(decompressLzma(encodedByte.stdout), /length differs|decompression failed/);
 });
