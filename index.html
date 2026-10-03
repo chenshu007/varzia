@@ -49,7 +49,7 @@
         <div class="hero-main">
           <div class="hero-kicker"><span class="eyebrow-dot"></span> <span data-i18n="hero.kicker">MONTE CARLO · CURRENT PRIME RESURGENCE</span></div>
           <h1 id="page-title"><span data-i18n="hero.titleLead">This Prime Resurgence.</span><br /><em data-i18n="hero.titleAccent">Enough Aya to finish?</em></h1>
-          <p class="hero-copy" data-i18n="hero.copy">Choose the Primes you want, mark the parts you own, and see how much Aya to prepare for your squad.</p>
+          <p class="hero-copy" data-i18n="hero.copy">Choose the Primes and parts you still need, and see how much Aya to prepare for your squad.</p>
           <div class="hero-actions">
             <a class="button button-primary" id="heroPrimaryAction" href="#planner"><span data-i18n="hero.start">Choose my Prime targets</span> <span aria-hidden="true">↘</span></a>
             <button class="button button-secondary" id="budgetJump" type="button" data-i18n="hero.budgetJump">Check whether my Aya is enough</button>
@@ -120,10 +120,10 @@
             </div>
             <span class="panel-count" id="targetCount">—</span>
           </div>
-          <p class="panel-intro" data-i18n="target.intro">All Prime targets start selected. Remove anything you do not need, then mark parts already owned.</p>
+          <p class="panel-intro" data-i18n="target.intro">Keep the Primes you want checked. Below, keep only the parts you still need checked.</p>
 
           <div class="target-toolbar">
-            <span class="field-label" data-i18n="target.label">Current targets</span>
+            <span class="field-label" data-i18n="target.label">Primes to farm</span>
             <span class="field-hint target-lock-hint" id="targetLockHint" hidden data-i18n="session.targetsLocked">Targets are locked while a live session is active.</span>
             <div class="toolbar-actions">
               <button type="button" class="text-button" id="selectAllTargets" data-i18n="target.selectAll">Select all</button>
@@ -135,9 +135,10 @@
           <div class="target-options" id="targetOptions" aria-live="polite"></div>
 
           <div class="parts-heading">
-            <span data-i18n="target.parts">My Prime collection</span>
-            <span class="parts-legend"><span class="legend-check">✓</span> <span data-i18n="target.owned">Owned</span></span>
+            <span data-i18n="target.parts">Parts to farm</span>
+            <span class="parts-legend"><span class="legend-check">✓</span> <span data-i18n="target.needsFarm">Still needed</span></span>
           </div>
+          <p class="field-hint" data-i18n="target.partsHint">Checked = still needed. Uncheck a part once you have enough; use − / + to adjust the remaining quantity.</p>
           <div class="collection-list" id="collectionList" aria-live="polite"></div>
         </div>
 
@@ -325,7 +326,7 @@
             <div class="probability-track" aria-hidden="true"><span id="probabilityBar"></span></div>
           </article>
           <div class="result-aside">
-            <div class="result-sentence" id="resultSentence" data-i18n="result.waitingSentence">Select targets, mark the parts you own, and run the simulation.</div>
+            <div class="result-sentence" id="resultSentence" data-i18n="result.waitingSentence">Check the parts you still need, then run the simulation.</div>
             <article class="metric-card">
               <span class="metric-label" data-i18n="result.metricMean">Average spend</span>
               <strong id="meanAya">—</strong>
@@ -425,7 +426,7 @@
 
         <div class="verdict" id="verdict">
           <span class="verdict-mark" aria-hidden="true">✦</span>
-          <span data-i18n="verdict.default">Select targets, mark the parts you own, and run the simulation.</span>
+          <span data-i18n="verdict.default">Check the parts you still need, then run the simulation.</span>
         </div>
 
         <div class="timeline-panel" id="timelinePanel">
@@ -491,7 +492,7 @@
         <h2 id="planningGuideTitle" data-i18n="guide.title">Plan your next Prime Resurgence farm</h2>
         <p data-i18n="guide.intro">Varzia is a free, unofficial Warframe Aya calculator. Estimate the budget to finish your selected Prime equipment together, with one shared Aya wallet.</p>
         <ol>
-          <li data-i18n="guide.step1">Choose your targets and mark the parts you already own.</li>
+          <li data-i18n="guide.step1">Check the Primes and parts you still need. Uncheck parts you already have.</li>
           <li data-i18n="guide.step2">Enter your Aya budget, squad size, and refinement strategy.</li>
           <li data-i18n="guide.step3">Read your completion chance and the budget needed for 90% or 95% of simulated runs to finish.</li>
         </ol>

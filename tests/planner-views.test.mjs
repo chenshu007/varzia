@@ -133,10 +133,10 @@ test("collection views preserve grouped targets, selected items, partial quantit
   assert.deepEqual(ui.$("targetOptions").meters.map(({ style }) => style.width), ["0%", "67%"]);
   assert.doesNotMatch(choices, /\sstyle=/);
   const owned = ui.$("collectionList").innerHTML;
-  assert.match(owned, /data-part-id="blueprint" checked/);
-  assert.doesNotMatch(tags(owned, "input").find((tag) => tag.includes('data-part-id="barrel"')), /checked/);
+  assert.doesNotMatch(tags(owned, "input").find((tag) => tag.includes('data-part-id="blueprint"')), /checked/);
+  assert.match(owned, /data-part-id="barrel" checked/);
   assert.match(owned, />Barrel ×2<\/label>/);
-  assert.match(owned, /<span>1 \/ 2<\/span>/);
+  assert.match(owned, /<span>1 \/ 2 needed<\/span>/);
   assert.equal(tags(owned, "button").filter((tag) => tag.includes("data-part-delta=")).length, 2);
   assert.ok(owned.indexOf("rarity-uncommon") < owned.indexOf("rarity-rare"));
   assert.match(owned, /Void Relic options: 2/);
@@ -158,7 +158,8 @@ test("collection views cap surplus ownership and lock every editing control duri
   assert.match(ui.$("targetOptions").innerHTML, /<strong>Complete<\/strong>/);
   assert.match(ui.$("collectionList").innerHTML, /collection-card is-complete/);
   assert.doesNotMatch(ui.$("collectionList").innerHTML, /data-complete-item=/);
-  assert.match(ui.$("collectionList").innerHTML, /<span>2 \/ 2<\/span>/);
+  assert.match(ui.$("collectionList").innerHTML, /<span>0 \/ 2 needed<\/span>/);
+  assert.ok(tags(ui.$("collectionList").innerHTML, "input").every(tag => !tag.includes("checked")));
   assert.equal(ui.$("targetCount").textContent, "1 targets · 3 / 3 owned");
 });
 
@@ -201,7 +202,7 @@ test("collection catalog names and identifiers are escaped in text, data attribu
   const html = ui.$("collectionList").innerHTML;
   for (const attribute of [`data-item-id="item-${escaped}"`, `data-part-id="part-${escaped}"`,
     `data-complete-item="item-${escaped}"`, `id="owned-item-${escaped}-part-${escaped}"`,
-    `for="owned-item-${escaped}-part-${escaped}"`, `aria-label="Decrease ${escaped} by one"`]) {
+    `for="owned-item-${escaped}-part-${escaped}"`, `aria-label="Decrease remaining ${escaped} by one"`]) {
     assert.ok(html.includes(attribute), attribute);
   }
 });

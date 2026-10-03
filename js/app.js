@@ -468,7 +468,8 @@ function bindEvents() {
     const item = itemById(itemId);
     const part = item?.parts.find((candidate) => candidate.id === partId);
     if (!part) return;
-    ownedMap(itemId).set(partId, event.target.checked ? requiredCount(part) : 0);
+    // The checklist marks parts still needed; persistence keeps owned counts.
+    ownedMap(itemId).set(partId, event.target.checked ? 0 : requiredCount(part));
     persistCollection();
     renderItemOptions();
     renderCollections();
@@ -491,7 +492,8 @@ function bindEvents() {
       const partId = event.target.dataset.partId;
       const part = item.parts.find((candidate) => candidate.id === partId);
       if (!part) return;
-      const next = Math.max(0, Math.min(requiredCount(part), ownedCount(itemId, partId) + delta));
+      // Quantity buttons increase/decrease the number still needed.
+      const next = Math.max(0, Math.min(requiredCount(part), ownedCount(itemId, partId) - delta));
       ownedMap(itemId).set(partId, next);
     } else {
       return;

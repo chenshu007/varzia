@@ -479,6 +479,7 @@ td:not(:first-child):last-child { color: var(--champagne-bright); }
 .session-suspended-title { margin: 0; color: var(--ivory); font-size: 12px; }
 .session-suspended-title span { margin-left: 8px; color: var(--subtle); font-size: 11px; }
 .target-lock-hint { flex-basis: 100%; color: var(--champagne); }
+.target-lock-hint[hidden] { display: none; }
 
 @media (max-width: 900px) {
   .hero { grid-template-columns: 1fr; gap: 36px; min-height: auto; padding-top: 62px; }

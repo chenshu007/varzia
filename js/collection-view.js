@@ -94,7 +94,7 @@ export function createCollectionView({ $, message, format, localizedTypeLabel, l
           <div class="collection-card-heading">
             <div>
               <span class="collection-card-title">${escapeHtml(item.name)}</span>
-              <span class="collection-card-subtitle">${escapeHtml(message("collection.subtitle", { type: localizedTypeLabel(item.type), owned: totalOwned, total: totalRequired }))}</span>
+              <span class="collection-card-subtitle">${escapeHtml(message("collection.subtitle", { type: localizedTypeLabel(item.type), owned: totalOwned, total: totalRequired, remaining: totalRequired - totalOwned }))}</span>
             </div>
             ${complete
               ? `<span class="complete-button">${escapeHtml(message("collection.complete"))}</span>`
@@ -103,6 +103,7 @@ export function createCollectionView({ $, message, format, localizedTypeLabel, l
           ${item.parts.map((part) => {
             const required = requiredCount(part);
             const count = Math.min(required, ownedCountIn(model.owned, item.id, part.id));
+            const remaining = required - count;
             const isOwned = count >= required;
             const relicCount = relicsForPart(model.relics, item.id, part.id).length;
             const rarityBadges = raritiesForPart(model.relics, item.id, part.id, part.rarity)
@@ -111,11 +112,11 @@ export function createCollectionView({ $, message, format, localizedTypeLabel, l
             const checkboxId = `owned-${item.id}-${part.id}`;
             const quantityControl = required > 1 ? `<span class="part-quantity" aria-label="${escapeHtml(message("collection.partQuantity", { name: part.name }))}">
               <button type="button" data-item-id="${escapeHtml(item.id)}" data-part-id="${escapeHtml(part.id)}" data-part-delta="-1" aria-label="${escapeHtml(message("collection.decrease", { name: part.name }))}" ${model.activeSession ? "disabled" : ""}>−</button>
-              <span>${count} / ${required}</span>
+              <span>${escapeHtml(message("collection.remainingQuantity", { count: remaining, total: required }))}</span>
               <button type="button" data-item-id="${escapeHtml(item.id)}" data-part-id="${escapeHtml(part.id)}" data-part-delta="1" aria-label="${escapeHtml(message("collection.increase", { name: part.name }))}" ${model.activeSession ? "disabled" : ""}>+</button>
             </span>` : "";
             return `<div class="part-row${isOwned ? " is-owned" : ""}">
-              <input id="${escapeHtml(checkboxId)}" type="checkbox" data-item-id="${escapeHtml(item.id)}" data-part-id="${escapeHtml(part.id)}" ${isOwned ? "checked" : ""} ${model.activeSession ? "disabled" : ""} />
+              <input id="${escapeHtml(checkboxId)}" type="checkbox" data-item-id="${escapeHtml(item.id)}" data-part-id="${escapeHtml(part.id)}" ${remaining > 0 ? "checked" : ""} ${model.activeSession ? "disabled" : ""} />
               <label class="part-name" for="${escapeHtml(checkboxId)}">${escapeHtml(part.name)}${required > 1 ? ` ×${required}` : ""}</label>
               ${quantityControl}
               <span class="part-rarities">${rarityBadges}</span>
