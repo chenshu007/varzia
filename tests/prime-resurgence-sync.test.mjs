@@ -6,6 +6,7 @@ import path from "node:path";
 import {
   OFFICIAL_SOURCES,
   candidateIdFor,
+  dropTablePartId,
   escapeMarkdownInline,
   fetchOfficialInputs,
   fetchResource,
@@ -630,6 +631,29 @@ test("官方 arrive 句式保留两名 Prime、轮换语境和精确日期", () 
   assert.deepEqual(parsed?.warframes, ["Protea Prime", "Ivara Prime"]);
   assert.equal(parsed?.startsAt, "2026-10-01T18:00:00Z");
   assert.equal(parseAnnouncementText("Protea Prime and Ivara Prime arrive on October 1 at 2 p.m. ET.", "2026-09-24T18:00:19Z"), null);
+});
+
+test("Nidus/Saryn 公告：前句点名 Prime Resurgence 时接受 return on 句式", () => {
+  const createdAt = "2026-10-15T19:00:25.409013072Z";
+  const text = "Infest the battlefield or leave your foes in toxic ruin with Prime Resurgence!\n\nNidus Prime and Saryn Prime return on October 29 at 2 p.m. ET.";
+  const parsed = parseAnnouncementText(text, createdAt);
+  assert.deepEqual(parsed?.warframes, ["Nidus Prime", "Saryn Prime"]);
+  assert.equal(parsed?.startsAt, "2026-10-29T18:00:00Z");
+  assert.equal(parsed?.rawEffectiveText, "October 29 at 2 p.m. ET");
+  assert.equal(parseAnnouncementText(text.replace("Prime Resurgence!", "Prime Access!"), createdAt), null);
+  assert.equal(parseAnnouncementText(text.replace("with Prime Resurgence!", "with Prime Resurgence and Regal Aya. Trading is open."), createdAt), null);
+  assert.equal(parseAnnouncementText(text.replace("Nidus Prime and Saryn Prime return", "Nidus Prime returns"), createdAt), null);
+  assert.throws(() => parseAnnouncementText(`${text} ${text}`, createdAt), /Expected one Prime Resurgence announcement/);
+  assert.throws(() => parseAnnouncementText(text.replace("Saryn Prime", "Nidus Prime"), createdAt), /repeats the same Prime Warframe/);
+});
+
+test("Public Export 部件内部名映射到 Drop Tables 部件 slug", () => {
+  assert.equal(dropTablePartId("lowerlimb", new Map([["lower-limb", 1], ["upper-limb", 1]])), "lower-limb");
+  assert.equal(dropTablePartId("holster", ["blade", "pouch"]), "pouch");
+  assert.equal(dropTablePartId("handle", new Set(["blade", "hilt"])), "hilt");
+  assert.equal(dropTablePartId("handle", ["blade", "handle", "hilt"]), "handle");
+  assert.equal(dropTablePartId("barrel", ["barrel"]), "barrel");
+  assert.equal(dropTablePartId("holster", ["blade"]), "holster");
 });
 
 test("公告 grammar 拒绝 Prime Access、缺日期、单个 Prime 和无轮换语境", () => {
