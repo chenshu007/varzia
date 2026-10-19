@@ -52,11 +52,23 @@ const PART_ZH = Object.freeze({
   boot: "靴子",
   gauntlet: "拳套",
   cerebrum: "头部",
-  carapace: "外壳"
+  carapace: "外壳",
+  // From the official ExportResources_zh names of Spira Prime and Paris Prime parts.
+  pouch: "镖袋",
+  "upper-limb": "上弓臂",
+  "lower-limb": "下弓臂",
+  string: "弓弦"
+});
+// Part names whose Chinese wording depends on the weapon (a bow grip is 弓身).
+const PART_ZH_BY_ITEM = Object.freeze({
+  "paris-prime": Object.freeze({ grip: "弓身" })
 });
 const INTERNAL_ITEM_ALIASES = Object.freeze({
   "euphona-prime": ["prime1hshotgun"],
-  "helios-prime": ["primeheliossentinel", "primehelios"]
+  "helios-prime": ["primeheliossentinel", "primehelios"],
+  "nikana-prime": ["primenikana"],
+  "paris-prime": ["primebow", "bowprime"],
+  "spira-prime": ["primelidagger"]
 });
 const MAX_REQUIRED_QUANTITY = 65_535;
 const RECIPE_EXCEPTION_SCHEMA = 1;
@@ -346,8 +358,14 @@ export function parseAnnouncementText(text, createdAt) {
   const rotationPredicate = "(?:return|arrive) with the next Prime Resurgence rotation";
   const directPredicate = "enter Prime Resurgence";
   const predicate = `(?:${rotationPredicate}|${directPredicate})`;
-  const pattern = new RegExp(`(${primeName})\\s+(?:and|&)\\s+(${primeName}) ${predicate} on (January|February|March|April|May|June|July|August|September|October|November|December) (\\d{1,2})(?: at (\\d{1,2})(?::(\\d{2}))? ([ap])\\.m\\. ET)?\\.`, "g");
-  const matches = [...normalizedText(text).matchAll(pattern)];
+  const schedule = "on (January|February|March|April|May|June|July|August|September|October|November|December) (\\d{1,2})(?: at (\\d{1,2})(?::(\\d{2}))? ([ap])\\.m\\. ET)?\\.";
+  const pattern = new RegExp(`(${primeName})\\s+(?:and|&)\\s+(${primeName}) ${predicate} ${schedule}`, "g");
+  // Since October 2026 the post may name Prime Resurgence in the lead sentence
+  // and use a bare "return on <date>" right after it. Without that immediately
+  // preceding context, a bare return/arrive sentence stays unrecognized.
+  const contextualPattern = new RegExp(`Prime Resurgence[.!] (${primeName})\\s+(?:and|&)\\s+(${primeName}) (?:return|arrive) ${schedule}`, "g");
+  const normalized = normalizedText(text);
+  const matches = [...normalized.matchAll(pattern), ...normalized.matchAll(contextualPattern)];
   if (!matches.length) return null;
   invariant(matches.length === 1, `Expected one Prime Resurgence announcement in a post; found ${matches.length}.`);
   const match = matches[0];
@@ -509,6 +527,18 @@ function internalPartId(itemName, itemType) {
   return part || null;
 }
 
+// Public Export internal names drop word separators ("PrimeBowLowerLimb") and
+// rename some parts (Handle/Holster) relative to Drop Tables part slugs.
+const INTERNAL_PART_RENAMES = Object.freeze({ handle: "hilt", holster: "pouch" });
+export function dropTablePartId(internalId, expectedParts) {
+  const expected = expectedParts instanceof Map ? [...expectedParts.keys()] : [...(expectedParts || [])];
+  if (expected.includes(internalId)) return internalId;
+  const joined = expected.filter(partId => partId.replace(/-/g, "") === internalId);
+  if (joined.length === 1) return joined[0];
+  const renamed = INTERNAL_PART_RENAMES[internalId];
+  return renamed && expected.includes(renamed) ? renamed : internalId;
+}
+
 function validateInventoryRewards(selection, lineup, relicExport) {
   for (const relic of selection.relics) {
     const inventory = lineup.inventoryRelics.find(entry => entry.name === relic.name);
@@ -520,13 +550,13 @@ function validateInventoryRewards(selection, lineup, relicExport) {
         const mainBlueprint = itemInternalPrefixes(item.name).some(prefix => tail === `${prefix}blueprint`);
         let partId = mainBlueprint ? "blueprint" : internalPartId(item.name, reward.rewardName.replace(/Blueprint$/, ""));
         if (!partId) continue;
-        if (partId === "handle" && selection.expectedByItem.get(slugify(item.name))?.has("hilt")) partId = "hilt";
+        partId = dropTablePartId(partId, selection.expectedByItem.get(slugify(item.name)));
         invariant(reward.itemCount === 1, `Unsupported target reward quantity in ${relic.name}.`);
         exportedTargets.push(`${slugify(item.name)}:${partId}:${reward.rarity.toLowerCase()}`);
       }
     }
     const tableTargets = relic.targetRewards.map(reward => `${reward.itemId}:${reward.partId}:${reward.rarity}`);
-    invariant(sameSet(exportedTargets, tableTargets), `Public Export rewards disagree with official Drop Tables for ${relic.name}; human review is required.`);
+    invariant(sameSet(exportedTargets, tableTargets), `Public Export rewards disagree with official Drop Tables for ${relic.name} (export: ${[...exportedTargets].sort().join(", ") || "none"}; drop tables: ${[...tableTargets].sort().join(", ") || "none"}); human review is required.`);
   }
 }
 
@@ -612,9 +642,7 @@ export function resolveRecipeRequirements(recipes, lineupItems, expectedByItem, 
         invariant(!ingredientTail.includes("prime"), `Unrecognized Prime recipe ingredient for ${item.name}: ${ingredient?.ItemType || "missing"}`);
         continue;
       }
-      const partId = internalId === "handle" && !expectedNonBlueprint.includes("handle") && expectedNonBlueprint.includes("hilt")
-        ? "hilt"
-        : internalId;
+      const partId = dropTablePartId(internalId, expectedNonBlueprint);
       invariant(expectedNonBlueprint.includes(partId), `Unexpected item ingredient for ${item.name}: ${ingredient.ItemType}`);
       invariant(!quantities.has(partId), `Duplicate recipe ingredient for ${item.name}/${partId}.`);
       quantities.set(partId, safeRequiredQuantity(ingredient.ItemCount, `${item.name}/${partId}`));
@@ -658,7 +686,7 @@ export function validateVaultRewardCatalog(lineup, dropRelics, official) {
         invariant(!normalizedInternal(ingredient?.ItemType).includes("prime"), `Unrecognized Prime recipe ingredient for ${item.name}: ${ingredient?.ItemType || "missing"}`);
         continue;
       }
-      if (partId === "handle" && selectedParts?.has("hilt") && !selectedParts.has("handle")) partId = "hilt";
+      partId = dropTablePartId(partId, selectedParts);
       invariant(!recipeParts.has(partId), `Duplicate recipe ingredient for ${item.name}/${partId}.`);
       safeRequiredQuantity(ingredient.ItemCount, `${item.name}/${partId}`);
       invariant(dropRelics.some(relic => relic.rewards.some(reward => targetReward(reward, [item])?.partId === partId)),
@@ -1145,7 +1173,7 @@ function mergeCandidate({ rotationData, primeData, relicData, lineup, selectedRe
       const newRoutes = expectedRoutes.get(partId) || [];
       invariant(newRoutes.length > 0, `Candidate has no relic route for ${itemId}/${partId}.`);
       const required = requirement.quantities.get(partId);
-      const chinesePartName = existingPart?.name || PART_ZH[partId];
+      const chinesePartName = existingPart?.name || PART_ZH_BY_ITEM[itemId]?.[partId] || PART_ZH[partId];
       invariant(chinesePartName, `No curated Chinese part name exists for ${itemId}/${partId}; human review is required.`);
       const historicalRoutes = (existingPart?.relics || []).filter((id) => !oldRelicIds.has(id));
       return {

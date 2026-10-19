@@ -28,9 +28,20 @@ test("人工 featured 目录保留四组官方来源和 Public Export 身份", a
     ["Banshee Prime", ["Euphona Prime", "Helios Prime"], "https://www.warframe.com/en/news/banshee-ve-mirage-prime-vault"],
     ["Mirage Prime", ["Akbolto Prime", "Kogake Prime"], "https://www.warframe.com/en/news/banshee-ve-mirage-prime-vault"],
     ["Ivara Prime", ["Aksomati Prime", "Baza Prime"], "https://www.warframe.com/en/news/-549"],
-    ["Protea Prime", ["Okina Prime", "Velox Prime"], "https://www.warframe.com/en/news/protea-prime-access"]
+    ["Protea Prime", ["Okina Prime", "Velox Prime"], "https://www.warframe.com/en/news/protea-prime-access"],
+    ["Nidus Prime", ["Magnus Prime", "Strun Prime"], "https://www.warframe.com/en/news/nidus-prime-access"],
+    ["Saryn Prime", ["Nikana Prime", "Spira Prime"], "https://www.warframe.com/en/news/saryn-prime-access-here"]
   ]);
-  validateFeaturedEquipmentExports(catalog.entries, [...old.equipmentEn, ...next.equipmentEn]);
+  // Identities and categories as listed by the official Public Export on 2026-10-17.
+  const nidusSaryn = [
+    ["Nidus Prime", "/Lotus/Powersuits/Infestation/InfestationPrime", "Suits"],
+    ["Magnus Prime", "/Lotus/Weapons/Tenno/Pistols/PrimeMagnus/PrimeMagnusWeapon", "Pistols"],
+    ["Strun Prime", "/Lotus/Weapons/Tenno/LongGuns/PrimeStrun/PrimeStrunWeapon", "LongGuns"],
+    ["Saryn Prime", "/Lotus/Powersuits/Saryn/SarynPrime", "Suits"],
+    ["Nikana Prime", "/Lotus/Weapons/Tenno/Melee/Swords/PrimeKatana/PrimeNikana", "Melee"],
+    ["Spira Prime", "/Lotus/Weapons/Tenno/ThrowingWeapons/PrimeLiDagger/PrimeLiDagger", "Pistols"]
+  ].map(([name, uniqueName, productCategory]) => ({ name, uniqueName, productCategory }));
+  validateFeaturedEquipmentExports(catalog.entries, [...old.equipmentEn, ...next.equipmentEn, ...nidusSaryn]);
   assert.ok(SYNC_MUTABLE_DATA_PATHS.every(file => !file.includes("featured-equipment")));
 });
 

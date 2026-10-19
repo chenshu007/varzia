@@ -44,6 +44,28 @@
         { "name": "Velox Prime", "uniqueName": "/Lotus/Weapons/Tenno/Pistols/PrimeVelox/PrimeVeloxPistol" }
       ],
       "sourceUrl": "https://www.warframe.com/en/news/protea-prime-access"
+    },
+    {
+      "warframe": {
+        "name": "Nidus Prime",
+        "uniqueName": "/Lotus/Powersuits/Infestation/InfestationPrime"
+      },
+      "items": [
+        { "name": "Magnus Prime", "uniqueName": "/Lotus/Weapons/Tenno/Pistols/PrimeMagnus/PrimeMagnusWeapon" },
+        { "name": "Strun Prime", "uniqueName": "/Lotus/Weapons/Tenno/LongGuns/PrimeStrun/PrimeStrunWeapon" }
+      ],
+      "sourceUrl": "https://www.warframe.com/en/news/nidus-prime-access"
+    },
+    {
+      "warframe": {
+        "name": "Saryn Prime",
+        "uniqueName": "/Lotus/Powersuits/Saryn/SarynPrime"
+      },
+      "items": [
+        { "name": "Nikana Prime", "uniqueName": "/Lotus/Weapons/Tenno/Melee/Swords/PrimeKatana/PrimeNikana" },
+        { "name": "Spira Prime", "uniqueName": "/Lotus/Weapons/Tenno/ThrowingWeapons/PrimeLiDagger/PrimeLiDagger" }
+      ],
+      "sourceUrl": "https://www.warframe.com/en/news/saryn-prime-access-here"
     }
   ]
 }
