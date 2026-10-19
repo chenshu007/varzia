@@ -966,7 +966,389 @@
           ]
         }
       ]
+    },
+    {
+      "id": "magnus-prime",
+      "name": "麦格努斯 Prime",
+      "nameEn": "Magnus Prime",
+      "type": "secondary",
+      "rotation": "nidus-saryn-2026-10",
+      "relics": [
+        "meso-m5",
+        "meso-s15",
+        "neo-n19"
+      ],
+      "parts": [
+        {
+          "id": "blueprint",
+          "name": "蓝图",
+          "nameEn": "Blueprint",
+          "required": 1,
+          "rarity": "common",
+          "relics": [
+            "meso-s15"
+          ]
+        },
+        {
+          "id": "barrel",
+          "name": "枪管",
+          "nameEn": "Barrel",
+          "required": 1,
+          "rarity": "rare",
+          "relics": [
+            "meso-m5"
+          ]
+        },
+        {
+          "id": "receiver",
+          "name": "枪机",
+          "nameEn": "Receiver",
+          "required": 1,
+          "rarity": "uncommon",
+          "relics": [
+            "neo-n19"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "nidus-prime",
+      "name": "Nidus Prime",
+      "nameEn": "Nidus Prime",
+      "type": "warframe",
+      "rotation": "nidus-saryn-2026-10",
+      "relics": [
+        "lith-s17",
+        "neo-n19",
+        "neo-s19",
+        "axi-n12"
+      ],
+      "parts": [
+        {
+          "id": "blueprint",
+          "name": "蓝图",
+          "nameEn": "Blueprint",
+          "required": 1,
+          "rarity": "uncommon",
+          "relics": [
+            "lith-s17"
+          ]
+        },
+        {
+          "id": "neuroptics",
+          "name": "神经光元",
+          "nameEn": "Neuroptics",
+          "required": 1,
+          "rarity": "uncommon",
+          "relics": [
+            "neo-s19"
+          ]
+        },
+        {
+          "id": "chassis",
+          "name": "机体",
+          "nameEn": "Chassis",
+          "required": 1,
+          "rarity": "rare",
+          "relics": [
+            "axi-n12"
+          ]
+        },
+        {
+          "id": "systems",
+          "name": "系统",
+          "nameEn": "Systems",
+          "required": 1,
+          "rarity": "common",
+          "relics": [
+            "neo-n19"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "nikana-prime",
+      "name": "侍刃 Prime",
+      "nameEn": "Nikana Prime",
+      "type": "melee",
+      "rotation": "nidus-saryn-2026-10",
+      "relics": [
+        "meso-s15",
+        "neo-n19",
+        "axi-n12"
+      ],
+      "parts": [
+        {
+          "id": "blueprint",
+          "name": "蓝图",
+          "nameEn": "Blueprint",
+          "required": 1,
+          "rarity": "common",
+          "relics": [
+            "axi-n12"
+          ]
+        },
+        {
+          "id": "blade",
+          "name": "刀刃",
+          "nameEn": "Blade",
+          "required": 1,
+          "rarity": "uncommon",
+          "relics": [
+            "meso-s15"
+          ]
+        },
+        {
+          "id": "hilt",
+          "name": "握柄",
+          "nameEn": "Hilt",
+          "required": 1,
+          "rarity": "rare",
+          "relics": [
+            "neo-n19"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "saryn-prime",
+      "name": "Saryn Prime",
+      "nameEn": "Saryn Prime",
+      "type": "warframe",
+      "rotation": "nidus-saryn-2026-10",
+      "relics": [
+        "lith-s17",
+        "meso-m5",
+        "neo-s19",
+        "axi-n12"
+      ],
+      "parts": [
+        {
+          "id": "blueprint",
+          "name": "蓝图",
+          "nameEn": "Blueprint",
+          "required": 1,
+          "rarity": "uncommon",
+          "relics": [
+            "axi-n12"
+          ]
+        },
+        {
+          "id": "neuroptics",
+          "name": "神经光元",
+          "nameEn": "Neuroptics",
+          "required": 1,
+          "rarity": "uncommon",
+          "relics": [
+            "neo-s19"
+          ]
+        },
+        {
+          "id": "chassis",
+          "name": "机体",
+          "nameEn": "Chassis",
+          "required": 1,
+          "rarity": "rare",
+          "relics": [
+            "lith-s17"
+          ]
+        },
+        {
+          "id": "systems",
+          "name": "系统",
+          "nameEn": "Systems",
+          "required": 1,
+          "rarity": "common",
+          "relics": [
+            "meso-m5"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "spira-prime",
+      "name": "旋刃飞刀 Prime",
+      "nameEn": "Spira Prime",
+      "type": "secondary",
+      "rotation": "nidus-saryn-2026-10",
+      "relics": [
+        "lith-s17",
+        "meso-m5",
+        "meso-s15"
+      ],
+      "parts": [
+        {
+          "id": "blueprint",
+          "name": "蓝图",
+          "nameEn": "Blueprint",
+          "required": 1,
+          "rarity": "common",
+          "relics": [
+            "lith-s17"
+          ]
+        },
+        {
+          "id": "blade",
+          "name": "刀刃",
+          "nameEn": "Blade",
+          "required": 2,
+          "rarity": "uncommon",
+          "relics": [
+            "meso-m5"
+          ]
+        },
+        {
+          "id": "pouch",
+          "name": "镖袋",
+          "nameEn": "Pouch",
+          "required": 2,
+          "rarity": "rare",
+          "relics": [
+            "meso-s15"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "strun-prime",
+      "name": "斯特朗 Prime",
+      "nameEn": "Strun Prime",
+      "type": "primary",
+      "rotation": "nidus-saryn-2026-10",
+      "relics": [
+        "meso-m5",
+        "neo-s19",
+        "axi-n12"
+      ],
+      "parts": [
+        {
+          "id": "blueprint",
+          "name": "蓝图",
+          "nameEn": "Blueprint",
+          "required": 1,
+          "rarity": "rare",
+          "relics": [
+            "neo-s19"
+          ]
+        },
+        {
+          "id": "barrel",
+          "name": "枪管",
+          "nameEn": "Barrel",
+          "required": 1,
+          "rarity": "uncommon",
+          "relics": [
+            "axi-n12"
+          ]
+        },
+        {
+          "id": "receiver",
+          "name": "枪机",
+          "nameEn": "Receiver",
+          "required": 1,
+          "rarity": "common",
+          "relics": [
+            "neo-s19"
+          ]
+        },
+        {
+          "id": "stock",
+          "name": "枪托",
+          "nameEn": "Stock",
+          "required": 1,
+          "rarity": "uncommon",
+          "relics": [
+            "meso-m5"
+          ]
+        }
+      ]
     }
   ],
-  "provisionalSources": {}
+  "provisionalSources": {
+    "nidus-saryn-2026-10": {
+      "status": "provisional",
+      "rotationUrl": "https://content.warframe.com/PublicExport/Manifest/ExportRelicArcane_en.json!00_yfpUexy9C05OPU7UR+f6pA",
+      "vaultExport": {
+        "type": "digital-extremes-public-export-vault-group",
+        "url": "https://content.warframe.com/PublicExport/Manifest/ExportRelicArcane_en.json!00_yfpUexy9C05OPU7UR+f6pA",
+        "group": "NidusSarynVault",
+        "startsAt": "2026-10-29T18:00:00Z",
+        "rawPrimeWarframes": [
+          "Nidus Prime",
+          "Saryn Prime"
+        ],
+        "relics": [
+          {
+            "itemType": "/Lotus/StoreItems/Types/Game/Projections/T4VoidProjectionNidusSarynVaultABronze",
+            "name": "Axi N12",
+            "costAya": 1
+          },
+          {
+            "itemType": "/Lotus/StoreItems/Types/Game/Projections/T3VoidProjectionNidusSarynVaultBBronze",
+            "name": "Neo S19",
+            "costAya": 1
+          },
+          {
+            "itemType": "/Lotus/StoreItems/Types/Game/Projections/T3VoidProjectionNidusSarynVaultABronze",
+            "name": "Neo N19",
+            "costAya": 1
+          },
+          {
+            "itemType": "/Lotus/StoreItems/Types/Game/Projections/T2VoidProjectionNidusSarynVaultBBronze",
+            "name": "Meso M5",
+            "costAya": 1
+          },
+          {
+            "itemType": "/Lotus/StoreItems/Types/Game/Projections/T2VoidProjectionNidusSarynVaultABronze",
+            "name": "Meso S15",
+            "costAya": 1
+          },
+          {
+            "itemType": "/Lotus/StoreItems/Types/Game/Projections/T1VoidProjectionNidusSarynVaultABronze",
+            "name": "Lith S17",
+            "costAya": 1
+          }
+        ],
+        "exportUrls": {
+          "Recipes_en": "https://content.warframe.com/PublicExport/Manifest/ExportRecipes_en.json!00_oac+LCAtIyqDxZF8Qe1ZZA",
+          "RelicArcane_en": "https://content.warframe.com/PublicExport/Manifest/ExportRelicArcane_en.json!00_yfpUexy9C05OPU7UR+f6pA",
+          "Warframes_en": "https://content.warframe.com/PublicExport/Manifest/ExportWarframes_en.json!00_AIDVHigS64IrZQVY2GdWfg",
+          "Weapons_en": "https://content.warframe.com/PublicExport/Manifest/ExportWeapons_en.json!00_RcEdsq5S+l61BkfnQuzJFw",
+          "Sentinels_en": "https://content.warframe.com/PublicExport/Manifest/ExportSentinels_en.json!00_8iGr2T9MTskXt5zeKEVNmQ",
+          "Warframes_zh": "https://content.warframe.com/PublicExport/Manifest/ExportWarframes_zh.json!00_JdkQ9kJydzj6ausbzkerbA",
+          "Weapons_zh": "https://content.warframe.com/PublicExport/Manifest/ExportWeapons_zh.json!00_IXvTZqnrWmxFganMmO49MA",
+          "Sentinels_zh": "https://content.warframe.com/PublicExport/Manifest/ExportSentinels_zh.json!00_9XVxUBzLu5VzVKtKO8rVFg"
+        },
+        "selectionBasis": "announced-pair-specific-vault-group",
+        "priceBasis": "planner-preset",
+        "featuredSources": [
+          {
+            "warframe": "Nidus Prime",
+            "url": "https://www.warframe.com/en/news/nidus-prime-access"
+          },
+          {
+            "warframe": "Saryn Prime",
+            "url": "https://www.warframe.com/en/news/saryn-prime-access-here"
+          }
+        ],
+        "incidentalItemNames": [
+          "Braton Prime",
+          "Paris Prime"
+        ]
+      },
+      "announcementUrl": "https://bsky.app/profile/warframe.com/post/3mxwqokzbyg2y",
+      "dropTableUrl": "https://www.warframe.com/droptables",
+      "recipeExportUrl": "https://content.warframe.com/PublicExport/Manifest/ExportRecipes_en.json!00_oac+LCAtIyqDxZF8Qe1ZZA",
+      "preparedAt": "2026-10-19",
+      "rarityWarnings": [
+        "Lith S17 / Spira Prime Blueprint: official label uncommon, intact probability 25.33% maps to common",
+        "Meso M5 / Saryn Prime Systems: official label uncommon, intact probability 25.33% maps to common",
+        "Meso S15 / Magnus Prime Blueprint: official label uncommon, intact probability 25.33% maps to common",
+        "Neo N19 / Nidus Prime Systems: official label uncommon, intact probability 25.33% maps to common",
+        "Neo S19 / Strun Prime Receiver: official label uncommon, intact probability 25.33% maps to common",
+        "Axi N12 / Nikana Prime Blueprint: official label uncommon, intact probability 25.33% maps to common"
+      ],
+      "note": "装备与部件从公告组合专属 Vault 遗物组、官方掉落表和 Public Export 关联；尚未声明实际商店库存。"
+    }
+  }
 }
