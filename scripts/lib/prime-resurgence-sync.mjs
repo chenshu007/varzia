@@ -2114,7 +2114,7 @@ export async function runPrimeResurgenceSync({
 
 // Explicit human-invoked release proposal. The ordinary updater always keeps
 // candidates provisional; this diff belongs in a reviewed PR before publication.
-export async function preparePrimeResurgenceRelease({ rootDir, rotationId, dryRun = true, prelaunch = false, inputs = null, now = new Date(), fetchImpl = globalThis.fetch, decompress = decompressLzma } = {}) {
+export async function preparePrimeResurgenceRelease({ rootDir, rotationId, dryRun = true, prelaunch = false, automated = false, inputs = null, now = new Date(), fetchImpl = globalThis.fetch, decompress = decompressLzma } = {}) {
   invariant(rootDir && rotationId, "Repository root and rotation ID are required.");
   const discoveredAt = new Date(now).toISOString();
   const paths = syncDataPaths(rootDir);
@@ -2148,11 +2148,12 @@ export async function preparePrimeResurgenceRelease({ rootDir, rotationId, dryRu
     ...merged.candidate.source, status: "official", preparedAt, verifiedAt,
     announcementPublishedAt: announcement.createdAt,
     rotationUrl: prelaunch ? lineup.previewEvidence.url : OFFICIAL_SOURCES.rotationZh,
-    publicationReview: "pending-draft-pr",
+    publicationReview: automated ? "automated-pipeline" : "pending-draft-pr",
     ...(prelaunch ? { publicationBasis: "prelaunch-vault-export" } : {}),
-    note: prelaunch
-      ? "生效前提前发布：公告、组合专属 Vault、掉落表与 Public Export 确认阵容、遗物、奖励、概率和制造数量；当前官方轮换页面尚显示上一期。此发布变更等待 Draft PR 人工审核；合并后按 startsAt 生效，生效后每日同步用实际商店或当前页面复核，不一致即报错。costAya=1 为规划器预设。"
-      : "当前中英文官方轮换页面确认阵容；组合专属 Vault、掉落表与 Public Export 确认遗物、奖励、概率和制造数量。此发布变更等待 Draft PR 人工审核；合并后按 startsAt 生效。World State 不可用时，costAya=1 仍为规划器预设。"
+    note: (prelaunch
+      ? "生效前提前发布：公告、组合专属 Vault、掉落表与 Public Export 确认阵容、遗物、奖励、概率和制造数量；当前官方轮换页面尚显示上一期。REVIEW按 startsAt 生效，生效后每日同步用实际商店或当前页面复核，不一致即报错。costAya=1 为规划器预设。"
+      : "当前中英文官方轮换页面确认阵容；组合专属 Vault、掉落表与 Public Export 确认遗物、奖励、概率和制造数量。REVIEW按 startsAt 生效。World State 不可用时，costAya=1 仍为规划器预设。")
+      .replace("REVIEW", automated ? "此发布变更由自动流水线校验并合并；" : "此发布变更等待 Draft PR 人工审核；合并后")
   };
   merged.rotationData.lastVerified = verifiedAt;
   merged.rotationData.source = {
@@ -2177,4 +2178,23 @@ export async function preparePrimeResurgenceRelease({ rootDir, rotationId, dryRu
     priceBasis: lineup.previewEvidence ? "planner-preset" : "observed-inventory",
     changedFiles: files.map(file => file.label)
   };
+}
+
+// Fully automated publication: promote the single validated candidate. Before
+// startsAt this uses the prelaunch path; afterwards the current pages must
+// confirm the live rotation. Any refusal leaves the data untouched (the release
+// writes atomically only on success) and is retried by the next sync.
+export async function autoReleaseReadyCandidate({ rootDir, now = new Date(), release = preparePrimeResurgenceRelease, ...options } = {}) {
+  const paths = syncDataPaths(rootDir);
+  const { candidates } = JSON.parse(await readFile(paths.candidates, "utf8"));
+  const ready = candidates.filter(candidate => candidate.status === "ready-for-review" && candidate.verified);
+  if (ready.length !== 1) return { status: "skipped", reason: ready.length ? "Multiple ready candidates; refusing to choose one." : "No validated ready-for-review candidate." };
+  const [candidate] = ready;
+  const prelaunch = Date.parse(candidate.effectiveAt) > Date.parse(new Date(now).toISOString());
+  try {
+    const result = await release({ ...options, rootDir, rotationId: candidate.id, dryRun: false, prelaunch, automated: true, now });
+    return { status: "published", rotationId: candidate.id, prelaunch, result };
+  } catch (error) {
+    return { status: "deferred", rotationId: candidate.id, prelaunch, reason: safeErrorMessage(error) };
+  }
 }

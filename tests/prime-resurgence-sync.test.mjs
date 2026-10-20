@@ -19,6 +19,7 @@ import {
   parseRecipeExceptions,
   parseRecipes,
   preparePrimeResurgenceRelease,
+  autoReleaseReadyCandidate,
   resolveRecipeRequirements,
   runNearRotationWatcher,
   runPrimeResurgenceSync as runSync,
@@ -1395,6 +1396,9 @@ test("GitHub Actions 隔离 read/write 权限并保护 bot branch 与 Draft PR",
   assert.equal((workflow.match(/persist-credentials: false/g) || []).length, 2);
   assert.match(workflow, /automation\/prime-resurgence-sync/);
   assert.match(workflow, /run: node scripts\/prime-resurgence-publish\.mjs/);
+  assert.match(workflow, /node scripts\/prime-resurgence-auto-release\.mjs/);
+  assert.ok(workflow.indexOf("prime-resurgence-auto-release.mjs") < workflow.indexOf("Verify repository"));
+  assert.match(workflow, /AUTO_MERGE: "true"/);
   assert.match(workflow, /chore: prepare Prime Resurgence data update/);
   assert.match(workflow, /GH_TOKEN: \$\{\{ github\.token \}\}/);
   assert.ok(workflow.indexOf("Verify repository") < workflow.indexOf("GH_TOKEN: ${{ github.token }}"));
@@ -1470,6 +1474,31 @@ test("prelaunch release publishes a future Vault candidate that activates at sta
   assert.equal(live.publicationStatus, "published");
   assert.deepEqual(live.changedFiles, []);
   assert.deepEqual(await dataSnapshot(rootDir), before);
+});
+
+test("automatic publication promotes a future candidate via prelaunch and defers an unconfirmed live one", async () => {
+  const rotationId = "banshee-mirage-2026-09";
+  const empty = await temporaryRepository();
+  assert.equal((await autoReleaseReadyCandidate({ rootDir: empty, inputs: await prelaunchInputs(), now: "2026-08-22T18:00:00Z" })).status, "skipped");
+
+  const rootDir = await temporaryRepository();
+  await runPrimeResurgenceSync({ rootDir, inputs: await prelaunchInputs(), now: "2026-08-21T18:00:00Z" });
+  const outcome = await autoReleaseReadyCandidate({ rootDir, inputs: await prelaunchInputs(), now: "2026-08-22T18:00:00Z" });
+  assert.equal(outcome.status, "published");
+  assert.equal(outcome.prelaunch, true);
+  const [rotations] = (await dataSnapshot(rootDir)).map(JSON.parse);
+  const published = rotations.rotations.find(entry => entry.id === rotationId);
+  assert.equal(published.publicationStatus, "published");
+  assert.equal(published.source.publicationReview, "automated-pipeline");
+  assert.match(published.source.note, /自动流水线/);
+
+  const stale = await temporaryRepository();
+  await runPrimeResurgenceSync({ rootDir: stale, inputs: await prelaunchInputs(), now: "2026-08-21T18:00:00Z" });
+  const before = await dataSnapshot(stale);
+  const deferred = await autoReleaseReadyCandidate({ rootDir: stale, inputs: await prelaunchInputs(), now: FIXTURE_NOW });
+  assert.equal(deferred.status, "deferred");
+  assert.equal(deferred.prelaunch, false);
+  assert.deepEqual(await dataSnapshot(stale), before);
 });
 
 test("prelaunch release refuses a rotation that is already effective", async () => {

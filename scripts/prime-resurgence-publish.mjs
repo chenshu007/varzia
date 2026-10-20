@@ -30,6 +30,9 @@ export function publishCandidate({ env = process.env, cwd = process.cwd(), run, 
   const gh = (...args) => execute("gh", args).trim();
   const { BASE_BRANCH: base, AUTOMATION_BRANCH: prefix, GITHUB_REPOSITORY: repo, PR_TITLE: title } = env;
   if (!base || !prefix || !repo || !title || !env.RUNNER_TEMP) throw new Error("Missing publish environment.");
+  // Full automation: merge the validated bot-owned candidate instead of
+  // leaving a Draft for review. Only an exact head SHA is ever merged.
+  const autoMerge = env.AUTO_MERGE === "true";
   git("check-ref-format", "--branch", base);
   git("check-ref-format", "--branch", prefix);
   const artifact = path.join(env.RUNNER_TEMP, "prime-resurgence-candidate");
@@ -49,6 +52,11 @@ export function publishCandidate({ env = process.env, cwd = process.cwd(), run, 
   const skip = reason => {
     log(reason);
     return { status: "skipped", reason };
+  };
+  const merge = (pr, sha) => {
+    gh("pr", "merge", String(pr), "--repo", repo, "--merge", "--match-head-commit", sha);
+    log(`Merged candidate PR: ${pr}`);
+    return { status: "merged", pr: String(pr) };
   };
   if (!currentBase()) return skip("Default branch advanced after validation; waiting for a fresh sync.");
 
@@ -99,6 +107,13 @@ export function publishCandidate({ env = process.env, cwd = process.cwd(), run, 
     if (!matches) continue;
     const latest = JSON.parse(gh("api", `repos/${repo}/pulls/${pr.number}`));
     if (latest.state === "open" && latest.base.ref === base && latest.head.sha === pr.head.sha) {
+      const botOwned = latest.head.ref.startsWith(`${prefix}-`)
+        && git("rev-list", "--count", `${git("merge-base", baseSha, pr.head.sha)}..${pr.head.sha}`) === "1"
+        && git("show", "-s", "--format=%ae", pr.head.sha) === BOT_EMAIL;
+      if (autoMerge && botOwned) {
+        if (latest.draft) gh("pr", "ready", String(pr.number), "--repo", repo);
+        return merge(pr.number, pr.head.sha);
+      }
       return skip(`Candidate already present in ${latest.draft ? "Draft" : "review"} PR #${pr.number}; leaving it untouched.`);
     }
   }
@@ -143,8 +158,9 @@ export function publishCandidate({ env = process.env, cwd = process.cwd(), run, 
   if (prs.some(pr => pr.head.ref === branch)) return skip("Candidate branch already has PR history; leaving it untouched.");
   try {
     const url = gh("pr", "create", "--repo", repo, "--base", base, "--head", branch, "--title", title,
-      "--body-file", path.join(artifact, "pr-body.md"), "--draft");
-    log(`Created Draft candidate PR: ${url}`);
+      "--body-file", path.join(artifact, "pr-body.md"), ...(autoMerge ? [] : ["--draft"]));
+    log(`Created ${autoMerge ? "" : "Draft "}candidate PR: ${url}`);
+    if (autoMerge) return { ...merge(url, git("rev-parse", "HEAD")), branch, url };
     return { status: "created", branch, url };
   } catch (error) {
     // A successful create with a lost response (or a concurrent manual create)
