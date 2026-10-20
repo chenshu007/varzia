@@ -49,6 +49,12 @@ jobs:
           --summary-file "$RUNNER_TEMP/prime-resurgence-summary.md"
           --pr-body-file "$RUNNER_TEMP/prime-resurgence-pr.md"
 
+      - name: Automatically publish a validated candidate
+        run: >-
+          node scripts/prime-resurgence-auto-release.mjs
+          --summary-file "$RUNNER_TEMP/prime-resurgence-summary.md"
+          --pr-body-file "$RUNNER_TEMP/prime-resurgence-pr.md"
+
       - name: Verify repository
         run: npm run verify
 
@@ -101,7 +107,7 @@ jobs:
           retention-days: 1
 
   publish:
-    name: Publish an immutable candidate Draft PR
+    name: Publish and merge an immutable candidate PR
     needs: prepare
     if: needs.prepare.outputs.changed == 'true'
     runs-on: ubuntu-latest
@@ -127,7 +133,8 @@ jobs:
           name: prime-resurgence-candidate
           path: ${{ runner.temp }}/prime-resurgence-candidate
 
-      - name: Publish or cleanly skip the candidate Draft PR
+      - name: Publish and merge, or cleanly skip, the candidate PR
         env:
           GH_TOKEN: ${{ github.token }}
+          AUTO_MERGE: "true"
         run: node scripts/prime-resurgence-publish.mjs

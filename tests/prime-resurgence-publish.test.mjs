@@ -72,12 +72,23 @@ function fixture(t, { candidate = 2 } = {}) {
       const number = Number(args[1].split("/").at(-1));
       return JSON.stringify(state.prs.find(pr => pr.number === number));
     }
+    if (args[0] === "pr" && args[1] === "ready") {
+      state.prs.find(pr => pr.number === Number(args[2])).draft = false;
+      return "";
+    }
+    if (args[0] === "pr" && args[1] === "merge") {
+      const pr = state.prs.find(entry => entry.number === Number(String(args[2]).split("/").at(-1)));
+      assert.equal(pr.head.sha, args[args.indexOf("--match-head-commit") + 1]);
+      assert.equal(pr.draft, false);
+      Object.assign(pr, { state: "closed", merged_at: "2026-10-20T00:00:00Z" });
+      return "";
+    }
     assert.deepEqual(args.slice(0, 2), ["pr", "create"]);
-    assert.ok(args.includes("--draft"));
+    assert.equal(args.includes("--draft"), env.AUTO_MERGE !== "true");
     const branch = args[args.indexOf("--head") + 1];
     const sha = git("ls-remote", "--heads", "origin", `refs/heads/${branch}`).split(/\s/)[0];
     if (state.createError === "network") throw new Error("GitHub unavailable");
-    state.prs.push(makePR(branch, sha));
+    state.prs.push(makePR(branch, sha, { draft: args.includes("--draft") }));
     if (state.createError === "lost-response") throw new Error("Response lost after successful create");
     return `https://github.com/${repo}/pull/${state.prs.length}`;
   };
@@ -376,4 +387,37 @@ if (args[0] === 'api') {
   const calls = readFileSync(callsFile, "utf8").trim().split("\n").map(line => JSON.parse(line));
   assert.equal(calls.filter(args => args[0] === "pr").length, 1);
   assert.ok(calls.some(args => args[0] === "pr" && args[1] === "create" && args.includes("--draft")));
+});
+
+test("AUTO_MERGE: create a ready bot PR and merge its exact head", t => {
+  const f = fixture(t);
+  f.env.AUTO_MERGE = "true";
+  const result = f.publish();
+  assert.equal(result.status, "merged");
+  assert.equal(f.state.prs.length, 1);
+  assert.equal(f.state.prs[0].state, "closed");
+  assert.ok(f.state.prs[0].merged_at);
+  assert.ok(f.state.calls.some(call => call[0] === "gh" && call[1] === "pr" && call[2] === "merge" && call.includes(f.state.prs[0].head.sha)));
+});
+
+test("AUTO_MERGE: an open bot Draft with the same data is marked ready and merged", t => {
+  const f = fixture(t);
+  f.env.AUTO_MERGE = "true";
+  const pr = f.oldPR({ version: 2, branch: `${prefix}-0123456789abcdef0123-1` });
+  const result = f.publish();
+  assert.equal(result.status, "merged");
+  assert.equal(pr.draft, false);
+  assert.equal(pr.state, "closed");
+  assert.equal(f.state.prs.length, 1);
+});
+
+test("AUTO_MERGE: a human-edited PR with the same data is never merged", t => {
+  const f = fixture(t);
+  f.env.AUTO_MERGE = "true";
+  const pr = f.oldPR({ version: 2, human: true, branch: `${prefix}-0123456789abcdef0123-1` });
+  const snapshot = structuredClone(pr);
+  const result = f.publish();
+  assert.equal(result.status, "skipped");
+  assertUntouched(f, pr, snapshot);
+  assert.ok(!f.state.calls.some(call => call[0] === "gh" && call[2] === "merge"));
 });

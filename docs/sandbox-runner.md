@@ -40,7 +40,7 @@ npm run prime-resurgence:prepare-release -- ROTATION_ID --write
 
 The default is a dry run. `--write` rechecks current pages, announcements, the exact Vault, drop tables, recipes, and available live inventory, then produces a `published` data diff for a human-reviewed PR. It does not commit, push, merge, or deploy. Announcement publication time and first actual data preparation time are stored separately. The consumed ready candidate is removed so it does not refer to a now-published rotation.
 
-To switch the site exactly at `startsAt` without waiting for the rotation to go live, add `--prelaunch` before the start time. It refuses an already effective rotation and rechecks the announcement, the exact pair-specific Vault, drop tables, and recipes; the current pages still show the previous rotation, so the proposal records `publicationBasis: "prelaunch-vault-export"` and planner-preset pricing. After `startsAt` the daily sync revalidates the published rotation against live inventory or current pages and fails on any difference.
+The scheduled GitHub workflow runs this automatically (`scripts/prime-resurgence-auto-release.mjs`) and merges the result. To do it by hand and switch the site exactly at `startsAt`, add `--prelaunch` before the start time. It refuses an already effective rotation and rechecks the announcement, the exact pair-specific Vault, drop tables, and recipes; the current pages still show the previous rotation, so the proposal records `publicationBasis: "prelaunch-vault-export"` and planner-preset pricing. After `startsAt` the daily sync revalidates the published rotation against live inventory or current pages and fails on any difference.
 
 ```sh
 npm run prime-resurgence:prepare-release -- ROTATION_ID --prelaunch
