@@ -1,11 +1,11 @@
 {
   "schemaVersion": 2,
-  "lastVerified": "2026-10-02",
+  "lastVerified": "2026-10-20",
   "source": {
     "name": "Digital Extremes 官方 Prime 重生公告、轮换页面与掉落数据",
     "url": "https://www.warframe.com/zh-hans/prime-resurgence",
-    "announcementUrl": "https://bsky.app/profile/warframe.com/post/3mwbtjr26bc2i",
-    "note": "当前中英文官方轮换页面确认阵容；组合专属 Vault、掉落表与 Public Export 确认遗物、奖励、概率和制造数量。此发布变更等待 Draft PR 人工审核；合并后按 startsAt 生效。World State 不可用时，costAya=1 仍为规划器预设。"
+    "announcementUrl": "https://bsky.app/profile/warframe.com/post/3mxwqokzbyg2y",
+    "note": "生效前提前发布：公告、组合专属 Vault、掉落表与 Public Export 确认阵容、遗物、奖励、概率和制造数量；当前官方轮换页面尚显示上一期。此发布变更等待 Draft PR 人工审核；合并后按 startsAt 生效，生效后每日同步用实际商店或当前页面复核，不一致即报错。costAya=1 为规划器预设。"
   },
   "rotations": [
     {
@@ -196,9 +196,9 @@
     },
     {
       "id": "nidus-saryn-2026-10",
-      "publicationStatus": "provisional",
+      "publicationStatus": "published",
       "source": {
-        "status": "provisional",
+        "status": "official",
         "rotationUrl": "https://content.warframe.com/PublicExport/Manifest/ExportRelicArcane_en.json!00_yfpUexy9C05OPU7UR+f6pA",
         "vaultExport": {
           "type": "digital-extremes-public-export-vault-group",
@@ -280,7 +280,11 @@
           "Neo S19 / Strun Prime Receiver: official label uncommon, intact probability 25.33% maps to common",
           "Axi N12 / Nikana Prime Blueprint: official label uncommon, intact probability 25.33% maps to common"
         ],
-        "note": "公告与 Public Export 的战甲组合专属 Vault 遗物组对应；奖励、概率和配方经官方原始数据交叉校验。实际商店与价格尚未观测；costAya=1 与 ayaBudget 为规划器预设。候选可提前审核，published 后仍按 startsAt 生效。"
+        "note": "生效前提前发布：公告、组合专属 Vault、掉落表与 Public Export 确认阵容、遗物、奖励、概率和制造数量；当前官方轮换页面尚显示上一期。此发布变更等待 Draft PR 人工审核；合并后按 startsAt 生效，生效后每日同步用实际商店或当前页面复核，不一致即报错。costAya=1 为规划器预设。",
+        "verifiedAt": "2026-10-20",
+        "announcementPublishedAt": "2026-10-15T19:00:25.409Z",
+        "publicationReview": "pending-draft-pr",
+        "publicationBasis": "prelaunch-vault-export"
       },
       "displayName": "Nidus Prime 与 Saryn Prime",
       "displayNameEn": "Nidus Prime & Saryn Prime",
