@@ -10,6 +10,7 @@
     "prime-resurgence:sync": "node scripts/prime-resurgence-sync.mjs",
     "prime-resurgence:dry-run": "node scripts/prime-resurgence-sync.mjs --dry-run",
     "prime-resurgence:prepare-release": "node scripts/prime-resurgence-prepare-release.mjs",
-    "sandbox:run": "node tools/sandbox/run.mjs"
+    "sandbox:run": "node tools/sandbox/run.mjs",
+    "sandbox:agent": "node tools/sandbox/run.mjs --executor codex"
   }
 }

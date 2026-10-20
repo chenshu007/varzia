@@ -195,6 +195,8 @@ PR 发布由 `scripts/prime-resurgence-publish.mjs` 处理。保留全 workflow 
 
 全自动发布：同步生成的 rotation 先是 `publicationStatus: "provisional"`；同一次 workflow 随后运行 `scripts/prime-resurgence-auto-release.mjs`，对唯一的 validated ready-for-review 候选执行 release preparation——生效前走 `--prelaunch`（公告、组合专属 Vault、掉落表、配方），生效后要求当前中英文官方页面确认。成功则改为 `published`（`publicationReview: "automated-pipeline"`），publish job 以 `AUTO_MERGE=true` 创建非 Draft PR 并按精确 head SHA 合并；被人工改动过的 PR 不会被自动合并。发布被拒绝时数据保持 provisional，下次同步重试并在 workflow 中给出 warning。正常排期仅在 `startsAt` 到达后启用该轮换；之后每日同步用实际商店或当前页面复核已发布内容，差异即报错，绝不覆盖已发布内容。流水线不从官方来源推导 `ayaBudget`。
 
+Sandbox 内的 agent + skill 架构思路见 [设计文档](docs/sandbox-agent-architecture.md)：用户自行选择并登录 Claude Code、Codex 或 OpenCode，复用固定名称的 persistent Sandbox，由代理执行 skill，再独立验证并交付审查产物。此步只交付设计。现 draft PR6 中已有 `sandbox:agent` 是先前的 Codex 实现提案；其单次 VM/重复登录限制不代表平台能力，说明见 [Codex runner 提案](docs/codex-sandbox-agent.md)。
+
 ## 贡献
 
 欢迎提交数据修正、概率或界面 Bug，以及有测试支持的模拟改进。请先阅读 [CONTRIBUTING.md](CONTRIBUTING.md)。
