@@ -1421,6 +1421,18 @@ function inventoryLineup(official, now) {
   return lineupFromInventory(trader, official);
 }
 
+// Opt-in early publication from the same evidence that prepared the candidate.
+// The scheduler activates a published rotation only at startsAt, and from then
+// on the daily sync revalidates it against live inventory or current pages.
+function prelaunchLineup(candidate, official, now) {
+  invariant(Date.parse(candidate.effectiveAt) > Date.parse(now), "Prelaunch release requires a future rotation; use the live release path instead.");
+  const dropRelics = parseDropTables(official.dropTablesHtml);
+  const preview = lineupFromVaultExport(candidate, official, dropRelics);
+  invariant(preview, "Exact pair-specific Vault export is missing.");
+  validateVaultRewardCatalog(preview, dropRelics, official);
+  return preview;
+}
+
 function confirmedLiveLineup(candidate, official, now) {
   invariant(Date.parse(candidate.effectiveAt) <= Date.parse(now), "Release preparation requires an effective rotation.");
   const page = parsePrimeResurgencePages(official.englishHtml, official.chineseHtml);
@@ -2102,7 +2114,7 @@ export async function runPrimeResurgenceSync({
 
 // Explicit human-invoked release proposal. The ordinary updater always keeps
 // candidates provisional; this diff belongs in a reviewed PR before publication.
-export async function preparePrimeResurgenceRelease({ rootDir, rotationId, dryRun = true, inputs = null, now = new Date(), fetchImpl = globalThis.fetch, decompress = decompressLzma } = {}) {
+export async function preparePrimeResurgenceRelease({ rootDir, rotationId, dryRun = true, prelaunch = false, inputs = null, now = new Date(), fetchImpl = globalThis.fetch, decompress = decompressLzma } = {}) {
   invariant(rootDir && rotationId, "Repository root and rotation ID are required.");
   const discoveredAt = new Date(now).toISOString();
   const paths = syncDataPaths(rootDir);
@@ -2118,7 +2130,7 @@ export async function preparePrimeResurgenceRelease({ rootDir, rotationId, dryRu
   const announcement = matches.find(entry => entry.url === candidate.source.url)
     || matches.sort((left, right) => left.createdAt.localeCompare(right.createdAt))[0];
   invariant(announcement, "Fresh official announcement does not confirm candidate identity and start time.");
-  const lineup = confirmedLiveLineup(candidate, official, discoveredAt);
+  const lineup = (prelaunch ? prelaunchLineup : confirmedLiveLineup)(candidate, official, discoveredAt);
   const dropRelics = parseDropTables(official.dropTablesHtml, { minimumRelics: inputs ? 1 : 100 });
   const selection = selectRelicSet(dropRelics, lineup.items, lineup.inventoryRelics.map(relic => relic.name));
   validateInventoryRewards(selection, lineup, official.relicExport);
@@ -2135,9 +2147,12 @@ export async function preparePrimeResurgenceRelease({ rootDir, rotationId, dryRu
   merged.candidate.source = {
     ...merged.candidate.source, status: "official", preparedAt, verifiedAt,
     announcementPublishedAt: announcement.createdAt,
-    rotationUrl: OFFICIAL_SOURCES.rotationZh,
+    rotationUrl: prelaunch ? lineup.previewEvidence.url : OFFICIAL_SOURCES.rotationZh,
     publicationReview: "pending-draft-pr",
-    note: "当前中英文官方轮换页面确认阵容；组合专属 Vault、掉落表与 Public Export 确认遗物、奖励、概率和制造数量。此发布变更等待 Draft PR 人工审核；合并后按 startsAt 生效。World State 不可用时，costAya=1 仍为规划器预设。"
+    ...(prelaunch ? { publicationBasis: "prelaunch-vault-export" } : {}),
+    note: prelaunch
+      ? "生效前提前发布：公告、组合专属 Vault、掉落表与 Public Export 确认阵容、遗物、奖励、概率和制造数量；当前官方轮换页面尚显示上一期。此发布变更等待 Draft PR 人工审核；合并后按 startsAt 生效，生效后每日同步用实际商店或当前页面复核，不一致即报错。costAya=1 为规划器预设。"
+      : "当前中英文官方轮换页面确认阵容；组合专属 Vault、掉落表与 Public Export 确认遗物、奖励、概率和制造数量。此发布变更等待 Draft PR 人工审核；合并后按 startsAt 生效。World State 不可用时，costAya=1 仍为规划器预设。"
   };
   merged.rotationData.lastVerified = verifiedAt;
   merged.rotationData.source = {
@@ -2156,7 +2171,7 @@ export async function preparePrimeResurgenceRelease({ rootDir, rotationId, dryRu
   })).filter(file => file.original !== file.text);
   if (!dryRun) await writeAtomically(files);
   return {
-    rotationId, dryRun, reviewRequired: true, itemCount: lineup.items.length, relicCount: selection.relics.length,
+    rotationId, dryRun, prelaunch, reviewRequired: true, itemCount: lineup.items.length, relicCount: selection.relics.length,
     totalRequiredParts: totalRequired(requirements), preparedAt, verifiedAt,
     worldStateWarning: official.worldStateWarning || null,
     priceBasis: lineup.previewEvidence ? "planner-preset" : "observed-inventory",

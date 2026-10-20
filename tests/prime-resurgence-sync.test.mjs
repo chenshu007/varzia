@@ -1449,6 +1449,37 @@ for (const variant of ["before-start", "stale-page", "recipe-conflict"]) {
   });
 }
 
+test("prelaunch release publishes a future Vault candidate that activates at startsAt and is revalidated after launch", async () => {
+  const rootDir = await temporaryRepository();
+  const rotationId = "banshee-mirage-2026-09";
+  const beforeStart = "2026-08-22T18:00:00Z";
+  await runPrimeResurgenceSync({ rootDir, inputs: await prelaunchInputs(), now: "2026-08-21T18:00:00Z" });
+  await assert.rejects(preparePrimeResurgenceRelease({ rootDir, rotationId, inputs: await prelaunchInputs(), now: beforeStart, dryRun: false }), /requires an effective rotation/);
+  const release = await preparePrimeResurgenceRelease({ rootDir, rotationId, prelaunch: true, inputs: await prelaunchInputs(), now: beforeStart, dryRun: false });
+  assert.equal(release.prelaunch, true);
+  assert.equal(release.priceBasis, "planner-preset");
+  const [rotations] = (await dataSnapshot(rootDir)).map(JSON.parse);
+  const published = rotations.rotations.find(entry => entry.id === rotationId);
+  assert.equal(published.publicationStatus, "published");
+  assert.equal(published.source.publicationBasis, "prelaunch-vault-export");
+  assert.notEqual(resolveRotationState(publishedRotations(rotations.rotations), Date.parse(beforeStart)).activeRotation?.id, rotationId);
+  assert.equal(resolveRotationState(publishedRotations(rotations.rotations), Date.parse(published.startsAt)).activeRotation.id, rotationId);
+  assert.deepEqual((await candidateSnapshot(rootDir)).candidates, []);
+  const before = await dataSnapshot(rootDir);
+  const live = await runPrimeResurgenceSync({ rootDir, inputs: await fixtureInputs(), now: FIXTURE_NOW });
+  assert.equal(live.publicationStatus, "published");
+  assert.deepEqual(live.changedFiles, []);
+  assert.deepEqual(await dataSnapshot(rootDir), before);
+});
+
+test("prelaunch release refuses a rotation that is already effective", async () => {
+  const rootDir = await temporaryRepository();
+  await runPrimeResurgenceSync({ rootDir, inputs: await prelaunchInputs(), now: "2026-08-21T18:00:00Z" });
+  const before = await dataSnapshot(rootDir);
+  await assert.rejects(preparePrimeResurgenceRelease({ rootDir, rotationId: "banshee-mirage-2026-09", prelaunch: true, inputs: await fixtureInputs(), now: FIXTURE_NOW, dryRun: false }), /requires a future rotation/);
+  assert.deepEqual(await dataSnapshot(rootDir), before);
+});
+
 test("ready Vault candidate is rechecked after launch and remains provisional in ordinary updater", async () => {
   const rootDir = await temporaryRepository();
   await runPrimeResurgenceSync({ rootDir, inputs: await prelaunchInputs(), now: "2026-08-21T18:00:00Z" });
