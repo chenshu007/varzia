@@ -9,6 +9,7 @@ export const OFFICIAL_SOURCES = Object.freeze({
   rotationEn: "https://www.warframe.com/en/prime-resurgence",
   rotationZh: "https://www.warframe.com/zh-hans/prime-resurgence",
   announcementFeed: "https://public.api.bsky.app/xrpc/app.bsky.feed.getAuthorFeed?actor=warframe.com&limit=100&filter=posts_no_replies",
+  announcementPosts: "https://public.api.bsky.app/xrpc/app.bsky.feed.getPosts",
   dropTables: "https://www.warframe.com/droptables",
   publicExportIndex: "https://content.warframe.com/PublicExport/index_en.txt.lzma"
 });

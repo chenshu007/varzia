@@ -1402,6 +1402,37 @@ async function fetchInventoryInputs({ fetchImpl = globalThis.fetch, decompress =
   return { ...data, ...pages, ...world };
 }
 
+function announcementPostUri(url) {
+  const match = String(url || "").match(/^https:\/\/bsky\.app\/profile\/warframe\.com\/post\/([a-z0-9]+)$/);
+  return match ? `at://${OFFICIAL_WARFRAME_DID}/app.bsky.feed.post/${match[1]}` : null;
+}
+
+// getAuthorFeed is a rolling window of recent posts, so the announcement of a
+// still-live rotation can age out of it. Re-read the announcements recorded on
+// the active and later published rotations by URI; they then pass through the
+// same author, DID and text checks as feed posts.
+export async function fetchAnnouncementText({ fetchImpl = globalThis.fetch, signal, rotationData = null, now = Date.now() } = {}) {
+  const fetchBluesky = url => fetchResource(fetchImpl, url, { signal, finalHosts: ["public.api.bsky.app"], maximumBytes: 5_000_000 });
+  const feedText = await fetchBluesky(OFFICIAL_SOURCES.announcementFeed);
+  if (!rotationData) return feedText;
+  const feed = JSON.parse(feedText);
+  invariant(feed && Array.isArray(feed.feed), "Official announcement feed is malformed.");
+  const schedule = publishedRotations(rotationData.rotations);
+  const active = resolveRotationState(schedule, new Date(now).getTime()).activeRotation;
+  const present = new Set(feed.feed.map(entry => entry?.post?.uri));
+  const uris = [...new Set(schedule
+    .filter(rotation => !active || Date.parse(rotation.startsAt) >= Date.parse(active.startsAt))
+    .map(rotation => announcementPostUri(rotation.source?.announcementUrl))
+    .filter(uri => uri && !present.has(uri)))].slice(0, 25);
+  if (!uris.length) return feedText;
+  const url = new URL(OFFICIAL_SOURCES.announcementPosts);
+  for (const uri of uris) url.searchParams.append("uris", uri);
+  const payload = JSON.parse(await fetchBluesky(url.href));
+  invariant(Array.isArray(payload?.posts), "Official announcement posts payload is malformed.");
+  const recovered = payload.posts.filter(post => uris.includes(post?.uri)).map(post => ({ post }));
+  return JSON.stringify({ ...feed, feed: [...feed.feed, ...recovered] });
+}
+
 export async function fetchOfficialAnnouncementInputs({ fetchImpl = globalThis.fetch, decompress = decompressLzma, signal } = {}) {
   const [inventoryInputs, announcementText] = await Promise.all([
     fetchInventoryInputs({ fetchImpl, decompress, signal }),
@@ -1962,7 +1993,7 @@ export async function runPrimeResurgenceSync({
     return result;
   };
 
-  let official = inputs || { announcementText: await fetchResource(fetchImpl, OFFICIAL_SOURCES.announcementFeed, { signal, finalHosts: ["public.api.bsky.app"], maximumBytes: 5_000_000 }) };
+  let official = inputs || { announcementText: await fetchAnnouncementText({ fetchImpl, signal, rotationData, now: discoveredAt }) };
   const announcements = parseOfficialAnnouncements(JSON.parse(official.announcementText));
   const announcedCandidates = upsertAnnouncementCandidates(candidateData, announcements, rotationData, discoveredAt);
   const activeAnnouncements = announcedCandidates.candidates.filter((candidate) => candidate.status === "announced");

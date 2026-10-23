@@ -8,6 +8,7 @@ import {
   candidateIdFor,
   dropTablePartId,
   escapeMarkdownInline,
+  fetchAnnouncementText,
   fetchOfficialInputs,
   fetchResource,
   failureSummary,
@@ -1636,4 +1637,42 @@ test("page/Vault published facts are revalidated while a following announcement 
   inputs.recipesText = inputs.recipesText.replace('"ItemCount": 2', '"ItemCount": 3');
   await assert.rejects(runPrimeResurgenceSync({ rootDir, inputs, now }), /Published recipe quantity differs/);
   assert.deepEqual(await dataSnapshot(rootDir), before);
+});
+
+test("已发布轮换的公告滑出 Bluesky 最近帖子窗口时按记录的 URI 回读并照常校验", async () => {
+  const [entry] = JSON.parse(await fixture("prime-resurgence-announcements.json")).feed;
+  const rotationData = { rotations: [
+    { id: "older", startsAt: "2026-08-06T18:00:00Z", publicationStatus: "published", source: { announcementUrl: "https://bsky.app/profile/warframe.com/post/3older000000" } },
+    { id: "active", startsAt: "2026-09-03T18:00:00Z", publicationStatus: "published", source: { announcementUrl: "https://bsky.app/profile/warframe.com/post/3mtjt7pmvpr2o" } }
+  ] };
+  const lookup = `${OFFICIAL_SOURCES.announcementPosts}?uris=${encodeURIComponent(entry.post.uri)}`;
+  const serve = (payloads, requested) => async url => {
+    requested.push(url);
+    if (!payloads.has(url)) throw new Error(`Unexpected official request: ${url}`);
+    return new Response(payloads.get(url), { status: 200 });
+  };
+
+  const requested = [];
+  const text = await fetchAnnouncementText({ rotationData, now: FIXTURE_NOW, fetchImpl: serve(new Map([
+    [OFFICIAL_SOURCES.announcementFeed, JSON.stringify({ feed: [] })],
+    [lookup, JSON.stringify({ posts: [entry.post] })]
+  ]), requested) });
+  assert.deepEqual(requested, [OFFICIAL_SOURCES.announcementFeed, lookup], "only the active rotation's missing announcement is re-read");
+  const [announcement] = parseOfficialAnnouncements(JSON.parse(text));
+  assert.equal(announcement.url, "https://bsky.app/profile/warframe.com/post/3mtjt7pmvpr2o");
+  assert.equal(announcement.startsAt, "2026-09-03T18:00:00Z");
+
+  const inFeed = [];
+  await fetchAnnouncementText({ rotationData, now: FIXTURE_NOW, fetchImpl: serve(new Map([
+    [OFFICIAL_SOURCES.announcementFeed, JSON.stringify({ feed: [entry] })]
+  ]), inFeed) });
+  assert.deepEqual(inFeed, [OFFICIAL_SOURCES.announcementFeed]);
+
+  const impostor = structuredClone(entry.post);
+  impostor.author.handle = "impostor.example";
+  const forged = await fetchAnnouncementText({ rotationData, now: FIXTURE_NOW, fetchImpl: serve(new Map([
+    [OFFICIAL_SOURCES.announcementFeed, JSON.stringify({ feed: [] })],
+    [lookup, JSON.stringify({ posts: [impostor] })]
+  ]), []) });
+  assert.throws(() => parseOfficialAnnouncements(JSON.parse(forged)), /author handle/);
 });
