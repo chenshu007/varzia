@@ -19,7 +19,9 @@ jobs:
     # The official World State CDN returns 403 to Ubuntu-hosted runner networks.
     # macOS-hosted runners can fetch the same official endpoint directly.
     runs-on: macos-latest
-    timeout-minutes: 15
+    # macOS arm64 capacity is tight and waiting for a runner counts against the
+    # job timeout, so leave room to be acquired; the steps carry their own limits.
+    timeout-minutes: 45
     permissions:
       contents: read
     env:
@@ -43,6 +45,7 @@ jobs:
         run: xz --version
 
       - name: Fetch, parse, and validate official data
+        timeout-minutes: 10
         run: >-
           node scripts/prime-resurgence-sync.mjs
           --mode "$SYNC_MODE"
@@ -50,12 +53,14 @@ jobs:
           --pr-body-file "$RUNNER_TEMP/prime-resurgence-pr.md"
 
       - name: Automatically publish a validated candidate
+        timeout-minutes: 10
         run: >-
           node scripts/prime-resurgence-auto-release.mjs
           --summary-file "$RUNNER_TEMP/prime-resurgence-summary.md"
           --pr-body-file "$RUNNER_TEMP/prime-resurgence-pr.md"
 
       - name: Verify repository
+        timeout-minutes: 5
         run: npm run verify
 
       - name: Package an allowlisted candidate artifact
