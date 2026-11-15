@@ -1,6 +1,6 @@
 {
   "schemaVersion": 3,
-  "updatedAt": "2026-10-20",
+  "updatedAt": "2026-11-15",
   "source": {
     "name": "Prime 重生轮换记录与 Warframe 虚空遗物奖励数据",
     "officialUrl": "https://www.warframe.com/droptables",
@@ -748,6 +748,187 @@
         {
           "itemId": "nikana-prime",
           "partId": "blueprint",
+          "rarity": "common"
+        }
+      ]
+    },
+    {
+      "id": "lith-s20",
+      "name": "古纪 S20",
+      "nameEn": "Lith S20",
+      "era": "古纪",
+      "eraEn": "Lith",
+      "costAya": 1,
+      "rotation": "hydroid-sevagoth-2026-11",
+      "rewards": [
+        {
+          "itemId": "sevagoth-prime",
+          "partId": "chassis",
+          "rarity": "rare"
+        },
+        {
+          "itemId": "sevagoth-prime",
+          "partId": "blueprint",
+          "rarity": "uncommon"
+        },
+        {
+          "itemId": "epitaph-prime",
+          "partId": "barrel",
+          "rarity": "uncommon"
+        },
+        {
+          "itemId": "ballistica-prime",
+          "partId": "lower-limb",
+          "rarity": "common"
+        }
+      ]
+    },
+    {
+      "id": "meso-e8",
+      "name": "前纪 E8",
+      "nameEn": "Meso E8",
+      "era": "前纪",
+      "eraEn": "Meso",
+      "costAya": 1,
+      "rotation": "hydroid-sevagoth-2026-11",
+      "rewards": [
+        {
+          "itemId": "epitaph-prime",
+          "partId": "receiver",
+          "rarity": "rare"
+        },
+        {
+          "itemId": "nautilus-prime",
+          "partId": "systems",
+          "rarity": "uncommon"
+        },
+        {
+          "itemId": "hydroid-prime",
+          "partId": "blueprint",
+          "rarity": "uncommon"
+        },
+        {
+          "itemId": "sevagoth-prime",
+          "partId": "neuroptics",
+          "rarity": "common"
+        },
+        {
+          "itemId": "nami-skyla-prime",
+          "partId": "blueprint",
+          "rarity": "common"
+        }
+      ]
+    },
+    {
+      "id": "neo-h5",
+      "name": "中纪 H5",
+      "nameEn": "Neo H5",
+      "era": "中纪",
+      "eraEn": "Neo",
+      "costAya": 1,
+      "rotation": "hydroid-sevagoth-2026-11",
+      "rewards": [
+        {
+          "itemId": "hydroid-prime",
+          "partId": "systems",
+          "rarity": "rare"
+        },
+        {
+          "itemId": "ballistica-prime",
+          "partId": "string",
+          "rarity": "uncommon"
+        },
+        {
+          "itemId": "ballistica-prime",
+          "partId": "upper-limb",
+          "rarity": "uncommon"
+        },
+        {
+          "itemId": "epitaph-prime",
+          "partId": "blueprint",
+          "rarity": "common"
+        }
+      ]
+    },
+    {
+      "id": "neo-n25",
+      "name": "中纪 N25",
+      "nameEn": "Neo N25",
+      "era": "中纪",
+      "eraEn": "Neo",
+      "costAya": 1,
+      "rotation": "hydroid-sevagoth-2026-11",
+      "rewards": [
+        {
+          "itemId": "nautilus-prime",
+          "partId": "blueprint",
+          "rarity": "rare"
+        },
+        {
+          "itemId": "hydroid-prime",
+          "partId": "neuroptics",
+          "rarity": "uncommon"
+        },
+        {
+          "itemId": "ballistica-prime",
+          "partId": "receiver",
+          "rarity": "uncommon"
+        },
+        {
+          "itemId": "sevagoth-prime",
+          "partId": "systems",
+          "rarity": "common"
+        }
+      ]
+    },
+    {
+      "id": "axi-b10",
+      "name": "后纪 B10",
+      "nameEn": "Axi B10",
+      "era": "后纪",
+      "eraEn": "Axi",
+      "costAya": 1,
+      "rotation": "hydroid-sevagoth-2026-11",
+      "rewards": [
+        {
+          "itemId": "ballistica-prime",
+          "partId": "blueprint",
+          "rarity": "rare"
+        },
+        {
+          "itemId": "nami-skyla-prime",
+          "partId": "handle",
+          "rarity": "uncommon"
+        },
+        {
+          "itemId": "nautilus-prime",
+          "partId": "carapace",
+          "rarity": "common"
+        }
+      ]
+    },
+    {
+      "id": "axi-n14",
+      "name": "后纪 N14",
+      "nameEn": "Axi N14",
+      "era": "后纪",
+      "eraEn": "Axi",
+      "costAya": 1,
+      "rotation": "hydroid-sevagoth-2026-11",
+      "rewards": [
+        {
+          "itemId": "nautilus-prime",
+          "partId": "cerebrum",
+          "rarity": "rare"
+        },
+        {
+          "itemId": "nami-skyla-prime",
+          "partId": "blade",
+          "rarity": "uncommon"
+        },
+        {
+          "itemId": "hydroid-prime",
+          "partId": "chassis",
           "rarity": "common"
         }
       ]

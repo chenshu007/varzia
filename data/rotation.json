@@ -1,11 +1,11 @@
 {
   "schemaVersion": 2,
-  "lastVerified": "2026-10-20",
+  "lastVerified": "2026-11-15",
   "source": {
     "name": "Digital Extremes 官方 Prime 重生公告、轮换页面与掉落数据",
     "url": "https://www.warframe.com/zh-hans/prime-resurgence",
-    "announcementUrl": "https://bsky.app/profile/warframe.com/post/3mxwqokzbyg2y",
-    "note": "生效前提前发布：公告、组合专属 Vault、掉落表与 Public Export 确认阵容、遗物、奖励、概率和制造数量；当前官方轮换页面尚显示上一期。此发布变更等待 Draft PR 人工审核；合并后按 startsAt 生效，生效后每日同步用实际商店或当前页面复核，不一致即报错。costAya=1 为规划器预设。"
+    "announcementUrl": "https://bsky.app/profile/warframe.com/post/3n255qc4ehh27",
+    "note": "生效前提前发布：公告、组合专属 Vault、掉落表与 Public Export 确认阵容、遗物、奖励、概率和制造数量；当前官方轮换页面尚显示上一期。此发布变更由自动流水线校验并合并；按 startsAt 生效，生效后每日同步用实际商店或当前页面复核，不一致即报错。costAya=1 为规划器预设。"
   },
   "rotations": [
     {
@@ -304,6 +304,119 @@
         "neo-n19",
         "neo-s19",
         "axi-n12"
+      ]
+    },
+    {
+      "id": "hydroid-sevagoth-2026-11",
+      "publicationStatus": "published",
+      "source": {
+        "status": "official",
+        "rotationUrl": "https://content.warframe.com/PublicExport/Manifest/ExportRelicArcane_en.json!00_BPSU5+RTY0mdOW9AmkGU5A",
+        "vaultExport": {
+          "type": "digital-extremes-public-export-vault-group",
+          "url": "https://content.warframe.com/PublicExport/Manifest/ExportRelicArcane_en.json!00_BPSU5+RTY0mdOW9AmkGU5A",
+          "group": "SevagothHydroidVault",
+          "startsAt": "2026-11-26T19:00:00Z",
+          "rawPrimeWarframes": [
+            "Hydroid Prime",
+            "Sevagoth Prime"
+          ],
+          "relics": [
+            {
+              "itemType": "/Lotus/StoreItems/Types/Game/Projections/T4VoidProjectionSevagothHydroidVaultBBronze",
+              "name": "Axi N14",
+              "costAya": 1
+            },
+            {
+              "itemType": "/Lotus/StoreItems/Types/Game/Projections/T4VoidProjectionSevagothHydroidVaultABronze",
+              "name": "Axi B10",
+              "costAya": 1
+            },
+            {
+              "itemType": "/Lotus/StoreItems/Types/Game/Projections/T3VoidProjectionSevagothHydroidVaultBBronze",
+              "name": "Neo H5",
+              "costAya": 1
+            },
+            {
+              "itemType": "/Lotus/StoreItems/Types/Game/Projections/T3VoidProjectionSevagothHydroidVaultABronze",
+              "name": "Neo N25",
+              "costAya": 1
+            },
+            {
+              "itemType": "/Lotus/StoreItems/Types/Game/Projections/T2VoidProjectionSevagothHydroidVaultABronze",
+              "name": "Meso E8",
+              "costAya": 1
+            },
+            {
+              "itemType": "/Lotus/StoreItems/Types/Game/Projections/T1VoidProjectionSevagothHydroidVaultABronze",
+              "name": "Lith S20",
+              "costAya": 1
+            }
+          ],
+          "exportUrls": {
+            "Recipes_en": "https://content.warframe.com/PublicExport/Manifest/ExportRecipes_en.json!00_oac+LCAtIyqDxZF8Qe1ZZA",
+            "RelicArcane_en": "https://content.warframe.com/PublicExport/Manifest/ExportRelicArcane_en.json!00_BPSU5+RTY0mdOW9AmkGU5A",
+            "Warframes_en": "https://content.warframe.com/PublicExport/Manifest/ExportWarframes_en.json!00_AIDVHigS64IrZQVY2GdWfg",
+            "Weapons_en": "https://content.warframe.com/PublicExport/Manifest/ExportWeapons_en.json!00_Lp7tYn3OPr4R3amRyHcSaA",
+            "Sentinels_en": "https://content.warframe.com/PublicExport/Manifest/ExportSentinels_en.json!00_8iGr2T9MTskXt5zeKEVNmQ",
+            "Warframes_zh": "https://content.warframe.com/PublicExport/Manifest/ExportWarframes_zh.json!00_JdkQ9kJydzj6ausbzkerbA",
+            "Weapons_zh": "https://content.warframe.com/PublicExport/Manifest/ExportWeapons_zh.json!00_wP1CHqHEVtVjyrOCaT2yIQ",
+            "Sentinels_zh": "https://content.warframe.com/PublicExport/Manifest/ExportSentinels_zh.json!00_9XVxUBzLu5VzVKtKO8rVFg"
+          },
+          "selectionBasis": "announced-pair-specific-vault-group",
+          "priceBasis": "planner-preset",
+          "featuredSources": [
+            {
+              "warframe": "Hydroid Prime",
+              "url": "https://www.warframe.com/en/news/hydroid-prime-access-begins-august-29"
+            },
+            {
+              "warframe": "Sevagoth Prime",
+              "url": "https://www.warframe.com/en/news/sevagoth-prime-access"
+            }
+          ],
+          "incidentalItemNames": [
+            "Bronco Prime",
+            "Burston Prime"
+          ]
+        },
+        "announcementUrl": "https://bsky.app/profile/warframe.com/post/3n255qc4ehh27",
+        "dropTableUrl": "https://www.warframe.com/droptables",
+        "recipeExportUrl": "https://content.warframe.com/PublicExport/Manifest/ExportRecipes_en.json!00_oac+LCAtIyqDxZF8Qe1ZZA",
+        "preparedAt": "2026-11-15",
+        "rarityWarnings": [
+          "Lith S20 / Ballistica Prime Lower Limb: official label uncommon, intact probability 25.33% maps to common",
+          "Meso E8 / Sevagoth Prime Neuroptics: official label uncommon, intact probability 25.33% maps to common",
+          "Meso E8 / Nami Skyla Prime Blueprint: official label uncommon, intact probability 25.33% maps to common",
+          "Neo H5 / Epitaph Prime Blueprint: official label uncommon, intact probability 25.33% maps to common",
+          "Neo N25 / Sevagoth Prime Systems: official label uncommon, intact probability 25.33% maps to common",
+          "Axi B10 / Nautilus Prime Carapace: official label uncommon, intact probability 25.33% maps to common",
+          "Axi N14 / Hydroid Prime Chassis: official label uncommon, intact probability 25.33% maps to common"
+        ],
+        "note": "生效前提前发布：公告、组合专属 Vault、掉落表与 Public Export 确认阵容、遗物、奖励、概率和制造数量；当前官方轮换页面尚显示上一期。此发布变更由自动流水线校验并合并；按 startsAt 生效，生效后每日同步用实际商店或当前页面复核，不一致即报错。costAya=1 为规划器预设。",
+        "verifiedAt": "2026-11-15",
+        "announcementPublishedAt": "2026-11-12T19:00:23.506Z",
+        "publicationReview": "automated-pipeline",
+        "publicationBasis": "prelaunch-vault-export"
+      },
+      "displayName": "Hydroid Prime 与 Sevagoth Prime",
+      "displayNameEn": "Hydroid Prime & Sevagoth Prime",
+      "startsAt": "2026-11-26T19:00:00Z",
+      "items": [
+        "ballistica-prime",
+        "epitaph-prime",
+        "hydroid-prime",
+        "nami-skyla-prime",
+        "nautilus-prime",
+        "sevagoth-prime"
+      ],
+      "relics": [
+        "lith-s20",
+        "meso-e8",
+        "neo-h5",
+        "neo-n25",
+        "axi-b10",
+        "axi-n14"
       ]
     }
   ]

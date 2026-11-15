@@ -1,6 +1,6 @@
 {
   "schemaVersion": 3,
-  "updatedAt": "2026-10-20",
+  "updatedAt": "2026-11-15",
   "source": {
     "name": "Digital Extremes 官方 Prime 重生公告、轮换页面与游戏掉落数据",
     "url": "https://www.warframe.com/zh-hans/prime-resurgence"
@@ -1259,6 +1259,323 @@
           "rarity": "uncommon",
           "relics": [
             "meso-m5"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ballistica-prime",
+      "name": "布里斯提卡 Prime",
+      "nameEn": "Ballistica Prime",
+      "type": "secondary",
+      "rotation": "hydroid-sevagoth-2026-11",
+      "relics": [
+        "lith-s20",
+        "neo-h5",
+        "neo-n25",
+        "axi-b10"
+      ],
+      "parts": [
+        {
+          "id": "blueprint",
+          "name": "蓝图",
+          "nameEn": "Blueprint",
+          "required": 1,
+          "rarity": "rare",
+          "relics": [
+            "axi-b10"
+          ]
+        },
+        {
+          "id": "lower-limb",
+          "name": "下弓臂",
+          "nameEn": "Lower Limb",
+          "required": 1,
+          "rarity": "common",
+          "relics": [
+            "lith-s20"
+          ]
+        },
+        {
+          "id": "upper-limb",
+          "name": "上弓臂",
+          "nameEn": "Upper Limb",
+          "required": 1,
+          "rarity": "uncommon",
+          "relics": [
+            "neo-h5"
+          ]
+        },
+        {
+          "id": "receiver",
+          "name": "枪机",
+          "nameEn": "Receiver",
+          "required": 1,
+          "rarity": "uncommon",
+          "relics": [
+            "neo-n25"
+          ]
+        },
+        {
+          "id": "string",
+          "name": "弓弦",
+          "nameEn": "String",
+          "required": 1,
+          "rarity": "uncommon",
+          "relics": [
+            "neo-h5"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "epitaph-prime",
+      "name": "葬铭 Prime",
+      "nameEn": "Epitaph Prime",
+      "type": "secondary",
+      "rotation": "hydroid-sevagoth-2026-11",
+      "relics": [
+        "lith-s20",
+        "meso-e8",
+        "neo-h5"
+      ],
+      "parts": [
+        {
+          "id": "blueprint",
+          "name": "蓝图",
+          "nameEn": "Blueprint",
+          "required": 1,
+          "rarity": "common",
+          "relics": [
+            "neo-h5"
+          ]
+        },
+        {
+          "id": "barrel",
+          "name": "枪管",
+          "nameEn": "Barrel",
+          "required": 1,
+          "rarity": "uncommon",
+          "relics": [
+            "lith-s20"
+          ]
+        },
+        {
+          "id": "receiver",
+          "name": "枪机",
+          "nameEn": "Receiver",
+          "required": 1,
+          "rarity": "rare",
+          "relics": [
+            "meso-e8"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "hydroid-prime",
+      "name": "Hydroid Prime",
+      "nameEn": "Hydroid Prime",
+      "type": "warframe",
+      "rotation": "hydroid-sevagoth-2026-11",
+      "relics": [
+        "meso-e8",
+        "neo-h5",
+        "neo-n25",
+        "axi-n14"
+      ],
+      "parts": [
+        {
+          "id": "blueprint",
+          "name": "蓝图",
+          "nameEn": "Blueprint",
+          "required": 1,
+          "rarity": "uncommon",
+          "relics": [
+            "meso-e8"
+          ]
+        },
+        {
+          "id": "neuroptics",
+          "name": "神经光元",
+          "nameEn": "Neuroptics",
+          "required": 1,
+          "rarity": "uncommon",
+          "relics": [
+            "neo-n25"
+          ]
+        },
+        {
+          "id": "chassis",
+          "name": "机体",
+          "nameEn": "Chassis",
+          "required": 1,
+          "rarity": "common",
+          "relics": [
+            "axi-n14"
+          ]
+        },
+        {
+          "id": "systems",
+          "name": "系统",
+          "nameEn": "Systems",
+          "required": 1,
+          "rarity": "rare",
+          "relics": [
+            "neo-h5"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "nami-skyla-prime",
+      "name": "海波斯库拉对剑 Prime",
+      "nameEn": "Nami Skyla Prime",
+      "type": "melee",
+      "rotation": "hydroid-sevagoth-2026-11",
+      "relics": [
+        "meso-e8",
+        "axi-b10",
+        "axi-n14"
+      ],
+      "parts": [
+        {
+          "id": "blueprint",
+          "name": "蓝图",
+          "nameEn": "Blueprint",
+          "required": 1,
+          "rarity": "common",
+          "relics": [
+            "meso-e8"
+          ]
+        },
+        {
+          "id": "handle",
+          "name": "握柄",
+          "nameEn": "Handle",
+          "required": 2,
+          "rarity": "uncommon",
+          "relics": [
+            "axi-b10"
+          ]
+        },
+        {
+          "id": "blade",
+          "name": "刀刃",
+          "nameEn": "Blade",
+          "required": 2,
+          "rarity": "uncommon",
+          "relics": [
+            "axi-n14"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "nautilus-prime",
+      "name": "鹦鹉螺 Prime",
+      "nameEn": "Nautilus Prime",
+      "type": "companion",
+      "rotation": "hydroid-sevagoth-2026-11",
+      "relics": [
+        "meso-e8",
+        "neo-n25",
+        "axi-b10",
+        "axi-n14"
+      ],
+      "parts": [
+        {
+          "id": "blueprint",
+          "name": "蓝图",
+          "nameEn": "Blueprint",
+          "required": 1,
+          "rarity": "rare",
+          "relics": [
+            "neo-n25"
+          ]
+        },
+        {
+          "id": "cerebrum",
+          "name": "头部",
+          "nameEn": "Cerebrum",
+          "required": 1,
+          "rarity": "rare",
+          "relics": [
+            "axi-n14"
+          ]
+        },
+        {
+          "id": "carapace",
+          "name": "外壳",
+          "nameEn": "Carapace",
+          "required": 1,
+          "rarity": "common",
+          "relics": [
+            "axi-b10"
+          ]
+        },
+        {
+          "id": "systems",
+          "name": "系统",
+          "nameEn": "Systems",
+          "required": 1,
+          "rarity": "uncommon",
+          "relics": [
+            "meso-e8"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "sevagoth-prime",
+      "name": "Sevagoth Prime",
+      "nameEn": "Sevagoth Prime",
+      "type": "warframe",
+      "rotation": "hydroid-sevagoth-2026-11",
+      "relics": [
+        "lith-s20",
+        "meso-e8",
+        "neo-n25"
+      ],
+      "parts": [
+        {
+          "id": "blueprint",
+          "name": "蓝图",
+          "nameEn": "Blueprint",
+          "required": 1,
+          "rarity": "uncommon",
+          "relics": [
+            "lith-s20"
+          ]
+        },
+        {
+          "id": "neuroptics",
+          "name": "神经光元",
+          "nameEn": "Neuroptics",
+          "required": 1,
+          "rarity": "common",
+          "relics": [
+            "meso-e8"
+          ]
+        },
+        {
+          "id": "chassis",
+          "name": "机体",
+          "nameEn": "Chassis",
+          "required": 1,
+          "rarity": "rare",
+          "relics": [
+            "lith-s20"
+          ]
+        },
+        {
+          "id": "systems",
+          "name": "系统",
+          "nameEn": "Systems",
+          "required": 1,
+          "rarity": "common",
+          "relics": [
+            "neo-n25"
           ]
         }
       ]
