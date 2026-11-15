@@ -66,6 +66,28 @@
         { "name": "Spira Prime", "uniqueName": "/Lotus/Weapons/Tenno/ThrowingWeapons/PrimeLiDagger/PrimeLiDagger" }
       ],
       "sourceUrl": "https://www.warframe.com/en/news/saryn-prime-access-here"
+    },
+    {
+      "warframe": {
+        "name": "Hydroid Prime",
+        "uniqueName": "/Lotus/Powersuits/Pirate/HydroidPrime"
+      },
+      "items": [
+        { "name": "Ballistica Prime", "uniqueName": "/Lotus/Weapons/Tenno/Pistols/PrimeBallistica/PrimeBallistica" },
+        { "name": "Nami Skyla Prime", "uniqueName": "/Lotus/Weapons/Tenno/Melee/Swords/PrimeNamiSkyla/PrimeNamiSkyla" }
+      ],
+      "sourceUrl": "https://www.warframe.com/en/news/hydroid-prime-access-begins-august-29"
+    },
+    {
+      "warframe": {
+        "name": "Sevagoth Prime",
+        "uniqueName": "/Lotus/Powersuits/Wraith/SevagothPrime"
+      },
+      "items": [
+        { "name": "Epitaph Prime", "uniqueName": "/Lotus/Weapons/Tenno/Pistols/PrimeEpitaph/PrimeEpitaphSidearmWeapon" },
+        { "name": "Nautilus Prime", "uniqueName": "/Lotus/Types/Sentinels/SentinelPowersuits/NautilusPrimeSentinelPowerSuit" }
+      ],
+      "sourceUrl": "https://www.warframe.com/en/news/sevagoth-prime-access"
     }
   ]
 }
