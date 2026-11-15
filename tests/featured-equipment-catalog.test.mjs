@@ -30,9 +30,11 @@ test("人工 featured 目录保留四组官方来源和 Public Export 身份", a
     ["Ivara Prime", ["Aksomati Prime", "Baza Prime"], "https://www.warframe.com/en/news/-549"],
     ["Protea Prime", ["Okina Prime", "Velox Prime"], "https://www.warframe.com/en/news/protea-prime-access"],
     ["Nidus Prime", ["Magnus Prime", "Strun Prime"], "https://www.warframe.com/en/news/nidus-prime-access"],
-    ["Saryn Prime", ["Nikana Prime", "Spira Prime"], "https://www.warframe.com/en/news/saryn-prime-access-here"]
+    ["Saryn Prime", ["Nikana Prime", "Spira Prime"], "https://www.warframe.com/en/news/saryn-prime-access-here"],
+    ["Hydroid Prime", ["Ballistica Prime", "Nami Skyla Prime"], "https://www.warframe.com/en/news/hydroid-prime-access-begins-august-29"],
+    ["Sevagoth Prime", ["Epitaph Prime", "Nautilus Prime"], "https://www.warframe.com/en/news/sevagoth-prime-access"]
   ]);
-  // Identities and categories as listed by the official Public Export on 2026-10-17.
+  // Identities and categories as listed by the official Public Export on 2026-10-17 and 2026-11-15.
   const nidusSaryn = [
     ["Nidus Prime", "/Lotus/Powersuits/Infestation/InfestationPrime", "Suits"],
     ["Magnus Prime", "/Lotus/Weapons/Tenno/Pistols/PrimeMagnus/PrimeMagnusWeapon", "Pistols"],
@@ -41,7 +43,15 @@ test("人工 featured 目录保留四组官方来源和 Public Export 身份", a
     ["Nikana Prime", "/Lotus/Weapons/Tenno/Melee/Swords/PrimeKatana/PrimeNikana", "Melee"],
     ["Spira Prime", "/Lotus/Weapons/Tenno/ThrowingWeapons/PrimeLiDagger/PrimeLiDagger", "Pistols"]
   ].map(([name, uniqueName, productCategory]) => ({ name, uniqueName, productCategory }));
-  validateFeaturedEquipmentExports(catalog.entries, [...old.equipmentEn, ...next.equipmentEn, ...nidusSaryn]);
+  const hydroidSevagoth = [
+    ["Hydroid Prime", "/Lotus/Powersuits/Pirate/HydroidPrime", "Suits"],
+    ["Ballistica Prime", "/Lotus/Weapons/Tenno/Pistols/PrimeBallistica/PrimeBallistica", "Pistols"],
+    ["Nami Skyla Prime", "/Lotus/Weapons/Tenno/Melee/Swords/PrimeNamiSkyla/PrimeNamiSkyla", "Melee"],
+    ["Sevagoth Prime", "/Lotus/Powersuits/Wraith/SevagothPrime", "Suits"],
+    ["Epitaph Prime", "/Lotus/Weapons/Tenno/Pistols/PrimeEpitaph/PrimeEpitaphSidearmWeapon", "Pistols"],
+    ["Nautilus Prime", "/Lotus/Types/Sentinels/SentinelPowersuits/NautilusPrimeSentinelPowerSuit", "Sentinels"]
+  ].map(([name, uniqueName, productCategory]) => ({ name, uniqueName, productCategory }));
+  validateFeaturedEquipmentExports(catalog.entries, [...old.equipmentEn, ...next.equipmentEn, ...nidusSaryn, ...hydroidSevagoth]);
   assert.ok(SYNC_MUTABLE_DATA_PATHS.every(file => !file.includes("featured-equipment")));
 });
 

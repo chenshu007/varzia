@@ -64,8 +64,11 @@ const PART_ZH_BY_ITEM = Object.freeze({
   "paris-prime": Object.freeze({ grip: "弓身" })
 });
 const INTERNAL_ITEM_ALIASES = Object.freeze({
+  "ballistica-prime": ["primeballistica"],
   "euphona-prime": ["prime1hshotgun"],
   "helios-prime": ["primeheliossentinel", "primehelios"],
+  "nami-skyla-prime": ["primenamiskyla"],
+  "nautilus-prime": ["nautilusprimesentinel"],
   "nikana-prime": ["primenikana"],
   "paris-prime": ["primebow", "bowprime"],
   "spira-prime": ["primelidagger"]

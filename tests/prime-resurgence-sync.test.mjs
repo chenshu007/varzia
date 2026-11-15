@@ -1676,3 +1676,117 @@ test("已发布轮换的公告滑出 Bluesky 最近帖子窗口时按记录的 U
   ]), []) });
   assert.throws(() => parseOfficialAnnouncements(JSON.parse(forged)), /author handle/);
 });
+
+test("Hydroid/Sevagoth 公告与内部前缀别名映射正确解析", () => {
+  const announcement = parseAnnouncementText(
+    "The wayward tides mirror a dark shadow.\n\nHydroid Prime and Sevagoth Prime enter Prime Resurgence on November 26 at 2 p.m. ET.",
+    "2026-11-12T19:00:23.506781879Z"
+  );
+  assert.deepEqual(announcement?.warframes, ["Hydroid Prime", "Sevagoth Prime"]);
+  assert.equal(announcement?.startsAt, "2026-11-26T19:00:00Z");
+
+  const lineup = {
+    previewEvidence: { type: "test" },
+    rewardItems: [
+      { name: "Ballistica Prime" },
+      { name: "Nami Skyla Prime" },
+      { name: "Nautilus Prime" }
+    ],
+    inventoryRelics: [
+      { name: "Axi B10", itemType: "/Lotus/StoreItems/Types/Game/Projections/T4VoidProjectionSevagothHydroidVaultABronze" },
+      { name: "Neo N25", itemType: "/Lotus/StoreItems/Types/Game/Projections/T3VoidProjectionSevagothHydroidVaultABronze" }
+    ]
+  };
+  const dropRelics = [
+    {
+      name: "Axi B10",
+      rewards: [
+        { name: "Ballistica Prime Blueprint", probability: 2, rarity: "rare", sourceRarity: "rare", rarityDisagreement: false },
+        { name: "Ballistica Prime Lower Limb", probability: 25.33, rarity: "common", sourceRarity: "uncommon", rarityDisagreement: true },
+        { name: "Ballistica Prime Upper Limb", probability: 11, rarity: "uncommon", sourceRarity: "uncommon", rarityDisagreement: false },
+        { name: "Ballistica Prime Receiver", probability: 11, rarity: "uncommon", sourceRarity: "uncommon", rarityDisagreement: false },
+        { name: "Ballistica Prime String", probability: 11, rarity: "uncommon", sourceRarity: "uncommon", rarityDisagreement: false },
+        { name: "Nami Skyla Prime Handle", probability: 11, rarity: "uncommon", sourceRarity: "uncommon", rarityDisagreement: false },
+        { name: "Nautilus Prime Carapace", probability: 25.33, rarity: "common", sourceRarity: "uncommon", rarityDisagreement: true }
+      ]
+    },
+    {
+      name: "Neo N25",
+      rewards: [
+        { name: "Nautilus Prime Blueprint", probability: 2, rarity: "rare", sourceRarity: "rare", rarityDisagreement: false },
+        { name: "Nami Skyla Prime Blueprint", probability: 25.33, rarity: "common", sourceRarity: "uncommon", rarityDisagreement: true },
+        { name: "Nami Skyla Prime Blade", probability: 11, rarity: "uncommon", sourceRarity: "uncommon", rarityDisagreement: false },
+        { name: "Nautilus Prime Cerebrum", probability: 11, rarity: "uncommon", sourceRarity: "uncommon", rarityDisagreement: false },
+        { name: "Nautilus Prime Systems", probability: 25.33, rarity: "common", sourceRarity: "uncommon", rarityDisagreement: true }
+      ]
+    }
+  ];
+  const relicExport = [
+    {
+      uniqueName: "/Lotus/Types/Game/Projections/T4VoidProjectionSevagothHydroidVaultABronze",
+      relicRewards: [
+        { rewardName: "/Lotus/StoreItems/Types/Recipes/Weapons/PrimeBallisticaBlueprint", rarity: "RARE", itemCount: 1 },
+        { rewardName: "/Lotus/StoreItems/Types/Recipes/Weapons/WeaponParts/PrimeBallisticaLowerLimb", rarity: "COMMON", itemCount: 1 },
+        { rewardName: "/Lotus/StoreItems/Types/Recipes/Weapons/WeaponParts/PrimeBallisticaUpperLimb", rarity: "UNCOMMON", itemCount: 1 },
+        { rewardName: "/Lotus/StoreItems/Types/Recipes/Weapons/WeaponParts/PrimeBallisticaReceiver", rarity: "UNCOMMON", itemCount: 1 },
+        { rewardName: "/Lotus/StoreItems/Types/Recipes/Weapons/WeaponParts/PrimeBallisticaString", rarity: "UNCOMMON", itemCount: 1 },
+        { rewardName: "/Lotus/StoreItems/Types/Recipes/Weapons/WeaponParts/PrimeNamiSkylaHandle", rarity: "UNCOMMON", itemCount: 1 },
+        { rewardName: "/Lotus/StoreItems/Types/Recipes/Weapons/WeaponParts/NautilusPrimeCarapace", rarity: "COMMON", itemCount: 1 }
+      ]
+    },
+    {
+      uniqueName: "/Lotus/Types/Game/Projections/T3VoidProjectionSevagothHydroidVaultABronze",
+      relicRewards: [
+        { rewardName: "/Lotus/StoreItems/Types/Recipes/SentinelRecipes/NautilusPrimeSentinelBlueprint", rarity: "RARE", itemCount: 1 },
+        { rewardName: "/Lotus/StoreItems/Types/Recipes/Weapons/PrimeNamiSkylaBlueprint", rarity: "COMMON", itemCount: 1 },
+        { rewardName: "/Lotus/StoreItems/Types/Recipes/Weapons/WeaponParts/PrimeNamiSkylaBlade", rarity: "UNCOMMON", itemCount: 1 },
+        { rewardName: "/Lotus/StoreItems/Types/Recipes/Weapons/WeaponParts/NautilusPrimeCerebrum", rarity: "UNCOMMON", itemCount: 1 },
+        { rewardName: "/Lotus/StoreItems/Types/Recipes/Weapons/WeaponParts/NautilusPrimeSystems", rarity: "COMMON", itemCount: 1 }
+      ]
+    }
+  ];
+  const recipes = [
+    {
+      uniqueName: "/Lotus/Types/Recipes/Weapons/PrimeBallisticaBlueprint",
+      consumeOnUse: true,
+      num: 1,
+      ingredients: [
+        { ItemType: "/Lotus/Types/Recipes/Weapons/WeaponParts/PrimeBallisticaLowerLimb", ItemCount: 1 },
+        { ItemType: "/Lotus/Types/Recipes/Weapons/WeaponParts/PrimeBallisticaUpperLimb", ItemCount: 1 },
+        { ItemType: "/Lotus/Types/Recipes/Weapons/WeaponParts/PrimeBallisticaReceiver", ItemCount: 1 },
+        { ItemType: "/Lotus/Types/Recipes/Weapons/WeaponParts/PrimeBallisticaString", ItemCount: 1 }
+      ]
+    },
+    {
+      uniqueName: "/Lotus/Types/Recipes/Weapons/PrimeNamiSkylaBlueprint",
+      consumeOnUse: true,
+      num: 1,
+      ingredients: [
+        { ItemType: "/Lotus/Types/Recipes/Weapons/WeaponParts/PrimeNamiSkylaHandle", ItemCount: 2 },
+        { ItemType: "/Lotus/Types/Recipes/Weapons/WeaponParts/PrimeNamiSkylaBlade", ItemCount: 2 }
+      ]
+    },
+    {
+      uniqueName: "/Lotus/Types/Recipes/SentinelRecipes/NautilusPrimeSentinelBlueprint",
+      consumeOnUse: true,
+      num: 1,
+      ingredients: [
+        { ItemType: "/Lotus/Types/Recipes/Weapons/WeaponParts/NautilusPrimeCerebrum", ItemCount: 1 },
+        { ItemType: "/Lotus/Types/Recipes/Weapons/WeaponParts/NautilusPrimeCarapace", ItemCount: 1 },
+        { ItemType: "/Lotus/Types/Recipes/Weapons/WeaponParts/NautilusPrimeSystems", ItemCount: 1 }
+      ]
+    }
+  ];
+  const recipesText = JSON.stringify({ ExportRecipes: recipes });
+  validateVaultRewardCatalog(lineup, dropRelics, { relicExport, recipesText });
+
+  const selection = selectRelicSet(dropRelics, lineup.rewardItems, ["Axi B10", "Neo N25"]);
+  const requirements = resolveRecipeRequirements(recipes, lineup.rewardItems, selection.expectedByItem, {
+    recipeUrl: "https://content.warframe.com/PublicExport/Manifest/ExportRecipes_en.json!test"
+  });
+  assert.equal(requirements.get("ballistica-prime").quantities.get("lower-limb"), 1);
+  assert.equal(requirements.get("nami-skyla-prime").quantities.get("handle"), 2);
+  assert.equal(requirements.get("nami-skyla-prime").quantities.get("blade"), 2);
+  assert.equal(requirements.get("nautilus-prime").recipeUniqueName, "/Lotus/Types/Recipes/SentinelRecipes/NautilusPrimeSentinelBlueprint");
+  assert.equal(requirements.get("nautilus-prime").quantities.get("cerebrum"), 1);
+});
